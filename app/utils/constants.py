@@ -215,6 +215,12 @@ POPULAR_CITIES = [
     {"name": "Mumbai", "state": "Maharashtra", "country": "India", "latitude": 19.0760, "longitude": 72.8777, "timezone": 5.5},
     {"name": "Bengaluru", "state": "Karnataka", "country": "India", "latitude": 12.9716, "longitude": 77.5946, "timezone": 5.5},
     {"name": "Chennai", "state": "Tamil Nadu", "country": "India", "latitude": 13.0827, "longitude": 80.2707, "timezone": 5.5},
+    {"name": "Kanyakumari", "state": "Tamil Nadu", "country": "India", "latitude": 8.0883, "longitude": 77.5385, "timezone": 5.5},
+    {"name": "Tirunelveli", "state": "Tamil Nadu", "country": "India", "latitude": 8.7139, "longitude": 77.7567, "timezone": 5.5},
+    {"name": "Madurai", "state": "Tamil Nadu", "country": "India", "latitude": 9.9252, "longitude": 78.1198, "timezone": 5.5},
+    {"name": "Coimbatore", "state": "Tamil Nadu", "country": "India", "latitude": 11.0168, "longitude": 76.9558, "timezone": 5.5},
+    {"name": "Thiruvananthapuram", "state": "Kerala", "country": "India", "latitude": 8.5241, "longitude": 76.9366, "timezone": 5.5},
+    {"name": "Kochi", "state": "Kerala", "country": "India", "latitude": 9.9312, "longitude": 76.2673, "timezone": 5.5},
     {"name": "Kolkata", "state": "West Bengal", "country": "India", "latitude": 22.5726, "longitude": 88.3639, "timezone": 5.5},
     {"name": "Hyderabad", "state": "Telangana", "country": "India", "latitude": 17.3850, "longitude": 78.4867, "timezone": 5.5},
     {"name": "Ahmedabad", "state": "Gujarat", "country": "India", "latitude": 23.0225, "longitude": 72.5714, "timezone": 5.5},
@@ -223,8 +229,11 @@ POPULAR_CITIES = [
     {"name": "Varanasi", "state": "Uttar Pradesh", "country": "India", "latitude": 25.3176, "longitude": 82.9739, "timezone": 5.5},
     {"name": "Haridwar", "state": "Uttarakhand", "country": "India", "latitude": 29.9457, "longitude": 78.1642, "timezone": 5.5},
     {"name": "Ujjain", "state": "Madhya Pradesh", "country": "India", "latitude": 23.1765, "longitude": 75.7885, "timezone": 5.5},
+    {"name": "Lucknow", "state": "Uttar Pradesh", "country": "India", "latitude": 26.8467, "longitude": 80.9462, "timezone": 5.5},
+    {"name": "Patna", "state": "Bihar", "country": "India", "latitude": 25.5941, "longitude": 85.1376, "timezone": 5.5},
     {"name": "London", "state": "England", "country": "United Kingdom", "latitude": 51.5074, "longitude": -0.1278, "timezone": 0.0},
     {"name": "New York", "state": "New York", "country": "United States", "latitude": 40.7128, "longitude": -74.0060, "timezone": -5.0},
     {"name": "Dubai", "state": "Dubai", "country": "United Arab Emirates", "latitude": 25.2048, "longitude": 55.2708, "timezone": 4.0},
     {"name": "Singapore", "state": "Singapore", "country": "Singapore", "latitude": 1.3521, "longitude": 103.8198, "timezone": 8.0}
 ]
+

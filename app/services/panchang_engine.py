@@ -6,7 +6,8 @@ from app.utils.constants import TITHI_NAMES, NAKSHATRAS, YOGA_NAMES, KARANA_NAME
 from app.services.vedic_engine import (
     calculate_julian_day,
     calculate_lahiri_ayanamsa,
-    get_planet_approx_longitudes
+    get_planet_approx_longitudes,
+    resolve_coordinates
 )
 
 
@@ -18,6 +19,9 @@ def calculate_daily_panchang(
     place_name: str = "New Delhi"
 ) -> Dict[str, Any]:
     """Calculate comprehensive Hindu Vedic Panchang for given date and location."""
+    if place_name and (latitude == 28.6139 and longitude == 77.2090):
+        latitude, longitude, timezone = resolve_coordinates(place_name, latitude, longitude, timezone)
+
     if not target_date:
         now = datetime.now()
     else:

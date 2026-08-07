@@ -78,6 +78,30 @@ def test_horoscope_kundli_calculation(client):
     assert len(data["vimshottari_dasha_timeline"]) > 0
 
 
+def test_swiss_ephemeris_exact_kundli(client):
+    payload = {
+        "name": "Jebin J",
+        "date_of_birth": "1998-12-13",
+        "time_of_birth": "09:30",
+        "place_of_birth": "Kanyakumari, India",
+        "latitude": 8.0883,
+        "longitude": 77.5385,
+        "timezone": 5.5
+    }
+    response = client.post("/api/v1/horoscope/kundli", json=payload)
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["person_name"] == "Jebin J"
+    assert "Capricorn" in data["ascendant_lagna"]
+    assert data["moon_sign_rashi"] == "Virgo"
+    assert data["nakshatra"] == "Chitra"
+    assert data["nakshatra_pada"] == 1
+    assert data["sun_sign"] == "Scorpio"
+    assert data["current_running_dasha"]["active_mahadasha"] == "Jupiter"
+    assert len(data["planets"]) == 10
+
+
+
 def test_panchang_endpoints(client):
     # 1. Today
     res_today = client.get("/api/v1/panchang/today")
