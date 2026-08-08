@@ -89,3 +89,62 @@ def get_ashtakvarga():
         float(data.get("timezone", 5.5))
     )
     return jsonify(result["ashtakvarga"]), 200
+
+
+@horoscope_bp.route("/upagrahas", methods=["POST"])
+def get_upagrahas():
+    """Retrieve classical Upagrahas (Mandi, Gulika, Dhuma, etc.)."""
+    data = request.get_json() or {}
+    result = generate_full_kundli(
+        data.get("name", "User"),
+        data.get("date_of_birth", "1995-08-15"),
+        data.get("time_of_birth", "06:30"),
+        data.get("place_of_birth", "New Delhi, India"),
+        float(data.get("latitude", 28.6139)),
+        float(data.get("longitude", 77.2090)),
+        float(data.get("timezone", 5.5))
+    )
+    return jsonify({
+        "person_name": result["person_name"],
+        "upagrahas": result["upagrahas"]
+    }), 200
+
+
+@horoscope_bp.route("/arudhas", methods=["POST"])
+def get_arudhas():
+    """Retrieve Arudha Padas and Special Lagnas."""
+    data = request.get_json() or {}
+    result = generate_full_kundli(
+        data.get("name", "User"),
+        data.get("date_of_birth", "1995-08-15"),
+        data.get("time_of_birth", "06:30"),
+        data.get("place_of_birth", "New Delhi, India"),
+        float(data.get("latitude", 28.6139)),
+        float(data.get("longitude", 77.2090)),
+        float(data.get("timezone", 5.5))
+    )
+    return jsonify({
+        "person_name": result["person_name"],
+        "arudha_padas": result["arudha_padas"],
+        "special_lagnas": result["special_lagnas"]
+    }), 200
+
+
+@horoscope_bp.route("/divisional", methods=["POST"])
+def get_divisional_charts():
+    """Retrieve all 16 Classical Shodashavarga Divisional Charts."""
+    data = request.get_json() or {}
+    result = generate_full_kundli(
+        data.get("name", "User"),
+        data.get("date_of_birth", "1995-08-15"),
+        data.get("time_of_birth", "06:30"),
+        data.get("place_of_birth", "New Delhi, India"),
+        float(data.get("latitude", 28.6139)),
+        float(data.get("longitude", 77.2090)),
+        float(data.get("timezone", 5.5))
+    )
+    return jsonify({
+        "person_name": result["person_name"],
+        "divisional_charts": result["divisional_charts"],
+        "bhava_chalit": result["bhava_chalit"]
+    }), 200
