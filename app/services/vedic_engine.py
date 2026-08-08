@@ -111,7 +111,7 @@ def calculate_ascendant_and_mc(jd: float, lat: float, lon: float, ayanamsa: floa
 
 def get_planet_longitudes_precise(jd: float, ayanamsa: float) -> Dict[str, Tuple[float, float, bool]]:
     """
-    Get Sidereal Longitude, Daily Speed, and Retrograde status for 9 Vedic Grahas.
+    Get Sidereal Longitude, Daily Speed, and Retrograde status for 9 Vedic Grahas + Modern outer planets (Uranus, Neptune, Pluto).
     Returns: { 'PlanetName': (longitude_0_360, speed_deg_day, is_retrograde) }
     """
     planets_map = {}
@@ -120,7 +120,8 @@ def get_planet_longitudes_precise(jd: float, ayanamsa: float) -> Dict[str, Tuple
         swe_ids = {
             "Sun": swe.SUN, "Moon": swe.MOON, "Mars": swe.MARS,
             "Mercury": swe.MERCURY, "Jupiter": swe.JUPITER, "Venus": swe.VENUS,
-            "Saturn": swe.SATURN, "Rahu": swe.MEAN_NODE
+            "Saturn": swe.SATURN, "Rahu": swe.MEAN_NODE,
+            "Uranus": swe.URANUS, "Neptune": swe.NEPTUNE, "Pluto": swe.PLUTO
         }
         for name, pid in swe_ids.items():
             flags = swe.FLG_SWIEPH | swe.FLG_SPEED
@@ -135,7 +136,9 @@ def get_planet_longitudes_precise(jd: float, ayanamsa: float) -> Dict[str, Tuple
         rahu_lon, rahu_speed, _ = planets_map["Rahu"]
         ketu_lon = (rahu_lon + 180.0) % 360.0
         planets_map["Ketu"] = (ketu_lon, rahu_speed, True)
-        return planets_map
+        
+        ordered_keys = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu", "Uranus", "Neptune", "Pluto"]
+        return {k: planets_map[k] for k in ordered_keys if k in planets_map}
 
     # Keplerian Orbital Approximations for Pure Python Fallback
     d = jd - 2451545.0
@@ -177,7 +180,16 @@ def get_planet_longitudes_precise(jd: float, ayanamsa: float) -> Dict[str, Tuple
     planets_map["Rahu"] = (rahu_lon, -0.0529, True)
     planets_map["Ketu"] = (ketu_lon, -0.0529, True)
     
-    return planets_map
+    # Uranus, Neptune, Pluto
+    uranus_lon = ((313.23 + 0.0117283 * d) - ayanamsa) % 360.0
+    neptune_lon = ((304.88 + 0.005981 * d) - ayanamsa) % 360.0
+    pluto_lon = ((238.93 + 0.00396 * d) - ayanamsa) % 360.0
+    planets_map["Uranus"] = (uranus_lon, 0.0117, False)
+    planets_map["Neptune"] = (neptune_lon, 0.0059, False)
+    planets_map["Pluto"] = (pluto_lon, 0.0039, False)
+    
+    ordered_keys = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu", "Uranus", "Neptune", "Pluto"]
+    return {k: planets_map[k] for k in ordered_keys if k in planets_map}
 
 
 # Backwards compatibility alias
@@ -252,8 +264,18 @@ def calculate_navamsha(degree: float, d1_sign_idx: int) -> Dict[str, Any]:
     }
 
 
+def get_lord_short_code(lord_name: str) -> str:
+    """Return 2-letter abbreviation for planetary lords (RL, NL, SL, SSL)."""
+    mapping = {
+        "Sun": "Su", "Moon": "Mo", "Mars": "Ma", "Mercury": "Me",
+        "Jupiter": "Ju", "Venus": "Ve", "Saturn": "Sa", "Rahu": "Ra",
+        "Ketu": "Ke", "Uranus": "Ur", "Neptune": "Ne", "Pluto": "Pl"
+    }
+    return mapping.get(lord_name, lord_name[:2].capitalize())
+
+
 def calculate_kp_lords(degree: float) -> Dict[str, str]:
-    """Calculate KP Sign Lord, Star Lord, Sub-Lord, and Sub-Sub Lord."""
+    """Calculate KP Sign Lord (RL), Star Lord (NL), Sub-Lord (SL), and Sub-Sub Lord (SSL)."""
     deg = degree % 360.0
     sign_idx = int(deg // 30)
     sign_lords = ["Mars", "Venus", "Mercury", "Moon", "Sun", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Saturn", "Jupiter"]
@@ -302,7 +324,11 @@ def calculate_kp_lords(degree: float) -> Dict[str, str]:
         "sign_lord": sign_lord,
         "star_lord": star_lord,
         "sub_lord": sub_lord,
-        "sub_sub_lord": sub_sub_lord
+        "sub_sub_lord": sub_sub_lord,
+        "rl": get_lord_short_code(sign_lord),
+        "nl": get_lord_short_code(star_lord),
+        "sl": get_lord_short_code(sub_lord),
+        "ssl": get_lord_short_code(sub_sub_lord)
     }
 
 
@@ -1324,7 +1350,9 @@ def generate_full_kundli(
     planets_list.append({
         "name": "Ascendant (Lagna)",
         "planet_name_simple": "Ascendant",
-        "sanskrit_name": "Lagna (लग्न)",
+        "sanskrit_name": "Lagna",
+        "display_name": "Lagna",
+        "table_display_name": "Lagna",
         "sign": asc_sign_name,
         "sign_index": asc_sign_idx,
         "sign_sanskrit": ZODIAC_SIGNS[asc_sign_idx - 1]["sanskrit"],
@@ -1339,10 +1367,15 @@ def generate_full_kundli(
         "pada": asc_pada,
         "navamsha": asc_nav,
         "kp_lords": asc_kp,
+        "rl": asc_kp.get("rl", get_lord_short_code(ZODIAC_SIGNS[asc_sign_idx - 1]["lord"])),
+        "nl": asc_kp.get("nl", get_lord_short_code(asc_nak_lord)),
+        "sl": asc_kp.get("sl", "Mo"),
+        "ssl": asc_kp.get("ssl", "Ra"),
         "dignity": "First House (Tanu Bhava)",
         "is_retrograde": False,
         "is_combust": False,
         "status_marker": "",
+        "chara_karaka_code": "",
         "color": "#8B5CF6"
     })
     
@@ -1350,7 +1383,7 @@ def generate_full_kundli(
     moon_deg = 0.0
     sun_deg = 0.0
     moon_sign_name = "Aries"
-    moon_sign_sanskrit = "Mesha (मेष)"
+    moon_sign_sanskrit = "Mesha"
     moon_nak_name = "Ashwini"
     moon_nak_lord = "Ketu"
     moon_pada = 1
@@ -1383,6 +1416,8 @@ def generate_full_kundli(
         planets_list.append({
             "name": f"{p_name} ({PLANETS_INFO[p_name]['sanskrit'].split(' ')[0]})",
             "planet_name_simple": p_name,
+            "display_name": p_name,
+            "table_display_name": f"{p_name}{' (R)' if is_retro else ''}",
             "sanskrit_name": PLANETS_INFO[p_name]["sanskrit"],
             "sign": s_name,
             "sign_index": sign_idx,
@@ -1398,6 +1433,10 @@ def generate_full_kundli(
             "pada": pada,
             "navamsha": nav_info,
             "kp_lords": kp_info,
+            "rl": kp_info.get("rl", get_lord_short_code(ZODIAC_SIGNS[sign_idx - 1]["lord"])),
+            "nl": kp_info.get("nl", get_lord_short_code(nak_lord)),
+            "sl": kp_info.get("sl", "Mo"),
+            "ssl": kp_info.get("ssl", "Ra"),
             "dignity": dignity,
             "is_retrograde": is_retro,
             "color": PLANETS_INFO[p_name]["color"]
@@ -1406,6 +1445,20 @@ def generate_full_kundli(
     # 3. Combustion Detection & Jaimini Karakas
     calculate_combustion(planets_list, sun_deg)
     chara_karakas = calculate_chara_karakas(planets_list)
+
+    # Format table_display_name with Karakas and Retrograde tags
+    for p in planets_list:
+        p_simple = p.get("planet_name_simple", "")
+        if p_simple == "Ascendant":
+            p["table_display_name"] = "Lagna"
+        else:
+            retro_tag = " (R)" if p.get("is_retrograde") else ""
+            karaka_code = p.get("chara_karaka_code", "")
+            if karaka_code:
+                karaka_tag = f"({karaka_code})" if retro_tag else f" ({karaka_code})"
+            else:
+                karaka_tag = ""
+            p["table_display_name"] = f"{p_simple}{retro_tag}{karaka_tag}"
 
     # 4. 12 Houses (Bhavas)
     houses_list = []

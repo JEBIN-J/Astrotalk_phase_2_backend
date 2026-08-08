@@ -176,8 +176,11 @@ PLANETS_INFO = {
     "Jupiter": {"sanskrit": "Guru (बृहस्पति)", "years": 16, "exaltation_sign": 4, "debilitation_sign": 10, "moolatrikona": 9, "own_signs": [9, 12], "color": "#FBBF24"},
     "Saturn": {"sanskrit": "Shani (शनि)", "years": 19, "exaltation_sign": 7, "debilitation_sign": 1, "moolatrikona": 11, "own_signs": [10, 11], "color": "#4338CA"},
     "Mercury": {"sanskrit": "Budha (बुध)", "years": 17, "exaltation_sign": 6, "debilitation_sign": 12, "moolatrikona": 6, "own_signs": [3, 6], "color": "#10B981"},
-    "Ketu": {"sanskrit": "Ketu (केतु)", "years": 7, "exaltation_sign": 8, "debilitation_sign": 2, "moolatrikona": 9, "own_signs": [8], "color": "#94A3B8"},
-    "Venus": {"sanskrit": "Shukra (शुक्र)", "years": 20, "exaltation_sign": 12, "debilitation_sign": 6, "moolatrikona": 7, "own_signs": [2, 7], "color": "#EC4899"}
+    "Ketu": {"sanskrit": "Ketu", "years": 7, "exaltation_sign": 8, "debilitation_sign": 2, "moolatrikona": 9, "own_signs": [8], "color": "#94A3B8"},
+    "Venus": {"sanskrit": "Shukra", "years": 20, "exaltation_sign": 12, "debilitation_sign": 6, "moolatrikona": 7, "own_signs": [2, 7], "color": "#EC4899"},
+    "Uranus": {"sanskrit": "Prajapati", "years": 0, "exaltation_sign": 8, "debilitation_sign": 2, "moolatrikona": 11, "own_signs": [11], "color": "#06B6D4"},
+    "Neptune": {"sanskrit": "Varuna", "years": 0, "exaltation_sign": 4, "debilitation_sign": 10, "moolatrikona": 12, "own_signs": [12], "color": "#3B82F6"},
+    "Pluto": {"sanskrit": "Yama", "years": 0, "exaltation_sign": 1, "debilitation_sign": 7, "moolatrikona": 8, "own_signs": [8], "color": "#8B5CF6"}
 }
 
 # Vimshottari Mahadasha Sequence (120 years total cycle)
