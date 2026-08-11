@@ -643,6 +643,7 @@ def calculate_arudhas_and_special_lagnas(
             "degree_decimal": round(arudha_deg, 4),
             "nakshatra": nak_name,
             "pada": pada,
+            "nakshatra_lord": nak_lord,
             "significance": significance
         })
 
