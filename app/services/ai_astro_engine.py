@@ -3,6 +3,7 @@ from typing import Dict, Any, List
 from app.services.vedic_engine import generate_full_kundli
 
 
+
 def generate_ai_astrology_insights(
     question: str,
     birth_details: Dict[str, Any] = None,
