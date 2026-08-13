@@ -1,40 +1,47 @@
 """Flask AI Vision Blueprint for Palm & Face Reading."""
 from flask import Blueprint, jsonify, request
+from app.services.vision_engine import analyze_face, analyze_palm
 
 ai_vision_bp = Blueprint('ai_vision', __name__)
 
 @ai_vision_bp.route("/palm-reading", methods=["POST"])
 def palm_reading():
-    """Analyze palm lines using AI vision."""
+    """Analyze palm lines dynamically using OpenCV and MediaPipe."""
     if 'file' not in request.files:
         return jsonify({"detail": "File is required"}), 400
     file = request.files['file']
-    return jsonify({
-        "status": "success",
-        "analysis": {
-            "life_line": "Strong and long, indicating vitality and good health.",
-            "head_line": "Clear and straight, showing logical thinking and mental clarity.",
-            "heart_line": "Deep and curved, suggesting emotional depth and empathy.",
-            "fate_line": "Visible and unbroken, pointing towards steady career growth."
-        },
-        "overall_summary": "Your palm indicates a balanced life with strong potential for success in analytical fields. Emotional connections will be deeply fulfilling.",
-        "confidence": "94%"
-    })
+    data = file.read()
+    if not data:
+        return jsonify({"detail": "Empty file"}), 400
+        
+    try:
+        analysis, summary, conf = analyze_palm(data)
+        return jsonify({
+            "status": "success",
+            "analysis": analysis,
+            "overall_summary": summary,
+            "confidence": f"{conf}%"
+        })
+    except Exception as e:
+        return jsonify({"detail": f"Vision analysis failed: {str(e)}"}), 500
 
 @ai_vision_bp.route("/face-reading", methods=["POST"])
 def face_reading():
-    """Analyze facial features using AI vision."""
+    """Analyze facial features dynamically using MediaPipe Face Mesh."""
     if 'file' not in request.files:
         return jsonify({"detail": "File is required"}), 400
     file = request.files['file']
-    return jsonify({
-        "status": "success",
-        "analysis": {
-            "forehead": "Broad forehead indicates high intellect and wisdom.",
-            "eyes": "Bright, expressive eyes suggest a perceptive and empathetic nature.",
-            "nose": "Straight nose bridge shows determination and focus.",
-            "jawline": "Well-defined jawline points to strong willpower and leadership qualities."
-        },
-        "overall_summary": "Your facial structure suggests a natural leader with a balance of intellect and empathy. You are likely to excel in roles requiring strategic thinking.",
-        "confidence": "92%"
-    })
+    data = file.read()
+    if not data:
+        return jsonify({"detail": "Empty file"}), 400
+        
+    try:
+        analysis, summary, conf = analyze_face(data)
+        return jsonify({
+            "status": "success",
+            "analysis": analysis,
+            "overall_summary": summary,
+            "confidence": f"{conf}%"
+        })
+    except Exception as e:
+        return jsonify({"detail": f"Vision analysis failed: {str(e)}"}), 500
