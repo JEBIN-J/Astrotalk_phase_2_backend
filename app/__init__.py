@@ -5,15 +5,12 @@ from flask_cors import CORS
 from app.core.config import config
 from app.api.v1.auth import auth_bp
 from app.api.v1.horoscope import horoscope_bp
-from app.api.v1.panchanga import panchang_bp
-from app.api.v1.matching import matching_bp
-from app.api.v1.gochara import gochara_bp
-from app.api.v1.ephemeris import ephemeris_bp
-from app.api.v1.ayanamsa import ayanamsa_bp
 from app.api.v1.places import places_bp
 from app.api.v1.ai_astro import ai_astro_bp
 from app.api.v1.reports import reports_bp
-
+from app.api.v1.admin import admin_bp
+from app.api.v1.ai_vision import ai_vision_bp
+from app.api.v1.content import content_bp
 
 def create_app(config_class=config) -> Flask:
     """Create and configure the Flask Application instance."""
@@ -64,15 +61,13 @@ def create_app(config_class=config) -> Flask:
         }), 200
 
     # Register Blueprints
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(horoscope_bp)
-    app.register_blueprint(panchang_bp)
-    app.register_blueprint(matching_bp)
-    app.register_blueprint(gochara_bp)
-    app.register_blueprint(ephemeris_bp)
-    app.register_blueprint(ayanamsa_bp)
-    app.register_blueprint(places_bp)
-    app.register_blueprint(ai_astro_bp)
-    app.register_blueprint(reports_bp)
+    app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
+    app.register_blueprint(horoscope_bp, url_prefix='/api/v1/horoscope')
+    app.register_blueprint(places_bp, url_prefix='/api/v1/places')
+    app.register_blueprint(ai_astro_bp, url_prefix='/api/v1/ai-astro')
+    app.register_blueprint(reports_bp, url_prefix='/api/v1/reports')
+    app.register_blueprint(admin_bp, url_prefix='/api/v1/admin')
+    app.register_blueprint(ai_vision_bp, url_prefix='/api/v1/ai-vision')
+    app.register_blueprint(content_bp, url_prefix='/api/v1/content')
 
     return app

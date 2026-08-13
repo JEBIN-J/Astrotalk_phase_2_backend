@@ -1203,10 +1203,25 @@ def calculate_shadbala(planets_deg: Dict[str, float], asc_deg: float, mc_deg: fl
     }
     
     shadbala_list = []
+    sun_deg = planets_deg.get("Sun", 0.0)
+    moon_deg = planets_deg.get("Moon", 0.0)
+    
+    ic_dist_sun = abs(sun_deg - ic_deg)
+    if ic_dist_sun > 180.0: ic_dist_sun = 360.0 - ic_dist_sun
+    midnight_ratio = 1.0 - (ic_dist_sun / 180.0)
+    
+    moon_dist = (moon_deg - sun_deg) % 360.0
+    paksha_ratio = moon_dist / 180.0 if moon_dist <= 180.0 else (360.0 - moon_dist) / 180.0
+    
+    asc_sign_idx = int(asc_deg // 30) + 1
+
     for p, deg in planets_deg.items():
         if p not in exalt_points:
             continue
             
+        sign_idx = int(deg // 30) + 1
+        deg_in_sign = deg % 30.0
+        
         deb_pt = (exalt_points[p] + 180.0) % 360.0
         dist_deb = abs(deg - deb_pt)
         if dist_deb > 180.0:
@@ -1219,12 +1234,84 @@ def calculate_shadbala(planets_deg: Dict[str, float], asc_deg: float, mc_deg: fl
             dist_dig = 360.0 - dist_dig
         dig_bala = 60.0 - (dist_dig / 3.0)
         
-        kala_bala = 35.0 + (uchcha * 0.25)
-        chesta_bala = 30.0 + (dig_bala * 0.2)
-        nais_bala = naisargika[p]
-        drik_bala = 20.0 + (uchcha * 0.15)
+        # 1. Kendradi Bala (Dynamic based on House)
+        house = ((sign_idx - asc_sign_idx) % 12) + 1
+        if house in [1, 4, 7, 10]: kendradi = 60.0
+        elif house in [2, 5, 8, 11]: kendradi = 30.0
+        else: kendradi = 15.0
+            
+        # 2. Oja-Yugma Bala (Dynamic based on D1 and D9 sign genders)
+        is_even_d1 = (sign_idx % 2 == 0)
+        nav_sign = calculate_varga_sign(deg, 9, sign_idx)
+        is_even_d9 = (nav_sign % 2 == 0)
         
-        total_virupas = uchcha + dig_bala + kala_bala + chesta_bala + nais_bala + drik_bala
+        oja_yugma = 0.0
+        if p in ['Moon', 'Venus']:
+            if is_even_d1: oja_yugma += 15.0
+            if is_even_d9: oja_yugma += 15.0
+        else:
+            if not is_even_d1: oja_yugma += 15.0
+            if not is_even_d9: oja_yugma += 15.0
+            
+        # 3. Drekkana Bala (Dynamic based on decanate in sign)
+        drekkana = 0.0
+        if p in ['Sun', 'Mars', 'Jupiter'] and deg_in_sign <= 10.0: drekkana = 15.0
+        elif p in ['Mercury', 'Saturn'] and 10.0 < deg_in_sign <= 20.0: drekkana = 15.0
+        elif p in ['Moon', 'Venus'] and deg_in_sign > 20.0: drekkana = 15.0
+            
+        # 4. Saptavargaja Bala (Dynamic based on overall dignity)
+        dignity = calculate_dignity(p, sign_idx, deg_in_sign)
+        if "Exalted" in dignity: saptavargaja = 112.5
+        elif "Moola" in dignity or "Own" in dignity: saptavargaja = 90.0
+        elif "Friend" in dignity: saptavargaja = 60.0
+        elif "Debil" in dignity: saptavargaja = 15.0
+        else: saptavargaja = 30.0
+            
+        # Sthana Bala Total
+        uchcha_val = round(uchcha, 2)
+        sthana_bala = round(uchcha_val + saptavargaja + oja_yugma + kendradi + drekkana, 2)
+
+        # Dig Bala
+        dig_bala_val = round(dig_bala, 2)
+
+        # Kala Bala sub-components
+        if p == 'Mercury': natonnata = 60.0
+        elif p in ['Moon', 'Mars', 'Saturn']: natonnata = 60.0 * midnight_ratio
+        else: natonnata = 60.0 * (1.0 - midnight_ratio)
+        
+        if p in ['Moon', 'Jupiter', 'Venus', 'Mercury']: paksha = 60.0 * paksha_ratio
+        else: paksha = 60.0 * (1.0 - paksha_ratio)
+        if p == 'Moon': paksha *= 2.0
+        
+        tribhaga = 20.0 if (midnight_ratio > 0.5 and p in ['Moon', 'Venus', 'Mars']) or (midnight_ratio <= 0.5 and p in ['Sun', 'Jupiter', 'Saturn']) else 0.0
+        
+        sun_sign_lord = ZODIAC_SIGNS[int(sun_deg // 30)]["lord"]
+        moon_sign_lord = ZODIAC_SIGNS[int(moon_deg // 30)]["lord"]
+        asc_sign_lord = ZODIAC_SIGNS[asc_sign_idx - 1]["lord"]
+        
+        abda = 15.0 if p == sun_sign_lord else 0.0
+        maasa = 30.0 if p == moon_sign_lord else 0.0
+        vaara = 45.0 if p == asc_sign_lord else 0.0
+        hora = 60.0 if p == ZODIAC_SIGNS[sign_idx - 1]["lord"] else 0.0
+        
+        if p == 'Mercury': ayana = 60.0
+        elif p in ['Sun', 'Mars', 'Jupiter', 'Venus']: 
+            ayana = 60.0 * (1.0 - min(abs(deg - 90.0), abs(deg - 450.0)) / 180.0)
+            if ayana < 0: ayana = 0
+        else:
+            ayana = 60.0 * (1.0 - min(abs(deg - 270.0), abs(deg + 90.0)) / 180.0)
+            if ayana < 0: ayana = 0
+        if p == 'Sun': ayana *= 2.0
+            
+        yuddha = 0.0
+        kala_bala_val = round(natonnata + paksha + tribhaga + abda + maasa + vaara + hora + ayana + yuddha, 2)
+
+        # Others
+        chesta_bala_val = round(30.0 + (dig_bala * 0.2), 2)
+        nais_bala_val = round(naisargika[p], 2)
+        drik_bala_val = round(20.0 + (uchcha * 0.15), 2)
+        
+        total_virupas = round(sthana_bala + dig_bala_val + kala_bala_val + chesta_bala_val + nais_bala_val + drik_bala_val, 2)
         total_rupas = round(total_virupas / 60.0, 2)
         required = req_rupas[p]
         strength_ratio = round((total_rupas / required) * 100.0, 1)
@@ -1234,21 +1321,55 @@ def calculate_shadbala(planets_deg: Dict[str, float], asc_deg: float, mc_deg: fl
             "planet": p,
             "sanskrit": PLANETS_INFO[p]["sanskrit"],
             "color": PLANETS_INFO[p]["color"],
-            "sthana_bala": round(uchcha, 1),
-            "dig_bala": round(dig_bala, 1),
-            "kala_bala": round(kala_bala, 1),
-            "chesta_bala": round(chesta_bala, 1),
-            "naisargika_bala": round(nais_bala, 1),
-            "drik_bala": round(drik_bala, 1),
-            "total_virupas": round(total_virupas, 1),
+            
+            # Sub components for Sthana Bala
+            "uchcha": uchcha_val,
+            "saptavargaja": saptavargaja,
+            "oja_yugma": oja_yugma,
+            "kendradi": kendradi,
+            "drekkana": drekkana,
+            "sthana_bala": sthana_bala,
+            
+            # Dig Bala
+            "dig_bala": dig_bala_val,
+            
+            # Sub components for Kala Bala
+            "natonnata": round(natonnata, 2),
+            "paksha": round(paksha, 2),
+            "tribhaga": tribhaga,
+            "abda": abda,
+            "maasa": maasa,
+            "vaara": vaara,
+            "hora": hora,
+            "ayana": round(ayana, 2),
+            "yuddha": yuddha,
+            "kala_bala": kala_bala_val,
+            
+            # Others
+            "chesta_bala": chesta_bala_val,
+            "naisargika_bala": nais_bala_val,
+            "drik_bala": drik_bala_val,
+            
+            "total_virupas": total_virupas,
             "total_rupas": total_rupas,
             "required_rupas": required,
+            
+            # New fields for table
+            "minimum": required,
+            "strength": round(total_rupas / required, 2),
+            "rank": 0, # Will be assigned
+            "ishta_phala": round(20.0 + (uchcha * 0.1), 2),
+            "kashta_phala": round(40.0 - (uchcha * 0.1), 2),
+            
             "strength_percent": strength_ratio,
             "is_strong": is_strong,
             "status": "Powerfully Fortified" if strength_ratio >= 115 else "Adequate Strength" if is_strong else "Karmically Weakened"
         })
         
-    shadbala_list.sort(key=lambda x: x["strength_percent"], reverse=True)
+    shadbala_list.sort(key=lambda x: x["strength"], reverse=True)
+    for idx, item in enumerate(shadbala_list):
+        item["rank"] = idx + 1
+        
     return shadbala_list
 
 
@@ -1502,7 +1623,17 @@ def generate_full_kundli(
     # 11. Classical Vedic Yogas
     yogas_data = detect_vedic_yogas(planets_list, asc_sign_idx)
 
-    # 12. Summary Insights
+    # 12. Birth Panchanga
+    from app.services.panchang_engine import calculate_daily_panchang
+    panchanga_data = calculate_daily_panchang(
+        target_date=dob_str,
+        latitude=latitude,
+        longitude=longitude,
+        timezone=timezone,
+        place_name=pob_str
+    )
+
+    # 13. Summary Insights
     summary_insights = [
         {"title": "Ascendant Power", "desc": f"Ascendant in {asc_sign_name} ({asc_dms}) with Moon Star Lord grants solid resilience and sharp strategic discipline."},
         {"title": "Moon Sign & Mind", "desc": f"Moon in {moon_sign_name} ({moon_nak_name} Pada {moon_pada}) grants an analytical, detail-oriented intellect with artistic flair."},
@@ -1544,6 +1675,7 @@ def generate_full_kundli(
         "vimshottari_dasha_timeline": dasha_timeline,
         "ashtakvarga": ashtakvarga_data,
         "shadbala": shadbala_data,
+        "panchanga": panchanga_data,
         "yogas": yogas_data,
         "vedic_yogas": yogas_data,
         "summary_insights": summary_insights

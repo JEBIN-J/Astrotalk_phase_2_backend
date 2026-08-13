@@ -74,25 +74,49 @@ def calculate_daily_panchang(
     moonrise_time = "07:32 PM"
     moonset_time = "06:15 AM"
     
-    # 6. RAHU KAAL & ABHIJIT MUHURTA CALCULATION
+    # 6. MUHURTA & KAAL CALCULATION
     weekday = now.weekday() # 0 = Monday, 6 = Sunday
-    # Rahu Kaal periods per day of week (in 1.5 hr slots of 12 hr day)
+    
     rahu_slots = [
-        ("07:30 AM", "09:00 AM"), # Mon
-        ("03:00 PM", "04:30 PM"), # Tue
-        ("12:00 PM", "01:30 PM"), # Wed
-        ("01:30 PM", "03:00 PM"), # Thu
-        ("10:30 AM", "12:00 PM"), # Fri
-        ("09:00 AM", "10:30 AM"), # Sat
-        ("04:30 PM", "06:00 PM"), # Sun
+        ("07:30 AM", "09:00 AM"), ("03:00 PM", "04:30 PM"), ("12:00 PM", "01:30 PM"),
+        ("01:30 PM", "03:00 PM"), ("10:30 AM", "12:00 PM"), ("09:00 AM", "10:30 AM"), ("04:30 PM", "06:00 PM"),
     ]
+    yamaganda_slots = [
+        ("10:30 AM", "12:00 PM"), ("09:00 AM", "10:30 AM"), ("07:30 AM", "09:00 AM"),
+        ("06:00 AM", "07:30 AM"), ("03:00 PM", "04:30 PM"), ("01:30 PM", "03:00 PM"), ("12:00 PM", "01:30 PM"),
+    ]
+    gulika_slots = [
+        ("01:30 PM", "03:00 PM"), ("12:00 PM", "01:30 PM"), ("10:30 AM", "12:00 PM"),
+        ("09:00 AM", "10:30 AM"), ("07:30 AM", "09:00 AM"), ("06:00 AM", "07:30 AM"), ("03:00 PM", "04:30 PM"),
+    ]
+    
     rahu_start, rahu_end = rahu_slots[weekday]
+    yamaganda_start, yamaganda_end = yamaganda_slots[weekday]
+    gulika_start, gulika_end = gulika_slots[weekday]
     
     abhijit_start = "11:58 AM"
     abhijit_end = "12:49 PM"
     
+    dur_muhurta_start = "12:49 PM" if weekday in [0, 2] else "08:24 AM"
+    dur_muhurta_end = "01:40 PM" if weekday in [0, 2] else "09:12 AM"
+    
+    amrita_start, amrita_end = "04:38 AM", "06:06 AM"
+    varjyam_start, varjyam_end = "07:47 PM", "09:15 PM"
+    
     sun_sign_idx = int(sun_deg // 30)
     moon_sign_idx = int(moon_deg // 30)
+    
+    # 7. SAMVATSARA, RITU, AYANA
+    vikram_samvat = now.year + 57 if now.month > 3 else now.year + 56
+    shaka_samvat = now.year - 78 if now.month > 3 else now.year - 79
+    
+    month_names = ["Chaitra", "Vaishakha", "Jyeshtha", "Aashada", "Shravana", "Bhadrapada", "Ashvina", "Kartika", "Margashirsha", "Pausha", "Magha", "Phalguna"]
+    maasa = month_names[int(moon_deg // 30)]
+    
+    ritu_names = ["Vasant (Spring)", "Greeshma (Summer)", "Varsha (Monsoon)", "Sharad (Autumn)", "Hemant (Pre-Winter)", "Shishir (Winter)"]
+    ritu = ritu_names[(sun_sign_idx // 2) % 6]
+    
+    ayana = "Uttarayaṇa (Northern)" if 270 <= sun_deg < 360 or 0 <= sun_deg < 90 else "Dakshinayaṇa (Southern)"
 
     daily_insights = [
         {
@@ -119,10 +143,17 @@ def calculate_daily_panchang(
         "date": date_str,
         "formatted_date": formatted_date,
         "place": place_name,
+        "weekday": now.strftime("%A"),
+        "vaara": ["Somavara (Moon)", "Mangalavara (Mars)", "Budhavara (Mercury)", "Guruvara (Jupiter)", "Shukravara (Venus)", "Shanivara (Saturn)", "Ravivara (Sun)"][weekday],
         "sunrise": sunrise_time,
         "sunset": sunset_time,
         "moonrise": moonrise_time,
         "moonset": moonset_time,
+        "vedic_sunrise": "06:16:16 AM",
+        "vedic_sunset": "06:33:33 PM",
+        "day_duration": "12 Hours, 17 Minutes",
+        "night_duration": "11 Hours, 42 Minutes",
+        "sidereal_time": "14:05:59",
         "paksha": paksha,
         "tithi": {
             "name": f"{tithi_name} ({tithi_num})",
@@ -153,34 +184,63 @@ def calculate_daily_panchang(
             "deity_or_nature": "Good for business and domestic works"
         },
         "rahu_kaal": {
-            "name": "Rahu Kaalam (राहु काल)",
+            "name": "Rahu Kala",
             "start_time": rahu_start,
             "end_time": rahu_end,
             "is_auspicious": False,
             "description": "Inauspicious time window. Avoid initiating new projects."
         },
         "abhijit_muhurta": {
-            "name": "Abhijit Muhurta (अभिजित मुहूर्त)",
+            "name": "Abhijit Muhurta",
             "start_time": abhijit_start,
             "end_time": abhijit_end,
             "is_auspicious": True,
             "description": "Universal auspicious victory hour created by Lord Vishnu."
         },
         "yamaganda": {
-            "name": "Yamaganda Kaal",
-            "start_time": "06:00 AM",
-            "end_time": "07:30 AM",
+            "name": "Yamaganda Kala",
+            "start_time": yamaganda_start,
+            "end_time": yamaganda_end,
             "is_auspicious": False,
             "description": "Period governed by Yama. Avoid starting journeys."
         },
         "gulika_kaal": {
-            "name": "Gulika Kaal",
-            "start_time": "01:30 PM",
-            "end_time": "03:00 PM",
+            "name": "Gulika Kala",
+            "start_time": gulika_start,
+            "end_time": gulika_end,
             "is_auspicious": False,
             "description": "Saturnian influence. Repeat actions flourish."
         },
-        "sun_sign": ZODIAC_SIGNS[sun_sign_idx]["sanskrit"],
-        "moon_sign": ZODIAC_SIGNS[moon_sign_idx]["sanskrit"],
+        "dur_muhurta": {
+            "name": "Dur Muhurta",
+            "start_time": dur_muhurta_start,
+            "end_time": dur_muhurta_end,
+            "is_auspicious": False,
+            "description": "Highly inauspicious."
+        },
+        "amrita_kala": {
+            "name": "Amrita Kala",
+            "start_time": amrita_start,
+            "end_time": amrita_end,
+            "is_auspicious": True,
+            "description": "Nectar time."
+        },
+        "varjyam": {
+            "name": "Varjyam (Vishagatika)",
+            "start_time": varjyam_start,
+            "end_time": varjyam_end,
+            "is_auspicious": False,
+            "description": "Poisonous time segment."
+        },
+        "sun_sign": ZODIAC_SIGNS[sun_sign_idx]["sanskrit"].split(" (")[0],
+        "moon_sign": ZODIAC_SIGNS[moon_sign_idx]["sanskrit"].split(" (")[0],
+        "samvatsara_shaka": f"{shaka_samvat} Parabhava",
+        "samvatsara_vikram": f"{vikram_samvat} Siddharthi",
+        "chandra_maasa_amanta": maasa,
+        "chandra_maasa_purnimanta": month_names[(int(moon_deg // 30) + 1) % 12],
+        "drika_ritu": ritu,
+        "vedic_ritu": ritu,
+        "drika_ayana": ayana,
+        "vedic_ayana": ayana,
         "daily_insights": daily_insights
     }

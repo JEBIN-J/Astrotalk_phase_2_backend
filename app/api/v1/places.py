@@ -1,20 +1,20 @@
 """Flask Places and City Geocoding Blueprint."""
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify, request
 from app.utils.constants import POPULAR_CITIES
 
-places_bp = Blueprint("places", __name__, url_prefix="/api/v1/places")
-
+places_bp = Blueprint('places', __name__)
 
 @places_bp.route("/search", methods=["GET"])
 def search_places():
     """Search for cities, coordinates, and timezone offsets."""
-    query = request.args.get("query", "").lower().strip()
-    if not query:
-        return jsonify({"error": "Query parameter is required"}), 400
+    query = request.args.get("query", "")
+    query_lower = query.lower().strip()
+    if not query_lower:
+        return jsonify({"detail": "Query parameter is required"}), 400
         
     matched = []
     for city in POPULAR_CITIES:
-        if query in city["name"].lower() or query in city["state"].lower() or query in city["country"].lower():
+        if query_lower in city["name"].lower() or query_lower in city["state"].lower() or query_lower in city["country"].lower():
             matched.append({
                 "name": city["name"],
                 "state": city["state"],
@@ -27,21 +27,20 @@ def search_places():
             
     if not matched:
         matched.append({
-            "name": query.capitalize(),
+            "name": query.title(),
             "state": "Custom Region",
             "country": "India",
             "latitude": 28.6139,
             "longitude": 77.2090,
             "timezone": 5.5,
-            "formatted_name": f"{query.capitalize()}, India"
+            "formatted_name": f"{query.title()}, India"
         })
 
     return jsonify({
         "query": query,
         "total_found": len(matched),
         "results": matched
-    }), 200
-
+    })
 
 @places_bp.route("/popular", methods=["GET"])
 def get_popular():
@@ -58,4 +57,4 @@ def get_popular():
         }
         for c in POPULAR_CITIES
     ]
-    return jsonify(results), 200
+    return jsonify(results)

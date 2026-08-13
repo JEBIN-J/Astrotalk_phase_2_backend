@@ -1,29 +1,30 @@
 """Flask PDF Report Generation Blueprint."""
 import io
-from flask import Blueprint, request, send_file
+from flask import Blueprint, request, send_file, jsonify
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from app.services.vedic_engine import generate_full_kundli
-from app.services.matching_engine import calculate_ashtakoota_milan
 
-reports_bp = Blueprint("reports", __name__, url_prefix="/api/v1/reports")
-
+reports_bp = Blueprint('reports', __name__)
 
 @reports_bp.route("/kundli-pdf", methods=["POST"])
 def generate_kundli_pdf():
     """Generate and stream Janam Kundli PDF."""
-    data = request.get_json() or {}
+    data = request.json or {}
     name = data.get("name", "Rahul Sharma")
-    dob = data.get("date_of_birth", "1995-08-15")
-    tob = data.get("time_of_birth", "06:30")
-    pob = data.get("place_of_birth", "New Delhi, India")
+    date_of_birth = data.get("date_of_birth", "1995-08-15")
+    time_of_birth = data.get("time_of_birth", "06:30")
+    place_of_birth = data.get("place_of_birth", "New Delhi, India")
     latitude = float(data.get("latitude", 28.6139))
     longitude = float(data.get("longitude", 77.2090))
     timezone = float(data.get("timezone", 5.5))
-    
-    kundli = generate_full_kundli(name, dob, tob, pob, latitude, longitude, timezone)
+
+    kundli = generate_full_kundli(
+        name, date_of_birth, time_of_birth,
+        place_of_birth, latitude, longitude, timezone
+    )
     
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
@@ -91,68 +92,4 @@ def generate_kundli_pdf():
         mimetype="application/pdf",
         as_attachment=True,
         download_name=f"kundli_{name.replace(' ', '_')}.pdf"
-    )
-
-
-@reports_bp.route("/matching-pdf", methods=["POST"])
-def generate_matching_pdf():
-    """Generate and stream 36 Guna Ashtakoota Milan PDF."""
-    data = request.get_json() or {}
-    boy = data.get("boy", {})
-    girl = data.get("girl", {})
-    
-    match_data = calculate_ashtakoota_milan(boy, girl)
-    
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
-    styles = getSampleStyleSheet()
-    
-    title_style = ParagraphStyle(
-        'TitleStyle',
-        parent=styles['Heading1'],
-        fontSize=20,
-        textColor=colors.HexColor('#E11D48'),
-        spaceAfter=12
-    )
-    
-    elements = []
-    elements.append(Paragraph("💍 ASTROTALK - KUNDLI MATCHING (36 GUNA MILAN)", title_style))
-    elements.append(Spacer(1, 10))
-    
-    elements.append(Paragraph(
-        f"<b>Groom:</b> {match_data['boy_name']} &nbsp;|&nbsp; <b>Bride:</b> {match_data['girl_name']}<br/>"
-        f"<b>Total Score:</b> <font color='#E11D48'>{match_data['total_score']} / 36.0 ({match_data['percentage']}%)</font><br/>"
-        f"<b>Verdict:</b> {match_data['status']}",
-        styles['Normal']
-    ))
-    elements.append(Spacer(1, 14))
-    
-    koota_rows = [["Koota", "Max Pts", "Obtained", "Compatibility", "Remarks"]]
-    for k in match_data["kootas"]:
-        koota_rows.append([
-            k["koota_name"].split(" (")[0],
-            str(k["max_points"]),
-            str(k["obtained_points"]),
-            "Compatible" if k["is_compatible"] else "Average",
-            k["remarks"][:45] + "..." if len(k["remarks"]) > 45 else k["remarks"]
-        ])
-    t_kootas = Table(koota_rows, colWidths=[120, 50, 60, 80, 230])
-    t_kootas.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#E11D48')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
-        ('FONTSIZE', (0, 0), (-1, -1), 8.5),
-        ('PADDING', (0, 0), (-1, -1), 5),
-    ]))
-    elements.append(t_kootas)
-    
-    doc.build(elements)
-    buffer.seek(0)
-    
-    return send_file(
-        buffer,
-        mimetype="application/pdf",
-        as_attachment=True,
-        download_name=f"matching_milan_{boy.get('name', 'Boy')}_{girl.get('name', 'Girl')}.pdf"
     )
