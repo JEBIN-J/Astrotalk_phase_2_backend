@@ -4,6 +4,7 @@ from app.services.vedic_engine import generate_full_kundli
 from app.services.lal_kitab_engine import generate_lal_kitab_chart
 from app.services.bnn_engine import generate_bnn_chart
 from app.services.jaimini_engine import generate_jaimini_chart
+from app.services.daily_horoscope_engine import generate_daily_horoscope
 
 horoscope_bp = Blueprint('horoscope', __name__)
 
@@ -172,3 +173,14 @@ def get_divisional_charts():
         "bhava_chalit": result["bhava_chalit"]
     }
     return jsonify(remove_hindi_text(resp))
+
+
+@horoscope_bp.route('/daily', methods=['GET'])
+def daily_horoscope():
+    rashi = request.args.get('rashi', 'Aries')
+    try:
+        data = generate_daily_horoscope(rashi)
+        return jsonify({"status": "success", "data": data})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
