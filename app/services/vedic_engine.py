@@ -339,23 +339,23 @@ def calculate_dignity(planet_name: str, sign_index: int, degree_in_sign: float) 
     
     info = PLANETS_INFO[planet_name]
     if sign_index == info["exaltation_sign"]:
-        return "Exalted (उच्च)"
+        return "Exalted"
     elif sign_index == info["debilitation_sign"]:
-        return "Debilitated (नीच)"
+        return "Debilitated"
     elif sign_index == info["moolatrikona"]:
-        return "Moolatrikona (मूलत्रिकोण)"
+        return "Moolatrikona"
     elif sign_index in info["own_signs"]:
-        return "Own Sign (स्वक्षेत्री)"
+        return "Own Sign"
     
     sign_lord = ZODIAC_SIGNS[sign_index - 1]["lord"]
     if planet_name in ["Sun", "Moon", "Mars", "Jupiter"] and sign_lord in ["Sun", "Moon", "Mars", "Jupiter"]:
-        return "Friendly Sign (मित्र)"
+        return "Friendly Sign"
     elif planet_name in ["Mercury", "Venus", "Saturn"] and sign_lord in ["Mercury", "Venus", "Saturn"]:
-        return "Friendly Sign (मित्र)"
+        return "Friendly Sign"
     elif planet_name == "Mercury" and sign_lord in ["Sun", "Venus"]:
-        return "Friendly Sign (मित्र)"
+        return "Friendly Sign"
     else:
-        return "Neutral / Enemy (शत्रु)"
+        return "Neutral / Enemy"
 
 
 # =========================================================================
@@ -494,13 +494,13 @@ def calculate_chara_karakas(planets_list: List[Dict[str, Any]]) -> List[Dict[str
     - DK: Darakaraka (Lowest degree)
     """
     karaka_names = [
-        ("AK", "Atmakaraka (आत्मकारक)", "Soul / True Self / Destiny"),
-        ("AmK", "Amatyakaraka (अमात्यकारक)", "Career / Mind / Profession / Minister"),
-        ("BK", "Bhratrikaraka (भ्रातृकारक)", "Siblings / Courage / Guru"),
-        ("MK", "Matrikaraka (मातृकारक)", "Mother / Home / Inner Happiness"),
-        ("PK", "Putrakaraka (पुत्रकारक)", "Children / Creativity / Intelligence"),
-        ("GK", "Gnatikaraka (ज्ञातिकारक)", "Obstacles / Health / Relatives / Competition"),
-        ("DK", "Darakaraka (दारकारक)", "Spouse / Partner / Business Relationships"),
+        ("AK", "Atmakaraka", "Soul / True Self / Destiny"),
+        ("AmK", "Amatyakaraka", "Career / Mind / Profession / Minister"),
+        ("BK", "Bhratrikaraka", "Siblings / Courage / Guru"),
+        ("MK", "Matrikaraka", "Mother / Home / Inner Happiness"),
+        ("PK", "Putrakaraka", "Children / Creativity / Intelligence"),
+        ("GK", "Gnatikaraka", "Obstacles / Health / Relatives / Competition"),
+        ("DK", "Darakaraka", "Spouse / Partner / Business Relationships"),
     ]
 
     # Filter standard 7 physical planets (excluding Ascendant, Rahu, Ketu)
@@ -557,7 +557,7 @@ def calculate_combustion(planets_list: List[Dict[str, Any]], sun_deg: float):
                 
             is_combust = diff <= limit
             p["is_combust"] = is_combust
-            p["combustion_status"] = "Combust (अस्त)" if is_combust else "Normal (उदित)"
+            p["combustion_status"] = "Combust" if is_combust else "Normal"
             
             # Add short marker
             retro_marker = "(R)" if p.get("is_retrograde") else ""
@@ -597,18 +597,18 @@ def calculate_arudhas_and_special_lagnas(
 
     arudha_padas = []
     arudha_names = [
-        ("AL (A1)", "Arudha Lagna (आरूढ़ लग्न)", "Image, Public Status & Manifested Self"),
-        ("A2", "Dhana Pada (धन पद)", "Wealth, Financial Assets & Family Resources"),
-        ("A3", "Bhratri Pada (भ्रातृ पद)", "Siblings, Courage, Communication & Energy"),
-        ("A4", "Matri Pada / Sukha Pada (मातृ पद)", "Home, Vehicles, Mother & Inner Happiness"),
-        ("A5", "Putra Pada / Mantra Pada (पुत्र पद)", "Progeny, Knowledge, Mantras & Speculation"),
-        ("A6", "Shatru Pada / Roga Pada (शत्रु पद)", "Debts, Diseases, Competitions & Litigation"),
-        ("A7", "Dara Pada (दार पद)", "Spouse, Business Partnerships & Trade Relations"),
-        ("A8", "Mrityu Pada / Randhra Pada (मृत्यु पद)", "Longevity, Transformation & Occult Knowledge"),
-        ("A9", "Bhagya Pada (भाग्य पद)", "Fortune, Higher Learning, Father & Dharma"),
-        ("A10", "Rajya Pada / Karma Pada (राज्य पद)", "Career Success, Fame, Achievements & Power"),
-        ("A11", "Labha Pada (लाभ पद)", "Gains, Professional Networks & Fulfillment of Desires"),
-        ("UL (A12)", "Upapada Lagna (उपपद लग्न)", "Marriage, Relationship Quality & Life Partner")
+        ("AL (A1)", "Arudha Lagna", "Image, Public Status & Manifested Self"),
+        ("A2", "Dhana Pada", "Wealth, Financial Assets & Family Resources"),
+        ("A3", "Bhratri Pada", "Siblings, Courage, Communication & Energy"),
+        ("A4", "Matri Pada / Sukha Pada", "Home, Vehicles, Mother & Inner Happiness"),
+        ("A5", "Putra Pada / Mantra Pada", "Progeny, Knowledge, Mantras & Speculation"),
+        ("A6", "Shatru Pada / Roga Pada", "Debts, Diseases, Competitions & Litigation"),
+        ("A7", "Dara Pada", "Spouse, Business Partnerships & Trade Relations"),
+        ("A8", "Mrityu Pada / Randhra Pada", "Longevity, Transformation & Occult Knowledge"),
+        ("A9", "Bhagya Pada", "Fortune, Higher Learning, Father & Dharma"),
+        ("A10", "Rajya Pada / Karma Pada", "Career Success, Fame, Achievements & Power"),
+        ("A11", "Labha Pada", "Gains, Professional Networks & Fulfillment of Desires"),
+        ("UL (A12)", "Upapada Lagna", "Marriage, Relationship Quality & Life Partner")
     ]
 
     for h in range(1, 13):
@@ -1053,7 +1053,7 @@ def calculate_vimshottari_dasha(
                     "end": d_end.strftime("%d %b %Y"),
                     "sub_period": f"{p_name}-{ad_p_name}",
                     "balance_remaining": f"{round((d_end - now).days / 365.25, 1)} Years",
-                    "status": "Currently Active (चल रही है)"
+                    "status": "Currently Active"
                 }
             ad_start = ad_end
             
@@ -1384,7 +1384,7 @@ def detect_vedic_yogas(planets_list: List[Dict[str, Any]], asc_sign_idx: int) ->
         merc_house = planet_by_name["Mercury"]["house"]
         if sun_house == merc_house:
             yogas.append({
-                "name": "Budhaditya Yoga (बुधादित्य योग)",
+                "name": "Budhaditya Yoga",
                 "category": "Raja Yoga / Intellectual",
                 "house": sun_house,
                 "planets": ["Sun", "Mercury"],
@@ -1398,7 +1398,7 @@ def detect_vedic_yogas(planets_list: List[Dict[str, Any]], asc_sign_idx: int) ->
         dist_from_moon = ((jup_sign - moon_sign) % 12) + 1
         if dist_from_moon in [1, 4, 7, 10]:
             yogas.append({
-                "name": "Gajakesari Yoga (गजकेसरी योग)",
+                "name": "Gajakesari Yoga",
                 "category": "Maha Raja Yoga",
                 "house": planet_by_name["Jupiter"]["house"],
                 "planets": ["Jupiter", "Moon"],
@@ -1408,7 +1408,7 @@ def detect_vedic_yogas(planets_list: List[Dict[str, Any]], asc_sign_idx: int) ->
     # 3. Neechabhanga Raja Yoga
     if "Saturn" in planet_by_name and planet_by_name["Saturn"]["dignity"].startswith("Debilitated"):
         yogas.append({
-            "name": "Neechabhanga Raja Yoga (नीचभंग राजयोग)",
+            "name": "Neechabhanga Raja Yoga",
             "category": "Raja Yoga / Resilience",
             "house": planet_by_name["Saturn"]["house"],
             "planets": ["Saturn", "Mars"],
@@ -1417,7 +1417,7 @@ def detect_vedic_yogas(planets_list: List[Dict[str, Any]], asc_sign_idx: int) ->
 
     # 4. Vipareeta Raja Yoga
     yogas.append({
-        "name": "Harsha / Sarala Vipareeta Yoga (विपरीत राजयोग)",
+        "name": "Harsha / Sarala Vipareeta Yoga",
         "category": "Protective Wealth Yoga",
         "house": 8,
         "planets": ["Sun", "Venus"],
@@ -1564,9 +1564,47 @@ def generate_full_kundli(
             "color": PLANETS_INFO[p_name]["color"]
         })
 
-    # 3. Combustion Detection & Jaimini Karakas
+# 3. Combustion Detection & Jaimini Karakas
     calculate_combustion(planets_list, sun_deg)
     chara_karakas = calculate_chara_karakas(planets_list)
+
+    # KP Exact Significator Calculations
+    OWNED_SIGNS = {
+        "Sun": [5], "Moon": [4], "Mars": [1, 8], "Mercury": [3, 6],
+        "Jupiter": [9, 12], "Venus": [2, 7], "Saturn": [10, 11],
+        "Rahu": [], "Ketu": []
+    }
+    
+    planet_house_map = {}
+    for p in planets_list:
+        p_name = p.get("planet_name_simple", p["name"].split(" ")[0])
+        planet_house_map[p_name] = p["house"]
+        
+    for p in planets_list:
+        p_name = p.get("planet_name_simple", p["name"].split(" ")[0])
+        if p_name == "Ascendant":
+            continue
+            
+        owned_signs = OWNED_SIGNS.get(p_name, [])
+        owned_houses = [((s - asc_sign_idx) % 12) + 1 for s in owned_signs]
+        occupied_house = p["house"]
+        
+        nl_name = p["kp_lords"].get("star_lord", "Ketu")
+        nl_owned_signs = OWNED_SIGNS.get(nl_name, [])
+        
+        A = [planet_house_map.get(nl_name)] if planet_house_map.get(nl_name) else []
+        B = [occupied_house]
+        C = [((s - asc_sign_idx) % 12) + 1 for s in nl_owned_signs]
+        D = owned_houses
+        
+        sig_list = []
+        for h in A + B + C + D:
+            if h and h not in sig_list:
+                sig_list.append(h)
+                
+        p["kp_owned_houses"] = owned_houses
+        p["kp_occupied_house"] = occupied_house
+        p["kp_significators"] = sig_list
 
     # Format table_display_name with Karakas and Retrograde tags
     for p in planets_list:
