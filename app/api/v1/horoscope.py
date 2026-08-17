@@ -2,6 +2,7 @@
 from flask import Blueprint, jsonify, request
 from app.services.vedic_engine import generate_full_kundli
 from app.services.lal_kitab_engine import generate_lal_kitab_chart
+from app.services.bnn_engine import generate_bnn_chart
 
 horoscope_bp = Blueprint('horoscope', __name__)
 
@@ -29,6 +30,17 @@ def remove_hindi_text(obj):
     elif isinstance(obj, dict):
         return {k: remove_hindi_text(v) for k, v in obj.items()}
     return obj
+
+@horoscope_bp.route("/bnn", methods=["POST"])
+def get_bnn():
+    """Calculate exact BNN linkages and event analysis."""
+    data = parse_horoscope_data()
+    result = generate_bnn_chart(
+        data["name"], data["date_of_birth"], data["time_of_birth"],
+        data["place_of_birth"], data["latitude"], data["longitude"], data["timezone"]
+    )
+    result = remove_hindi_text(result)
+    return jsonify(result)
 
 @horoscope_bp.route("/lal-kitab", methods=["POST"])
 def get_lal_kitab():
