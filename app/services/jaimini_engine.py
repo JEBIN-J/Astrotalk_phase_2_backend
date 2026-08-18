@@ -101,7 +101,8 @@ def generate_jaimini_chart(
                 "sign_index": p.get("sign_index", 1),
                 "degree": p.get("degree_dms", ""),
                 "decimal_degree": dec_deg,
-                "navamsa_sign": nav_sign
+                "navamsa_sign": nav_sign,
+                "retrograde": p.get("is_retrograde", False)
             })
             
     # Sort descending by degree
@@ -177,6 +178,8 @@ def generate_jaimini_chart(
         "person_name": name,
         "date_of_birth": dob_str,
         "time_of_birth": tob_str,
+        "ascendant_sign_index": lagna_sign_idx,
+        "planets": jaimini_planets,
         "chara_karakas": chara_karakas,
         "special_points": [
             {

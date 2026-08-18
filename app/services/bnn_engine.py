@@ -101,6 +101,7 @@ def generate_bnn_chart(
         "person_name": name,
         "date_of_birth": dob_str,
         "time_of_birth": tob_str,
+        "ascendant_sign_index": kundli.get("ascendant_sign_index", 1),
         "planets": bnn_planets,
         "event_analysis": event_analysis
     }
