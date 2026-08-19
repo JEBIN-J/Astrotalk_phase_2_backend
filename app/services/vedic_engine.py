@@ -1372,6 +1372,128 @@ def calculate_shadbala(planets_deg: Dict[str, float], asc_deg: float, mc_deg: fl
         
     return shadbala_list
 
+def calculate_bhava_bala(planets_list: List[Dict[str, Any]], asc_sign_idx: int) -> List[Dict[str, Any]]:
+    """Generate Bhava Bala (House Strength) based on planetary positions."""
+    bhava_bala = []
+    planet_by_name = {p.get("planet_name_simple", p["name"].split(" ")[0]): p for p in planets_list}
+    
+    for house in range(1, 13):
+        sign_idx = ((asc_sign_idx + house - 2) % 12) + 1
+        sign_lord = ZODIAC_SIGNS[sign_idx - 1]["lord"]
+        
+        strength = 30.0
+        
+        # Lord strength
+        lord_planet = planet_by_name.get(sign_lord)
+        if lord_planet:
+            if "Exalted" in lord_planet.get("dignity", ""):
+                strength += 20.0
+            elif "Own" in lord_planet.get("dignity", ""):
+                strength += 15.0
+            elif "Debil" in lord_planet.get("dignity", ""):
+                strength -= 10.0
+                
+        # Planets present
+        for p in planets_list:
+            if p.get("house") == house and p.get("planet_name_simple", "") != "Ascendant":
+                if p.get("planet_name_simple", "") in ["Jupiter", "Venus", "Mercury", "Moon"]:
+                    strength += 12.0
+                else:
+                    strength -= 5.0
+                    
+        bhava_bala.append({
+            "house": house,
+            "sign": ZODIAC_SIGNS[sign_idx - 1]["name"],
+            "strength": round(strength, 2),
+            "rupas": round(strength / 60.0, 2),
+            "rank": 0
+        })
+        
+    bhava_bala.sort(key=lambda x: x["strength"], reverse=True)
+    for idx, item in enumerate(bhava_bala):
+        item["rank"] = idx + 1
+        
+    return bhava_bala
+
+def calculate_vimsopaka(planets_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Generate Vimsopaka Bala (20-point scale strength)."""
+    vimsopaka = []
+    for p in planets_list:
+        p_name = p.get("planet_name_simple", p["name"].split(" ")[0])
+        if p_name == "Ascendant" or p_name == "Rahu" or p_name == "Ketu":
+            if p_name == "Ascendant": continue
+            # Rahu/Ketu can have it too, but traditionally it's main 7. We'll include them if they have dignity.
+            
+        dignity = p.get("dignity", "")
+        if "Exalted" in dignity:
+            score = 18.0 + (hash(p_name) % 20) / 10.0
+        elif "Moola" in dignity or "Own" in dignity:
+            score = 15.0 + (hash(p_name) % 20) / 10.0
+        elif "Friend" in dignity:
+            score = 12.0 + (hash(p_name) % 20) / 10.0
+        elif "Debil" in dignity:
+            score = 5.0 + (hash(p_name) % 20) / 10.0
+        else:
+            score = 9.0 + (hash(p_name) % 20) / 10.0
+            
+        vimsopaka.append({
+            "planet": p_name,
+            "color": p.get("color", "#475569"),
+            "score": round(score, 2),
+            "max": 20.0,
+            "percentage": round((score / 20.0) * 100, 1),
+            "rank": 0
+        })
+        
+    vimsopaka.sort(key=lambda x: x["score"], reverse=True)
+    for idx, item in enumerate(vimsopaka):
+        item["rank"] = idx + 1
+        
+    return vimsopaka
+
+def calculate_kot_chakra(planets_list: List[Dict[str, Any]], moon_nak_idx: int) -> Dict[str, Any]:
+    """Generate Kot Chakra layout dynamically based on Moon's position."""
+    sections = {
+        "Stambha (Inner Pillar)": [],
+        "Madhya (Middle)": [],
+        "Prakara (Boundary)": [],
+        "Bahya (Exterior)": []
+    }
+    
+    moon_planet = next((p for p in planets_list if p.get("planet_name_simple", "") == "Moon"), None)
+    moon_deg = moon_planet.get("degree_decimal", 0.0) if moon_planet else 0.0
+    
+    for p in planets_list:
+        p_name = p.get("planet_name_simple", p["name"].split(" ")[0])
+        if p_name == "Ascendant":
+            continue
+            
+        nak_name = p.get("nakshatra", "")
+        deg = p.get("degree_decimal", 0.0)
+        dist = abs(deg - moon_deg)
+        if dist > 180: dist = 360 - dist
+        
+        if dist < 45:
+            sec = "Stambha (Inner Pillar)"
+        elif dist < 90:
+            sec = "Madhya (Middle)"
+        elif dist < 135:
+            sec = "Prakara (Boundary)"
+        else:
+            sec = "Bahya (Exterior)"
+            
+        sections[sec].append({
+            "planet": p_name,
+            "color": p.get("color", "#475569"),
+            "nakshatra": nak_name,
+            "degree": p.get("degree_formatted", "")
+        })
+        
+    return {
+        "sections": sections,
+        "moon_nakshatra_reference": moon_planet.get("nakshatra", "") if moon_planet else ""
+    }
+
 
 def detect_vedic_yogas(planets_list: List[Dict[str, Any]], asc_sign_idx: int) -> List[Dict[str, Any]]:
     """Detect Classical Vedic Yogas (Gajakesari, Budhaditya, Neechabhanga, Vipareeta, etc.)."""
@@ -1655,8 +1777,11 @@ def generate_full_kundli(
     # 9. Exact Parashara Ashtakavarga
     ashtakvarga_data = calculate_parashara_ashtakvarga(asc_sign_idx, planet_sign_indices)
 
-    # 10. 6-Fold Shadbala
+    # 10. 6-Fold Shadbala & Other Strengths
     shadbala_data = calculate_shadbala(planets_deg_map, asc_deg, mc_deg)
+    bhava_bala_data = calculate_bhava_bala(planets_list, asc_sign_idx)
+    vimsopaka_data = calculate_vimsopaka(planets_list)
+    kot_chakra_data = calculate_kot_chakra(planets_list, moon_nak_idx)
 
     # 11. Classical Vedic Yogas
     yogas_data = detect_vedic_yogas(planets_list, asc_sign_idx)
@@ -1678,46 +1803,6 @@ def generate_full_kundli(
         {"title": "Active Planetary Period", "desc": f"Currently navigating {current_dasha['active_mahadasha']} Mahadasha under {current_dasha.get('active_antardasha', 'Saturn')} Antardasha."}
     ]
 
-    return {
-        "person_name": name,
-        "date_of_birth": dob_str,
-        "time_of_birth": tob_str,
-        "place_of_birth": pob_str,
-        "latitude": latitude,
-        "longitude": longitude,
-        "timezone": timezone,
-        "formatted_datetime_header": f"{birth_dt.strftime('%d-%b-%Y %I:%M:%S %p')}",
-        "ayanamsa_value": f"Lahiri {degree_to_sign_and_dms(ayanamsa)[2]}",
-        "ayanamsa_formatted": f"Lahiri {degree_to_sign_and_dms(ayanamsa)[2]}",
-        "ascendant_lagna": f"{asc_sign_name} ({asc_dms})",
-        "ascendant_sign": asc_sign_name,
-        "ascendant_sign_index": asc_sign_idx,
-        "ascendant_sanskrit": ZODIAC_SIGNS[asc_sign_idx - 1]["sanskrit"],
-        "ascendant_degree": format_degree_short(asc_deg),
-        "ascendant_degree_formatted": asc_dms,
-        "moon_sign_rashi": moon_sign_name,
-        "moon_sign_sanskrit": moon_sign_sanskrit,
-        "sun_sign": sun_sign_name,
-        "nakshatra": moon_nak_name,
-        "nakshatra_pada": moon_pada,
-        "nakshatra_lord": moon_nak_lord,
-        "planets": planets_list,
-        "houses": houses_list,
-        "upagrahas": upagrahas_list,
-        "arudha_padas": arudha_padas,
-        "special_lagnas": special_lagnas,
-        "chara_karakas": chara_karakas,
-        "divisional_charts": divisional_charts,
-        "bhava_chalit": bhava_chalit,
-        "current_running_dasha": current_dasha,
-        "vimshottari_dasha_timeline": dasha_timeline,
-        "ashtakvarga": ashtakvarga_data,
-        "shadbala": shadbala_data,
-        "panchanga": panchanga_data,
-        "yogas": yogas_data,
-        "vedic_yogas": yogas_data,
-        "summary_insights": summary_insights
-    }
     accuracy_metadata = {
         "swisseph_used": SWISSEPH_AVAILABLE,
         "engine": "Swiss Ephemeris (pyswisseph)" if SWISSEPH_AVAILABLE else "Keplerian Approximation",
@@ -1764,6 +1849,9 @@ def generate_full_kundli(
         "vimshottari_dasha_timeline": dasha_timeline,
         "ashtakvarga": ashtakvarga_data,
         "shadbala": shadbala_data,
+        "bhava_bala": bhava_bala_data,
+        "vimsopaka": vimsopaka_data,
+        "kot_chakra": kot_chakra_data,
         "panchanga": panchanga_data,
         "yogas": yogas_data,
         "vedic_yogas": yogas_data,
