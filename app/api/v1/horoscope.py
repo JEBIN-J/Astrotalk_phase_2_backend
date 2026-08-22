@@ -108,16 +108,74 @@ def get_planets():
 
 @horoscope_bp.route("/dasha", methods=["POST"])
 def get_dasha():
-    """Retrieve 120-year Vimshottari Mahadasha timeline."""
+    """Retrieve Dynamic Dasha timeline."""
+    req_data = request.json or {}
+    dasha_type = req_data.get("dasha_type", "Vimshottari Dasha")
+    days_in_year = req_data.get("days_in_year", 365.256364)
+    
     data = parse_horoscope_data()
     result = generate_full_kundli(
         data["name"], data["date_of_birth"], data["time_of_birth"],
-        data["place_of_birth"], data["latitude"], data["longitude"], data["timezone"]
+        data["place_of_birth"], data["latitude"], data["longitude"], data["timezone"],
+        days_in_year
     )
-    resp = {
-        "current_running_dasha": result["current_running_dasha"],
-        "vimshottari_dasha_timeline": result["vimshottari_dasha_timeline"]
-    }
+    
+    if dasha_type == "Vimshottari Dasha":
+        resp = {
+            "current_running_dasha": result["current_running_dasha"],
+            "dasha_timeline": result["vimshottari_dasha_timeline"]
+        }
+    else:
+        from app.services.vedic_engine import calculate_advanced_dasha
+        from datetime import datetime
+        
+        moon_deg = 0.0
+        moon_nak_idx = 1
+        for p in result["planets"]:
+            if p["planet_name_simple"] == "Moon":
+                moon_deg = p["degree_decimal"]
+                moon_nak_idx = int(moon_deg / 13.333333) + 1
+                break
+                
+        dob_str = result["date_of_birth"]
+        tob_str = result["time_of_birth"]
+        dob = datetime.strptime(dob_str, "%Y-%m-%d")
+        tob_parts = [int(p) for p in tob_str.split(":")]
+        second_part = tob_parts[2] if len(tob_parts) > 2 else 0
+        birth_dt = datetime(dob.year, dob.month, dob.day, tob_parts[0], tob_parts[1], second_part)
+        
+        timeline = calculate_advanced_dasha(
+            dasha_type, moon_nak_idx, moon_deg, birth_dt, result["planets"], days_in_year
+        )
+        
+        active_dasha = None
+        for item in timeline:
+            if item.get("is_active"):
+                active_dasha = {
+                    "active_mahadasha": item.get("planet"),
+                    "active_antardasha": item.get("antardashas")[0]["planet"] if item.get("antardashas") else None,
+                    "start": item.get("start"),
+                    "end": item.get("end")
+                }
+                for ad in item.get("antardashas", []):
+                    if ad.get("is_active"):
+                        active_dasha["active_antardasha"] = ad.get("planet")
+                        break
+                break
+                
+        if not active_dasha and timeline:
+            active_dasha = {
+                "active_mahadasha": timeline[0]["planet"],
+                "active_antardasha": timeline[0]["antardashas"][0]["planet"] if timeline[0]["antardashas"] else None,
+                "start": timeline[0]["start"],
+                "end": timeline[0]["end"]
+            }
+            
+        resp = {
+            "current_running_dasha": active_dasha,
+            "dasha_timeline": timeline
+        }
+        
     return jsonify(remove_hindi_text(resp))
 
 @horoscope_bp.route("/ashtakvarga", methods=["POST"])
