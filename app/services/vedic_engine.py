@@ -800,6 +800,33 @@ def calculate_varga_sign(degree: float, varga_num: int, d1_sign_idx: int) -> int
         else:
             return ((d1_sign_idx - 1 + 8 + part) % 12) + 1  # Starts 9th from sign
             
+    elif varga_num == 5:  # D-5 Panchamsha (6° divisions)
+        part = int(deg_in_sign / 6.0)  # 0..4
+        start = 1 if d1_sign_idx % 2 != 0 else 2
+        return ((start - 1 + part) % 12) + 1
+        
+    elif varga_num == 6:  # D-6 Shashtamsha (5° divisions)
+        part = int(deg_in_sign / 5.0)  # 0..5
+        start = d1_sign_idx if d1_sign_idx % 2 != 0 else d1_sign_idx + 6
+        return ((start - 1 + part) % 12) + 1
+        
+    elif varga_num == 8:  # D-8 Ashtamsha (3°45' divisions)
+        part = int(deg_in_sign / 3.75)  # 0..7
+        if d1_sign_idx in [1, 4, 7, 10]:
+            start = d1_sign_idx
+        elif d1_sign_idx in [2, 5, 8, 11]:
+            start = d1_sign_idx + 8
+        else:
+            start = d1_sign_idx + 4
+        return ((start - 1 + part) % 12) + 1
+        
+    elif varga_num == 11:  # D-11 Ekadashamsha / Rudramsha (2°43'38" divisions)
+        part = int(deg_in_sign / (30.0 / 11.0))  # 0..10
+        if d1_sign_idx % 2 != 0:
+            return ((1 - 1 - part) % 12) + 1
+        else:
+            return ((1 - 1 + part) % 12) + 1
+            
     elif varga_num == 12:  # D-12 Dwadasamsha (2°30' divisions)
         part = int(deg_in_sign / 2.5)  # 0..11
         return ((d1_sign_idx - 1 + part) % 12) + 1
@@ -866,6 +893,21 @@ def calculate_varga_sign(degree: float, varga_num: int, d1_sign_idx: int) -> int
             else:
                 return 8   # Mars (Scorpio)
                 
+    elif varga_num == 40:  # D-40 Khavedamsha (0°45' = 0.75° divisions)
+        part = int(deg_in_sign / 0.75)  # 0..39
+        start = 1 if (d1_sign_idx % 2 != 0) else 7
+        return ((start - 1 + part) % 12) + 1
+        
+    elif varga_num == 45:  # D-45 Akshavedamsha (0°40' = 0.6666° divisions)
+        part = int(deg_in_sign / (30.0 / 45.0))  # 0..44
+        if d1_sign_idx in [1, 4, 7, 10]:
+            start = 1
+        elif d1_sign_idx in [2, 5, 8, 11]:
+            start = 5
+        else:
+            start = 9
+        return ((start - 1 + part) % 12) + 1
+        
     elif varga_num == 60:  # D-60 Shashtiamsha (0°30' = 0.5° divisions)
         part = int(deg_in_sign / 0.5)  # 0..59
         return ((d1_sign_idx - 1 + part) % 12) + 1
@@ -880,15 +922,21 @@ def calculate_all_divisional_charts(planets_list: List[Dict[str, Any]], asc_deg:
         ("D-2", "Hora", "Wealth, Assets, Prosperity & Speech", 2),
         ("D-3", "Drekkana", "Siblings, Courage, Vitality & Energy", 3),
         ("D-4", "Chaturthamsha", "Fixed Assets, Land, Real Estate & Destiny", 4),
+        ("D-5", "Panchamsha", "Spiritual Merit, Past-Life Devotion", 5),
+        ("D-6", "Shashtamsha", "Physical Health, Chronic Illnesses, Enemies", 6),
         ("D-7", "Saptamsha", "Children, Progeny, Legacy & Creativity", 7),
+        ("D-8", "Ashtamsha", "Longevity, Transformation, Sudden Events", 8),
         ("D-9", "Navamsha", "Dharma, Marriage, Spouse & Inner Potential", 9),
         ("D-10", "Dasamsha", "Career, Profession, Karma & Public Status", 10),
+        ("D-11", "Ekadashamsha", "Gains, Financial Scaling, Fulfillment of Desires", 11),
         ("D-12", "Dwadasamsha", "Parents, Lineage, Ancestral Karma & Roots", 12),
         ("D-16", "Shodashamsha", "Vehicles, Conveyances, Pleasures & Comforts", 16),
         ("D-20", "Vimsamsha", "Spiritual Growth, Devotion, Upasana & Sadhana", 20),
         ("D-24", "Chaturvimsamsha", "Higher Learning, Wisdom, Intellect & Knowledge", 24),
         ("D-27", "Saptavimsamsha", "Strengths, Subconscious Powers & General Auspiciousness", 27),
         ("D-30", "Trimshamsha", "Misfortunes, Karmic Debts, Health & Arishta", 30),
+        ("D-40", "Khavedamsha", "Auspicious & Inauspicious Effects, Ancestral Legacy", 40),
+        ("D-45", "Akshavedamsha", "General Character, Conduct & Overall Life", 45),
         ("D-60", "Shashtiamsha", "Past Life Samskaras, Root Karma & Ultimate Destiny", 60),
     ]
 
@@ -993,7 +1041,8 @@ def calculate_vimshottari_dasha(
     moon_nak_idx: int,
     moon_deg: float,
     birth_date: datetime,
-    days_in_year: float = 365.256364
+    days_in_year: float = 365.256364,
+    scale: float = 1.0
 ) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
     """Calculate exact 120-Year Vimshottari Mahadasha + Antardashas timeline from Moon Nakshatra."""
     vims_years = {
@@ -1008,7 +1057,7 @@ def calculate_vimshottari_dasha(
     first_lord = NAKSHATRAS[moon_nak_idx - 1]["lord"]
     start_seq_idx = VIMSHOTTARI_SEQUENCE.index(first_lord)
     
-    first_lord_total_years = vims_years[first_lord]
+    first_lord_total_years = vims_years[first_lord] * scale
     balance_years = first_lord_total_years * (1.0 - fraction_elapsed)
     
     timeline = []
@@ -1018,7 +1067,7 @@ def calculate_vimshottari_dasha(
     
     for i in range(len(VIMSHOTTARI_SEQUENCE)):
         p_name = VIMSHOTTARI_SEQUENCE[(start_seq_idx + i) % len(VIMSHOTTARI_SEQUENCE)]
-        p_years = balance_years if i == 0 else vims_years[p_name]
+        p_years = balance_years if i == 0 else (vims_years[p_name] * scale)
         d_end = current_start + timedelta(days=p_years * days_in_year)
         
         is_active = current_start <= now < d_end
@@ -1031,7 +1080,7 @@ def calculate_vimshottari_dasha(
         
         for j in range(len(VIMSHOTTARI_SEQUENCE)):
             ad_p_name = VIMSHOTTARI_SEQUENCE[(ad_seq_start + j) % len(VIMSHOTTARI_SEQUENCE)]
-            ad_years = (vims_years[p_name] * vims_years[ad_p_name]) / 120.0
+            ad_years = (vims_years[p_name] * vims_years[ad_p_name] * scale) / 120.0
             if i == 0:
                 ad_years *= (balance_years / first_lord_total_years)
                 
@@ -1297,50 +1346,61 @@ def calculate_advanced_dasha(
             for k, v in p_map.items():
                 if k in dasha_type:
                     for p in planets_list:
-                        if p['name'] == v:
-                            start_deg = p['degree']
+                        p_name_check = p.get('planet_name_simple', p['name'].split(" ")[0])
+                        if p_name_check == v:
+                            start_deg = p.get('degree_decimal', 0.0)
                             break
                     break
         elif "D9-" in dasha_type or "D10-" in dasha_type:
-            # We will approximate the D9/D10 degrees based on D1 degree since full varga engine degrees aren't individually returned in planets_list easily here.
-            # D9 degree = (D1 degree * 9) % 360
-            # D10 degree = (D1 degree * 10) % 360
             v_mult = 9 if "D9-" in dasha_type else 10
             p_map = {"Sun": "Sun", "Mars": "Mars", "Mercury": "Mercury", "Jupiter": "Jupiter", "Venus": "Venus", "Saturn": "Saturn", "Rahu": "Rahu", "Ketu": "Ketu", "Lagna": "Ascendant"}
             for k, v in p_map.items():
                 if k in dasha_type:
                     for p in planets_list:
-                        if p['name'] == v:
-                            start_deg = (p['degree'] * v_mult) % 360
+                        p_name_check = p.get('planet_name_simple', p['name'].split(" ")[0])
+                        if p_name_check == v:
+                            start_deg = (p.get('degree_decimal', 0.0) * v_mult) % 360
                             break
                     break
                     
         # Calculate start nakshatra for the start_deg
         start_nak_idx = int(start_deg / 13.333333) + 1
         
-        _, timeline = calculate_vimshottari_dasha(start_nak_idx, start_deg, birth_date, days_in_year)
-        
-        if scale != 1.0:
-            # Scale all durations
-            # Since this requires rewriting the timeline dates, it's easier to just call it again with scale if we supported it. 
-            # We'll return the standard for now if Tribhagi is too complex to scale date strings, but we can do a simplified string modification.
-            pass
-            
+        _, timeline = calculate_vimshottari_dasha(start_nak_idx, start_deg, birth_date, days_in_year, scale)
         return timeline
         
     elif dasha_type == "Chara Dasha (KN Rao)":
-        # Simplified Chara Dasha (approximate sequence of signs)
         signs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
+        lords = ["Mars", "Venus", "Mercury", "Moon", "Sun", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Saturn", "Jupiter"]
+        
+        planet_sign_idx = {}
+        for p in planets_list:
+            planet_sign_idx[p.get("planet_name_simple", p["name"].split(" ")[0])] = p.get("sign_index", 1)
+            
         timeline = []
         curr = birth_date
         now = datetime.now()
         for i in range(12):
-            dur = 7 # Approx 7 years each
+            sign_name = signs[i]
+            lord_name = lords[i]
+            sign_idx = i + 1
+            lord_idx = planet_sign_idx.get(lord_name, 1)
+            
+            if sign_idx == lord_idx:
+                dur = 12
+            else:
+                if sign_idx in [1, 2, 3, 7, 8, 9]: # Direct
+                    dur = ((lord_idx - sign_idx) % 12)
+                else: # Indirect
+                    dur = ((sign_idx - lord_idx) % 12)
+                if dur == 0: dur = 12
+                
             end = curr + timedelta(days=dur*days_in_year)
             timeline.append({
-                "planet": signs[i],
+                "planet": sign_name,
                 "start": curr.strftime("%d %b %Y"),
                 "end": end.strftime("%d %b %Y"),
+                "duration_years": dur,
                 "is_active": curr <= now < end,
                 "is_completed": end <= now,
                 "antardashas": []
@@ -1358,6 +1418,50 @@ def calculate_advanced_dasha(
 # =========================================================================
 # 6. ASHTAKAVARGA, SHADBALA & YOGAS ENGINES
 # =========================================================================
+
+def apply_trikona_shodhana(bindus):
+    groups = [[0, 4, 8], [1, 5, 9], [2, 6, 10], [3, 7, 11]]
+    reduced = list(bindus)
+    for group in groups:
+        min_val = min(reduced[i] for i in group)
+        if min_val > 0:
+            for i in group:
+                reduced[i] -= min_val
+    return reduced
+
+def apply_ekadhipatya_shodhana(bindus, planet_occupancy):
+    pairs = [(0, 7), (1, 6), (2, 5), (8, 11), (9, 10)]
+    reduced = list(bindus)
+    for s1, s2 in pairs:
+        has_p1 = planet_occupancy[s1]
+        has_p2 = planet_occupancy[s2]
+        
+        if has_p1 and has_p2:
+            continue
+        elif not has_p1 and not has_p2:
+            val1, val2 = reduced[s1], reduced[s2]
+            if val1 != val2:
+                reduced[s1] = reduced[s2] = min(val1, val2)
+            else:
+                reduced[s1] = reduced[s2] = 0
+        else:
+            sign_with_p, sign_without_p = (s1, s2) if has_p1 else (s2, s1)
+            val_with_p, val_without_p = reduced[sign_with_p], reduced[sign_without_p]
+            if val_without_p > val_with_p:
+                reduced[sign_without_p] = val_with_p
+    return reduced
+
+def calculate_shodhya_pinda(reduced_bindus, planet_positions):
+    rashi_mults = [7, 10, 8, 4, 10, 5, 7, 8, 9, 5, 11, 12]
+    graha_mults = {"Sun": 5, "Moon": 5, "Mars": 8, "Mercury": 5, "Jupiter": 10, "Venus": 7, "Saturn": 5}
+    rashi_pinda = sum(reduced_bindus[i] * rashi_mults[i] for i in range(12))
+    graha_pinda = 0
+    for p_name, p_sign in planet_positions.items():
+        if p_name != "Lagna" and p_name in graha_mults:
+            idx = p_sign - 1
+            graha_pinda += reduced_bindus[idx] * graha_mults[p_name]
+    return rashi_pinda + graha_pinda
+
 def calculate_parashara_ashtakvarga(lagna_sign_idx: int, planet_sign_indices: Dict[str, int]) -> Dict[str, Any]:
     """Calculate Classical Parashara Bhinnashtakavarga (BAV) & Sarvashtakavarga (SAV - 337 Bindus)."""
     bav_rules = {
@@ -1414,11 +1518,13 @@ def calculate_parashara_ashtakvarga(lagna_sign_idx: int, planet_sign_indices: Di
 
     for planet, sources in bav_rules.items():
         for src_name, houses in sources.items():
-            src_sign = positions[src_name]
-            for h in houses:
-                target_sign_idx = ((src_sign - 1 + (h - 1)) % 12)
-                bav_matrix[planet][target_sign_idx] += 1
-                sav_sign_points[target_sign_idx] += 1
+            src_pos = positions.get(src_name)
+            if src_pos:
+                for h in houses:
+                    target_sign_idx = ((src_pos - 1 + (h - 1)) % 12)
+                    bav_matrix[planet][target_sign_idx] += 1
+                    if planet != "Lagna":
+                        sav_sign_points[target_sign_idx] += 1
 
     houses_sav = []
     sign_points_dict = {}
@@ -1440,13 +1546,44 @@ def calculate_parashara_ashtakvarga(lagna_sign_idx: int, planet_sign_indices: Di
 
     houses_sav.sort(key=lambda x: x["house_number"])
 
+    # Calculate planet occupancy array (0-11)
+    planet_occupancy = [False] * 12
+    for p, pos in positions.items():
+        if p != "Lagna":
+            planet_occupancy[pos - 1] = True
+            
+    # Calculate advanced reductions
+    bav_trikona = {}
+    bav_ekadhipatya = {}
+    shodhya_pinda = {}
+    
+    for planet, bindus in bav_matrix.items():
+        trikona = apply_trikona_shodhana(bindus)
+        bav_trikona[planet] = trikona
+        
+        ekadhipatya = apply_ekadhipatya_shodhana(trikona, planet_occupancy)
+        bav_ekadhipatya[planet] = ekadhipatya
+        
+        pinda = calculate_shodhya_pinda(ekadhipatya, positions)
+        shodhya_pinda[planet] = pinda
+        
+    # Calculate SAV reductions by summing BAV reductions
+    sav_trikona = [sum(bav_trikona[p][i] for p in bav_trikona) for i in range(12)]
+    sav_ekadhipatya = [sum(bav_ekadhipatya[p][i] for p in bav_ekadhipatya) for i in range(12)]
+
     return {
         "total_sav_points": sum(sav_sign_points),
         "average_points": round(sum(sav_sign_points) / 12.0, 1),
         "ideal_threshold": 28,
         "sign_points": sign_points_dict,
         "houses": houses_sav,
-        "bav_matrix": bav_matrix
+        "bav_matrix": bav_matrix,
+        "bav_trikona": bav_trikona,
+        "bav_ekadhipatya": bav_ekadhipatya,
+        "shodhya_pinda": shodhya_pinda,
+        "sav_trikona": sav_trikona,
+        "sav_ekadhipatya": sav_ekadhipatya,
+        "sav_points": sav_sign_points
     }
 
 
@@ -2225,8 +2362,12 @@ def generate_full_kundli(
     # 8. Exact Vimshottari Mahadasha + Antardashas
     current_dasha, dasha_timeline = calculate_vimshottari_dasha(moon_nak_idx, moon_deg, birth_dt, days_in_year)
 
-    # 9. Exact Parashara Ashtakavarga
-    ashtakvarga_data = calculate_parashara_ashtakvarga(asc_sign_idx, planet_sign_indices)
+    # 9. Exact Parashara Ashtakavarga for all Divisional Charts
+    ashtakvarga_data = {}
+    for code, d_chart in divisional_charts.items():
+        d_asc_sign_idx = d_chart["ascendant_sign_index"]
+        d_planet_sign_indices = {p["planet"]: p["sign_index"] for p in d_chart["planets"]}
+        ashtakvarga_data[code] = calculate_parashara_ashtakvarga(d_asc_sign_idx, d_planet_sign_indices)
 
     # 10. 6-Fold Shadbala & Other Strengths
     shadbala_data = calculate_shadbala(planets_deg_map, asc_deg, mc_deg)

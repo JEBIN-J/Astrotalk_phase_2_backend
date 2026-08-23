@@ -18,7 +18,7 @@ def create_app(config_class=config) -> Flask:
     app.config.from_object(config_class)
 
     # Enable CORS for Flutter mobile, web and desktop clients
-    CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
+    CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
     # Request timer middleware
     @app.before_request

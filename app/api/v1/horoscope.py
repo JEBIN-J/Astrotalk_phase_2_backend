@@ -116,7 +116,11 @@ def get_dasha():
     """Retrieve Dynamic Dasha timeline."""
     req_data = request.json or {}
     dasha_type = req_data.get("dasha_type", "Vimshottari Dasha")
-    days_in_year = req_data.get("days_in_year", 365.256364)
+    days_in_year = float(req_data.get("days_in_year", 365.256364))
+    
+    # DEBUG: Log what the app is sending
+    import logging
+    logging.warning(f"[DASHA API] Received: name={req_data.get('name')}, dob={req_data.get('date_of_birth')}, tob={req_data.get('time_of_birth')}, lat={req_data.get('latitude')}, lon={req_data.get('longitude')}, tz={req_data.get('timezone')}, dasha_type={dasha_type}")
     
     data = parse_horoscope_data()
     result = generate_full_kundli(
@@ -126,9 +130,12 @@ def get_dasha():
     )
     
     if dasha_type == "Vimshottari Dasha":
+        timeline = result["vimshottari_dasha_timeline"]
+        # Enrich: add Pratyantardasha (Prati) inside each Antardasha
+        _add_pratyantardasha(timeline, dasha_type, days_in_year)
         resp = {
             "current_running_dasha": result["current_running_dasha"],
-            "dasha_timeline": result["vimshottari_dasha_timeline"]
+            "dasha_timeline": timeline
         }
     else:
         from app.services.vedic_engine import calculate_advanced_dasha
@@ -152,6 +159,9 @@ def get_dasha():
         timeline = calculate_advanced_dasha(
             dasha_type, moon_nak_idx, moon_deg, birth_dt, result["planets"], days_in_year
         )
+        
+        # Enrich: add Pratyantardasha for advanced dashas too
+        _add_pratyantardasha(timeline, dasha_type, days_in_year)
         
         active_dasha = None
         for item in timeline:
@@ -182,6 +192,83 @@ def get_dasha():
         }
         
     return jsonify(remove_hindi_text(resp))
+
+
+def _add_pratyantardasha(timeline: list, dasha_type: str, days_in_year: float = 365.256364):
+    """Adds Pratyantardasha periods inside each Antardasha for full 3-level calculation."""
+    from datetime import datetime, timedelta
+    
+    if "Chara Dasha" in dasha_type:
+        return # Skip for Chara Dasha as it requires complex Jaimini forward/reverse sub-sub calculation
+        
+    if "Ashtottari" in dasha_type:
+        years_map = {"Sun": 6, "Moon": 15, "Mars": 8, "Mercury": 17, "Saturn": 10, "Jupiter": 19, "Rahu": 12, "Venus": 21}
+        sequence = ["Sun", "Moon", "Mars", "Mercury", "Saturn", "Jupiter", "Rahu", "Venus"]
+        total_cycle = 108.0
+    elif "Yogini" in dasha_type:
+        years_map = {"Mangala": 1, "Pingala": 2, "Dhanya": 3, "Bhramari": 4, "Bhadrika": 5, "Ulka": 6, "Siddha": 7, "Sankata": 8}
+        sequence = ["Mangala", "Pingala", "Dhanya", "Bhramari", "Bhadrika", "Ulka", "Siddha", "Sankata"]
+        total_cycle = 36.0
+    else: # Vimshottari (including Tribhagi and all D1/D9 variants)
+        years_map = {"Ketu": 7, "Venus": 20, "Sun": 6, "Moon": 10, "Mars": 7, "Rahu": 18, "Jupiter": 16, "Saturn": 19, "Mercury": 17}
+        sequence = ["Ketu", "Venus", "Sun", "Moon", "Mars", "Rahu", "Jupiter", "Saturn", "Mercury"]
+        total_cycle = 120.0
+        
+    now = datetime.now()
+    
+    for maha in timeline:
+        maha_planet = maha.get("planet", "")
+        # For Tribhagi, the actual mahadasha years are divided by 3, but the proportions stay identical.
+        # We can just extract the total days of the Antardasha directly from dates!
+        
+        for antara in maha.get("antardashas", []):
+            ad_planet = antara.get("planet", "")
+            
+            # Parse antara start/end dates
+            try:
+                ad_start = datetime.strptime(antara["start"], "%d %b %Y")
+                ad_end   = datetime.strptime(antara["end"],   "%d %b %Y")
+            except Exception:
+                antara["pratyantardashas"] = []
+                continue
+                
+            ad_total_days = (ad_end - ad_start).total_seconds() / 86400.0
+            
+            try:
+                prati_seq_start = sequence.index(ad_planet)
+            except ValueError:
+                # If planet not found in sequence, skip
+                antara["pratyantardashas"] = []
+                continue
+                
+            prati_start = ad_start
+            pratis = []
+            
+            seq_len = len(sequence)
+            for k in range(seq_len):
+                prati_planet = sequence[(prati_seq_start + k) % seq_len]
+                # Proportion of this planet in the cycle
+                proportion = years_map.get(prati_planet, 0) / total_cycle
+                prati_days = ad_total_days * proportion
+                
+                prati_end = prati_start + timedelta(days=prati_days)
+                
+                # To avoid rounding drift on the very last item, just pin it to ad_end
+                if k == seq_len - 1:
+                    prati_end = ad_end
+                    
+                is_active = prati_start <= now < prati_end
+                pratis.append({
+                    "planet": prati_planet,
+                    "start": prati_start.strftime("%d %b %Y"),
+                    "end": prati_end.strftime("%d %b %Y"),
+                    "duration_days": round((prati_end - prati_start).days, 0),
+                    "is_active": is_active
+                })
+                prati_start = prati_end
+            
+            antara["pratyantardashas"] = pratis
+
 
 @horoscope_bp.route("/ashtakvarga", methods=["POST"])
 def get_ashtakvarga():
