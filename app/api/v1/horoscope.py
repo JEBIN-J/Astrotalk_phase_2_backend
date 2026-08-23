@@ -17,7 +17,9 @@ def parse_horoscope_data():
         "place_of_birth": data.get("place_of_birth", "New Delhi, India"),
         "latitude": float(data.get("latitude", 28.6139)),
         "longitude": float(data.get("longitude", 77.2090)),
-        "timezone": float(data.get("timezone", 5.5))
+        "timezone": float(data.get("timezone", 5.5)),
+        "days_in_year": float(data.get("days_in_year", 365.256364)),
+        "bhava_system": data.get("bhava_system", "Porphyry (Sripathi)")
     }
 
 import re
@@ -70,9 +72,12 @@ def get_lal_kitab():
 def get_kundli():
     """Calculate full Janam Kundli with planets, dasha, and SAV."""
     data = parse_horoscope_data()
+    days_in_year = data.get("days_in_year", 365.256364)
+    bhava_system = data.get("bhava_system", "Porphyry (Sripathi)")
     result = generate_full_kundli(
         data["name"], data["date_of_birth"], data["time_of_birth"],
-        data["place_of_birth"], data["latitude"], data["longitude"], data["timezone"]
+        data["place_of_birth"], data["latitude"], data["longitude"], data["timezone"],
+        days_in_year, bhava_system
     )
     result = remove_hindi_text(result)
     return jsonify(result)

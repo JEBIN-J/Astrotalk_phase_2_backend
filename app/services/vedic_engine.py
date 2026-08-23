@@ -1645,7 +1645,20 @@ def calculate_shadbala(planets_deg: Dict[str, float], asc_deg: float, mc_deg: fl
         
     return shadbala_list
 
-def calculate_bhava_bala(planets_list: List[Dict[str, Any]], asc_sign_idx: int, shadbala_data: List[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+def calculate_bhava_bala(
+    planets_list: List[Dict[str, Any]], 
+    asc_sign_idx: int, 
+    shadbala_data: List[Dict[str, Any]] = None,
+    bhava_system: str = "Porphyry (Sripathi)",
+    jd: float = None,
+    lat: float = None,
+    lon: float = None,
+    ayanamsa: float = None,
+    asc_deg: float = None,
+    mc_deg: float = None,
+    sun_deg: float = None,
+    moon_deg: float = None
+) -> List[Dict[str, Any]]:
     """Generate Bhava Bala (House Strength) based on planetary positions, houses, and true planetary shadbalas."""
     bhava_bala = []
     
@@ -1654,45 +1667,116 @@ def calculate_bhava_bala(planets_list: List[Dict[str, Any]], asc_sign_idx: int, 
     if shadbala_data:
         shadbala_by_planet = {item["planet"]: item for item in shadbala_data}
         
+    # Calculate house cusps / madhyas dynamically
+    sidereal_cusps = []
+    if jd is not None and SWISSEPH_AVAILABLE and swe:
+        h_sys = b'O'
+        if "Equal" in bhava_system: h_sys = b'E'
+        elif "Placidus" in bhava_system or "KP" in bhava_system: h_sys = b'P'
+        elif "Sripati" in bhava_system or "Porphyry" in bhava_system: h_sys = b'O'
+        
+        try:
+            tropical_cusps, _ = swe.houses(jd, lat, lon, h_sys)
+            sidereal_cusps = [(c - ayanamsa) % 360.0 for c in tropical_cusps]
+        except Exception:
+            sidereal_cusps = []
+            
+    # Fallback to simple equal houses if calculation fails
+    if not sidereal_cusps or len(sidereal_cusps) < 12:
+        base_deg = asc_deg if asc_deg is not None else (asc_sign_idx - 1) * 30.0 + 15.0
+        sidereal_cusps = [(base_deg + (i * 30.0)) % 360.0 for i in range(12)]
+        
+    # Helper to calculate Drig Bala aspect (Virupas)
+    def calc_aspect(p_deg, target_deg, p_name):
+        A = (target_deg - p_deg) % 360.0
+        V = 0.0
+        if 30 <= A < 60: V = (A - 30) / 2
+        elif 60 <= A < 90: V = (A - 60) + 15
+        elif 90 <= A < 120: V = (120 - A) / 2 + 30
+        elif 120 <= A < 150: V = 150 - A
+        elif 150 <= A < 180: V = (A - 150) * 2
+        
+        if p_name == "Mars":
+            if 90 <= A < 120: V = max(V, (A - 90) * 2)
+            elif 210 <= A < 240: V = max(V, (A - 210) * 2)
+        elif p_name == "Jupiter":
+            if 120 <= A < 150: V = max(V, (A - 120) * 2)
+            elif 240 <= A < 270: V = max(V, (A - 240) * 2)
+        elif p_name == "Saturn":
+            if 60 <= A < 90: V = max(V, (A - 60) * 2)
+            elif 270 <= A < 300: V = max(V, (A - 270) * 2)
+        return min(V, 60.0)
+        
+    # Moon phase for benefic/malefic
+    moon_dist = ((moon_deg or 0.0) - (sun_deg or 0.0)) % 360.0
+    moon_is_benefic = 72.0 <= moon_dist <= 288.0
+    
     for house in range(1, 13):
-        sign_idx = ((asc_sign_idx + house - 2) % 12) + 1
+        # 1. Bhava Madhya / Cusp Degree
+        cusp_degree = sidereal_cusps[house - 1]
+        
+        # 2. Dynamic Sign and Adhipati
+        sign_idx = int(cusp_degree // 30) + 1
         sign_name = ZODIAC_SIGNS[sign_idx - 1]["name"]
         sign_lord = ZODIAC_SIGNS[sign_idx - 1]["lord"]
-        
-        # 1. Adhipati (Lord) name
         adhipati = sign_lord
         
-        # 2. Adhipati Bala (Dynamic Lord Shadbala value in Virupas fetched from calculated Shadbala engine)
+        # 3. Adhipati Bala (Lord Shadbala value)
         lord_shad = shadbala_by_planet.get(sign_lord)
         if lord_shad:
             adhipati_bala = round(lord_shad.get("total_virupas", 350.0), 2)
         else:
             adhipati_bala = 350.0
             
-        # 3. Dig Bala (Standard house based Dig Bala)
-        # Houses 1, 4, 7, 10 have strong directional strengths
-        if house == 1: dig_bala = 30.0
-        elif house == 2: dig_bala = 50.0
-        elif house == 3: dig_bala = 50.0
-        elif house == 4: dig_bala = 0.0
-        elif house == 5: dig_bala = 10.0
-        elif house == 6: dig_bala = 10.0
-        elif house == 7: dig_bala = 30.0
-        elif house == 8: dig_bala = 40.0
-        elif house == 9: dig_bala = 20.0
-        elif house == 10: dig_bala = 30.0
-        elif house == 11: dig_bala = 20.0
-        else: dig_bala = 50.0
+        # 4. Dig Bala dynamically based on Sign Category
+        degree_in_sign = cusp_degree % 30.0
         
-        # 4. Drig Bala (Aspect strength)
-        # We base this on the house number to generate a realistic distinct pattern
-        drig_bala_map = {
-            1: 40.18, 2: 88.06, 3: 77.53, 4: 78.03, 5: 19.65, 6: -1.14,
-            7: 3.02, 8: 0.52, 9: -2.12, 10: 48.16, 11: 54.85, 12: 40.69
-        }
-        drig_bala = drig_bala_map.get(house, 30.0)
+        cat = "Nara"
+        if sign_name in ["Gemini", "Virgo", "Libra", "Aquarius"]: cat = "Nara"
+        elif sign_name in ["Aries", "Taurus", "Leo"]: cat = "Chatushpada"
+        elif sign_name in ["Cancer", "Pisces"]: cat = "Jalachara"
+        elif sign_name == "Scorpio": cat = "Keeta"
+        elif sign_name == "Sagittarius": cat = "Nara" if degree_in_sign < 15 else "Chatushpada"
+        elif sign_name == "Capricorn": cat = "Chatushpada" if degree_in_sign < 15 else "Jalachara"
         
-        # Total Bhava Bala (Sum of Adhipati, Dig, and Drig)
+        lagna_deg = asc_deg if asc_deg is not None else sidereal_cusps[0]
+        mc_d = mc_deg if mc_deg is not None else (lagna_deg - 90) % 360.0
+        ic_deg = (mc_d + 180.0) % 360.0
+        desc_deg = (lagna_deg + 180.0) % 360.0
+        
+        if cat == "Nara": weak_pt = desc_deg
+        elif cat == "Chatushpada": weak_pt = ic_deg
+        elif cat == "Jalachara": weak_pt = mc_d
+        elif cat == "Keeta": weak_pt = lagna_deg
+        else: weak_pt = desc_deg
+            
+        dist_weak = abs(cusp_degree - weak_pt)
+        if dist_weak > 180.0: dist_weak = 360.0 - dist_weak
+        
+        # Max Digbala is 60 virupas at the strongest point (180 deg from weakest)
+        dig_bala = round(dist_weak / 3.0, 2)
+            
+        # 5. Drig Bala (Aspect strength) dynamically
+        drig_bala_virupas = 0.0
+        for p in planets_list:
+            p_name = p.get("planet_name_simple")
+            if p_name in ["Ascendant", "Rahu", "Ketu", "Lagna"]: continue
+            
+            p_deg = p.get("degree_decimal", 0.0)
+            aspect_val = calc_aspect(p_deg, cusp_degree, p_name)
+            
+            is_benefic = False
+            if p_name in ["Jupiter", "Venus", "Mercury"]: is_benefic = True
+            elif p_name == "Moon" and moon_is_benefic: is_benefic = True
+            
+            if is_benefic:
+                drig_bala_virupas += (aspect_val / 4.0)
+            else:
+                drig_bala_virupas -= (aspect_val / 4.0)
+                
+        drig_bala = round(drig_bala_virupas, 2)
+        
+        # 6. Total Bhava Bala (Sum of Adhipati, Dig, and Drig)
         total_virupas = adhipati_bala + dig_bala + drig_bala
         total_rupas = round(total_virupas / 60.0, 2)
         
@@ -1703,7 +1787,7 @@ def calculate_bhava_bala(planets_list: List[Dict[str, Any]], asc_sign_idx: int, 
             "adhipati_bala": adhipati_bala,
             "dig_bala": dig_bala,
             "drig_bala": drig_bala,
-            "strength": total_rupas, # Expressed in Rupas for the chart scale (e.g. 7.79, 10.82)
+            "strength": total_rupas,
             "rupas": total_rupas,
             "rank": 0
         })
@@ -1718,41 +1802,103 @@ def calculate_bhava_bala(planets_list: List[Dict[str, Any]], asc_sign_idx: int, 
     return bhava_bala
 
 
-def calculate_vimsopaka(planets_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Generate Vimsopaka Bala (20-point scale strength)."""
-    vimsopaka = []
-    for p in planets_list:
-        p_name = p.get("planet_name_simple", p["name"].split(" ")[0])
-        if p_name == "Ascendant" or p_name == "Rahu" or p_name == "Ketu":
-            if p_name == "Ascendant": continue
-            # Rahu/Ketu can have it too, but traditionally it's main 7. We'll include them if they have dignity.
-            
-        dignity = p.get("dignity", "")
-        if "Exalted" in dignity:
-            score = 18.0 + (hash(p_name) % 20) / 10.0
-        elif "Moola" in dignity or "Own" in dignity:
-            score = 15.0 + (hash(p_name) % 20) / 10.0
-        elif "Friend" in dignity:
-            score = 12.0 + (hash(p_name) % 20) / 10.0
-        elif "Debil" in dignity:
-            score = 5.0 + (hash(p_name) % 20) / 10.0
-        else:
-            score = 9.0 + (hash(p_name) % 20) / 10.0
-            
-        vimsopaka.append({
-            "planet": p_name,
-            "color": p.get("color", "#475569"),
-            "score": round(score, 2),
-            "max": 20.0,
-            "percentage": round((score / 20.0) * 100, 1),
-            "rank": 0
-        })
+def get_natural_relationship(p1: str, p2: str) -> int:
+    rels = {
+        "Sun": {"Moon": 1, "Mars": 1, "Jupiter": 1, "Venus": -1, "Saturn": -1, "Mercury": 0},
+        "Moon": {"Sun": 1, "Mercury": 1, "Mars": 0, "Jupiter": 0, "Venus": 0, "Saturn": 0},
+        "Mars": {"Sun": 1, "Moon": 1, "Jupiter": 1, "Mercury": -1, "Venus": 0, "Saturn": 0},
+        "Mercury": {"Sun": 1, "Venus": 1, "Moon": -1, "Mars": 0, "Jupiter": 0, "Saturn": 0},
+        "Jupiter": {"Sun": 1, "Moon": 1, "Mars": 1, "Mercury": -1, "Venus": -1, "Saturn": 0},
+        "Venus": {"Mercury": 1, "Saturn": 1, "Sun": -1, "Moon": -1, "Mars": 0, "Jupiter": 0},
+        "Saturn": {"Mercury": 1, "Venus": 1, "Sun": -1, "Moon": -1, "Mars": -1, "Jupiter": 0},
+    }
+    return rels.get(p1, {}).get(p2, 0)
+
+def get_temporal_relationship(p1_sign: int, p2_sign: int) -> int:
+    if p1_sign == p2_sign: return -1
+    dist = ((p2_sign - p1_sign) % 12) + 1
+    if dist in [2, 3, 4, 10, 11, 12]:
+        return 1
+    return -1
+
+def get_vimsopaka_points(planet: str, sign: int, d1_positions: dict, current_varga_positions: dict, is_rashi_base: bool) -> float:
+    own_signs = {"Sun": [5], "Moon": [4], "Mars": [1, 8], "Mercury": [3, 6], "Jupiter": [9, 12], "Venus": [2, 7], "Saturn": [10, 11]}
+    exaltation = {"Sun": 1, "Moon": 2, "Mars": 10, "Mercury": 6, "Jupiter": 4, "Venus": 12, "Saturn": 7}
+    debilitation = {"Sun": 7, "Moon": 8, "Mars": 4, "Mercury": 12, "Jupiter": 10, "Venus": 6, "Saturn": 1}
+    
+    if sign in own_signs.get(planet, []) or sign == exaltation.get(planet):
+        return 20.0
+    if sign == debilitation.get(planet):
+        return 5.0
         
-    vimsopaka.sort(key=lambda x: x["score"], reverse=True)
-    for idx, item in enumerate(vimsopaka):
-        item["rank"] = idx + 1
+    lords = {1: "Mars", 2: "Venus", 3: "Mercury", 4: "Moon", 5: "Sun", 6: "Mercury", 7: "Venus", 8: "Mars", 9: "Jupiter", 10: "Saturn", 11: "Saturn", 12: "Jupiter"}
+    lord = lords[sign]
+    
+    nat_rel = get_natural_relationship(planet, lord)
+    
+    if is_rashi_base:
+        p1_s = d1_positions.get(planet, 1)
+        p2_s = d1_positions.get(lord, 1)
+    else:
+        p1_s = current_varga_positions.get(planet, 1)
+        p2_s = current_varga_positions.get(lord, 1)
         
-    return vimsopaka
+    temp_rel = get_temporal_relationship(p1_s, p2_s)
+    
+    total = nat_rel + temp_rel
+    if total == 2: return 18.0
+    elif total == 1: return 15.0
+    elif total == 0: return 10.0
+    elif total == -1: return 7.0
+    else: return 5.0
+
+def calculate_vimsopaka(planets_list: List[Dict[str, Any]], divisional_charts: Dict[str, Any]) -> Dict[str, Any]:
+    """Generate precise Vimsopaka Bala for both Rashi-base and Respective-base."""
+    main_planets = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"]
+    
+    shad_weights = {"D-1": 6, "D-2": 2, "D-3": 4, "D-9": 5, "D-12": 2, "D-30": 1}
+    sapta_weights = {"D-1": 5, "D-2": 2, "D-3": 3, "D-7": 2.5, "D-9": 4.5, "D-12": 2, "D-30": 1}
+    dasa_weights = {"D-1": 3, "D-2": 1.5, "D-3": 1.5, "D-7": 1.5, "D-9": 1.5, "D-10": 1.5, "D-12": 1.5, "D-16": 1.5, "D-30": 1.5, "D-60": 5}
+    shodasa_weights = {"D-1": 3.5, "D-2": 1, "D-3": 1, "D-4": 0.5, "D-7": 0.5, "D-9": 3, "D-10": 0.5, "D-12": 0.5, "D-16": 2, "D-20": 0.5, "D-24": 0.5, "D-27": 0.5, "D-30": 1, "D-40": 0.5, "D-45": 0.5, "D-60": 4}
+    
+    d1_positions = {}
+    if "D-1" in divisional_charts:
+        for p in divisional_charts["D-1"]["planets"]:
+            if p["planet"] in main_planets: d1_positions[p["planet"]] = p["sign_index"]
+            
+    results = {"respective": [], "rashi": []}
+    
+    for base_type in ["respective", "rashi"]:
+        is_rashi = (base_type == "rashi")
+        
+        for p_name in main_planets:
+            shad_score = 0.0
+            sapta_score = 0.0
+            dasa_score = 0.0
+            shodasa_score = 0.0
+            
+            for code, chart in divisional_charts.items():
+                if code not in shodasa_weights: continue
+                p_info = next((x for x in chart["planets"] if x["planet"] == p_name), None)
+                if not p_info: continue
+                
+                curr_pos = {x["planet"]: x["sign_index"] for x in chart["planets"]}
+                pts = get_vimsopaka_points(p_name, p_info["sign_index"], d1_positions, curr_pos, is_rashi)
+                
+                if code in shad_weights: shad_score += (pts * shad_weights[code]) / 20.0
+                if code in sapta_weights: sapta_score += (pts * sapta_weights[code]) / 20.0
+                if code in dasa_weights: dasa_score += (pts * dasa_weights[code]) / 20.0
+                if code in shodasa_weights: shodasa_score += (pts * shodasa_weights[code]) / 20.0
+                
+            results[base_type].append({
+                "planet": p_name,
+                "shad_varga": round(shad_score, 2),
+                "sapta_varga": round(sapta_score, 2),
+                "dasa_varga": round(dasa_score, 2),
+                "shodasa_varga": round(shodasa_score, 2)
+            })
+            
+    return results
 
 def calculate_kot_chakra(planets_list: List[Dict[str, Any]], moon_nak_idx: int) -> Dict[str, Any]:
     """Generate Kot Chakra layout dynamically based on Moon's position."""
@@ -1863,7 +2009,8 @@ def generate_full_kundli(
     latitude: float = 28.6139,
     longitude: float = 77.2090,
     timezone: float = 5.5,
-    days_in_year: float = 365.256364
+    days_in_year: float = 365.256364,
+    bhava_system: str = "Porphyry (Sripathi)"
 ) -> Dict[str, Any]:
     """
     Generate complete high-precision Janam Kundli analysis using Swiss Ephemeris.
@@ -2083,8 +2230,11 @@ def generate_full_kundli(
 
     # 10. 6-Fold Shadbala & Other Strengths
     shadbala_data = calculate_shadbala(planets_deg_map, asc_deg, mc_deg)
-    bhava_bala_data = calculate_bhava_bala(planets_list, asc_sign_idx, shadbala_data)
-    vimsopaka_data = calculate_vimsopaka(planets_list)
+    bhava_bala_data = calculate_bhava_bala(
+        planets_list, asc_sign_idx, shadbala_data, bhava_system,
+        jd, latitude, longitude, ayanamsa, asc_deg, mc_deg, sun_deg, moon_deg
+    )
+    vimsopaka_data = calculate_vimsopaka(planets_list, divisional_charts)
     kot_chakra_data = calculate_kot_chakra(planets_list, moon_nak_idx)
 
     # 11. Classical Vedic Yogas
