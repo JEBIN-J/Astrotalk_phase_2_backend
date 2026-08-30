@@ -386,32 +386,77 @@ def calculate_upagrahas(
     upagrahas_list = []
     asc_sign_idx = int(asc_deg // 30) + 1
 
-    # Approximate Sunrise & Sunset (6:00 AM & 6:00 PM local adjusted for equation of time / lat)
-    # 1 Ghati = 24 minutes = 6° Lagna motion
-    hour_dec = birth_dt.hour + birth_dt.minute / 60.0 + birth_dt.second / 3600.0
+    import swisseph as swe
+    hour_ut = birth_dt.hour - timezone + birth_dt.minute/60.0 + birth_dt.second/3600.0
+    jd_ut_birth = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day, hour_ut)
+    geopos = (longitude, latitude, 0.0)
+    
+    swe.set_sid_mode(swe.SIDM_LAHIRI)
+    ayanamsa = swe.get_ayanamsa_ut(jd_ut_birth)
+    
+    jd_ut_start = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day, 0.0)
+    res_rise = swe.rise_trans(jd_ut_start, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos)
+    sunrise_jd = res_rise[1][0]
+    
+    if jd_ut_birth < sunrise_jd:
+        res_rise = swe.rise_trans(jd_ut_start - 1.0, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos)
+        sunrise_jd = res_rise[1][0]
+        
+    res_set = swe.rise_trans(sunrise_jd, swe.SUN, swe.CALC_SET | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos)
+    sunset_jd = res_set[1][0]
+    
+    res_rise_next = swe.rise_trans(sunset_jd, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos)
+    next_sunrise_jd = res_rise_next[1][0]
+    
+    is_day_birth = sunrise_jd <= jd_ut_birth < sunset_jd
+    
     weekday = birth_dt.weekday()  # 0=Monday, 6=Sunday
-
-    is_day_birth = 6.0 <= hour_dec < 18.0
-    time_from_ref = (hour_dec - 6.0) if is_day_birth else ((hour_dec - 18.0) if hour_dec >= 18.0 else (hour_dec + 6.0))
-
-    # Classical Mandi & Gulika Ghati Table (BPHS / Kerala system)
-    # Day Ghatis from sunrise for Sun, Mon, Tue, Wed, Thu, Fri, Sat
-    mandi_day_ghatis = [26, 22, 18, 14, 10, 6, 2]     # [Sun, Mon, Tue, Wed, Thu, Fri, Sat]
-    mandi_night_ghatis = [10, 6, 2, 26, 22, 18, 14]
+    w_idx = (weekday + 1) % 7     # Sunday=0, Monday=1, ...
     
-    # Weekday index with Sunday = 0
-    w_idx = (weekday + 1) % 7
-    ghatis_mandi = mandi_day_ghatis[w_idx] if is_day_birth else mandi_night_ghatis[w_idx]
-    
-    # Gulika is 4 Ghatis before Mandi rising
-    ghatis_gulika = (ghatis_mandi - 4.0) if ghatis_mandi >= 4.0 else (ghatis_mandi + 26.0)
+    # Ghatis relative to 30 Ghati Day for Upagrahas
+    # Day Ghatis for Sun(Kaala), Mars(Mrityu), Merc(Ardha), Jup(Yama), Sat(Mandi)
+    mandi_day = [26, 22, 18, 14, 10, 6, 2]
+    kaala_day = [2, 26, 22, 18, 14, 10, 6]
+    mrityu_day = [10, 6, 2, 26, 22, 18, 14]
+    ardha_day = [14, 10, 6, 2, 26, 22, 18]
+    yama_day = [18, 14, 10, 6, 2, 26, 22]
 
-    # Convert Ghati to Longitude relative to Sun and Ascendant
-    mandi_deg = (asc_deg + (ghatis_mandi * 6.0) - (time_from_ref * 15.0)) % 360.0
-    gulika_deg = (asc_deg + (ghatis_gulika * 6.0) - (time_from_ref * 15.0)) % 360.0
+    # Night Ghatis
+    mandi_night = [10, 6, 2, 26, 22, 18, 14]
+    kaala_night = [14, 10, 6, 2, 26, 22, 18]
+    mrityu_night = [22, 18, 14, 10, 6, 2, 26]
+    ardha_night = [26, 22, 18, 14, 10, 6, 2]
+    yama_night = [2, 26, 22, 18, 14, 10, 6]
+
+    if is_day_birth:
+        len_day = sunset_jd - sunrise_jd
+        jd_base = sunrise_jd
+        g_mandi, g_kaala, g_mrityu, g_ardha, g_yama = mandi_day[w_idx], kaala_day[w_idx], mrityu_day[w_idx], ardha_day[w_idx], yama_day[w_idx]
+    else:
+        len_day = next_sunrise_jd - sunset_jd
+        jd_base = sunset_jd
+        g_mandi, g_kaala, g_mrityu, g_ardha, g_yama = mandi_night[w_idx], kaala_night[w_idx], mrityu_night[w_idx], ardha_night[w_idx], yama_night[w_idx]
+
+    g_gulika = (g_mandi - 4.0) if g_mandi >= 4.0 else (g_mandi + 26.0)
+    
+    # Calculate JDs of Upagrahas
+    jd_mandi = jd_base + (g_mandi / 30.0) * len_day
+    jd_gulika = jd_base + (g_gulika / 30.0) * len_day
+    jd_kaala = jd_base + (g_kaala / 30.0) * len_day
+    jd_mrityu = jd_base + (g_mrityu / 30.0) * len_day
+    jd_ardha = jd_base + (g_ardha / 30.0) * len_day
+    jd_yama = jd_base + (g_yama / 30.0) * len_day
+    
+    # Exact Sidereal Ascendants at those times
+    mandi_deg = calculate_ascendant_and_mc(jd_mandi, latitude, longitude, ayanamsa)[0]
+    gulika_deg = calculate_ascendant_and_mc(jd_gulika, latitude, longitude, ayanamsa)[0]
+    kaala_deg = calculate_ascendant_and_mc(jd_kaala, latitude, longitude, ayanamsa)[0]
+    mrityu_deg = calculate_ascendant_and_mc(jd_mrityu, latitude, longitude, ayanamsa)[0]
+    ardha_deg = calculate_ascendant_and_mc(jd_ardha, latitude, longitude, ayanamsa)[0]
+    yama_deg = calculate_ascendant_and_mc(jd_yama, latitude, longitude, ayanamsa)[0]
 
     # 1. Dhuma = Sun + 133° 20'
-    dhuma_deg = (sun_deg + 133.0 + 20.0 / 60.0) % 360.0
+    dhuma_deg = (sun_deg + 133.3333333) % 360.0
 
     # 2. Vyatipata = 360° - Dhuma
     vyatipata_deg = (360.0 - dhuma_deg) % 360.0
@@ -423,22 +468,17 @@ def calculate_upagrahas(
     indrachapa_deg = (360.0 - parivesha_deg) % 360.0
 
     # 5. Upaketu (Sikhi) = Indrachapa + 16° 40'
-    upaketu_deg = (indrachapa_deg + 16.0 + 40.0 / 60.0) % 360.0
-
-    # 6. Kaala (Portion of Sun) = Sun + 45° offset
-    kaala_deg = (sun_deg + 45.0 + (w_idx * 13.3333)) % 360.0
-
-    # 7. Mrityu (Portion of Mars)
-    mrityu_deg = (sun_deg + 90.0 + (w_idx * 15.0)) % 360.0
-
-    # 8. Ardhaprahara (Portion of Mercury)
-    ardha_deg = (sun_deg + 180.0 + (w_idx * 12.0)) % 360.0
-
-    # 9. Yamaghantaka (Portion of Jupiter)
-    yama_deg = (sun_deg + 240.0 + (w_idx * 14.0)) % 360.0
+    upaketu_deg = (indrachapa_deg + 16.6666667) % 360.0
 
     # 10. Pranapada
-    pranapada_deg = (sun_deg + (time_from_ref * 60.0 * 0.25) * 15.0) % 360.0
+    time_from_sun = (jd_ut_birth - sunrise_jd) * 24.0
+    vighatis_elapsed = time_from_sun * 150.0
+    base_x = (vighatis_elapsed / 15.0) * 30.0
+    sun_sunrise_deg = swe.calc_ut(sunrise_jd, swe.SUN, swe.FLG_SWIEPH | swe.FLG_SIDEREAL)[0][0]
+    sun_sign_idx = int(sun_sunrise_deg // 30) + 1
+    sun_modality = sun_sign_idx % 3
+    offset = 0.0 if sun_modality == 1 else (240.0 if sun_modality == 2 else 120.0)
+    pranapada_deg = (sun_sunrise_deg + base_x + offset) % 360.0
 
     raw_upagrahas = [
         ("Maandi", "Md", mandi_deg, "#DC2626"),
@@ -705,31 +745,88 @@ def calculate_arudhas_and_special_lagnas(
             "significance": significance
         })
 
-    # Special Lagnas
-    hour_dec = birth_dt.hour + birth_dt.minute / 60.0 + birth_dt.second / 3600.0
-    time_from_sun = (hour_dec - 6.0) % 24.0
+    # Special Lagnas & Mathematical Sphutas
+    import swisseph as swe
+    
+    # Calculate exact elapsed time from exact Sunrise using Swiss Ephemeris
+    hour_ut = birth_dt.hour - timezone + birth_dt.minute/60.0 + birth_dt.second/3600.0
+    jd_ut_birth = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day, hour_ut)
+    
+    jd_ut_start = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day, 0.0)
+    geopos = (longitude, latitude, 0.0)
+    
+    res_rise = swe.rise_trans(jd_ut_start, swe.SUN, swe.CALC_RISE, geopos)
+    sunrise_jd_ut = res_rise[1][0]
+    
+    if jd_ut_birth < sunrise_jd_ut:
+        jd_ut_yesterday = jd_ut_start - 1.0
+        res_rise = swe.rise_trans(jd_ut_yesterday, swe.SUN, swe.CALC_RISE, geopos)
+        sunrise_jd_ut = res_rise[1][0]
+        
+    time_from_sun = (jd_ut_birth - sunrise_jd_ut) * 24.0
 
-    # Hora Lagna (Progresses 1 sign / 30° every 1 hour from sunrise)
-    hl_deg = (sun_deg + (time_from_sun * 30.0)) % 360.0
-    hl_s_idx, hl_s_name, hl_dms, _ = degree_to_sign_and_dms(hl_deg)
-    hl_nak, _, hl_pada, _ = get_nakshatra_info(hl_deg)
+    # Calculate exact Sun degree at Sunrise
+    swe.set_sid_mode(swe.SIDM_LAHIRI)
+    flag = swe.FLG_SWIEPH | swe.FLG_SIDEREAL
+    sun_sunrise_deg = swe.calc_ut(sunrise_jd_ut, swe.SUN, flag)[0][0]
 
-    # Ghati Lagna (Progresses 1 sign / 30° every 24 min / 1 Ghati from sunrise = 75°/hr)
-    gl_deg = (sun_deg + (time_from_sun * 75.0)) % 360.0
-    gl_s_idx, gl_s_name, gl_dms, _ = degree_to_sign_and_dms(gl_deg)
-    gl_nak, _, gl_pada, _ = get_nakshatra_info(gl_deg)
+    def get_lagna_details(deg):
+        deg = deg % 360.0
+        s_idx, s_name, dms, _ = degree_to_sign_and_dms(deg)
+        nak_name, nak_lord, pada, _ = get_nakshatra_info(deg)
+        return s_idx, s_name, deg, nak_name, pada, nak_lord
 
-    # Bhava Lagna (Progresses 1 sign / 30° every 2 hours from sunrise = 15°/hr)
-    bl_deg = (sun_deg + (time_from_sun * 15.0)) % 360.0
-    bl_s_idx, bl_s_name, bl_dms, _ = degree_to_sign_and_dms(bl_deg)
-    bl_nak, _, bl_pada, _ = get_nakshatra_info(bl_deg)
+    special_lagnas = []
 
-    # Sree Lagna (Lagna + Moon's nakshatra progression)
+    # 1. Bhava Lagna (BL)
+    bl_deg = (sun_sunrise_deg + (time_from_sun * 15.0)) % 360.0
+    bl_idx, bl_sign, bl_deg, bl_nak, bl_pada, bl_nl = get_lagna_details(bl_deg)
+    special_lagnas.append({"name": "Bhava Lagna (BL)", "sanskrit": "भाव लग्न", "sign": bl_sign, "sign_index": bl_idx, "degree_formatted": format_degree_short(bl_deg), "degree_decimal": round(bl_deg, 4), "nakshatra": bl_nak, "pada": bl_pada, "nakshatra_lord": bl_nl})
+
+    # 2. Hora Lagna (HL)
+    hl_deg = (sun_sunrise_deg + (time_from_sun * 30.0)) % 360.0
+    hl_idx, hl_sign, hl_deg, hl_nak, hl_pada, hl_nl = get_lagna_details(hl_deg)
+    special_lagnas.append({"name": "Hora Lagna (HL)", "sanskrit": "होरा लग्न", "sign": hl_sign, "sign_index": hl_idx, "degree_formatted": format_degree_short(hl_deg), "degree_decimal": round(hl_deg, 4), "nakshatra": hl_nak, "pada": hl_pada, "nakshatra_lord": hl_nl})
+
+    # 3. Ghati Lagna (GL)
+    gl_deg = (sun_sunrise_deg + (time_from_sun * 75.0)) % 360.0
+    gl_idx, gl_sign, gl_deg, gl_nak, gl_pada, gl_nl = get_lagna_details(gl_deg)
+    special_lagnas.append({"name": "Ghati Lagna (GL)", "sanskrit": "घटी लग्न", "sign": gl_sign, "sign_index": gl_idx, "degree_formatted": format_degree_short(gl_deg), "degree_decimal": round(gl_deg, 4), "nakshatra": gl_nak, "pada": gl_pada, "nakshatra_lord": gl_nl})
+
+    # 4. Vighati Lagna (VGL) - 4500 degrees per hour
+    vgl_deg = (sun_sunrise_deg + (time_from_sun * 4500.0)) % 360.0
+    vgl_idx, vgl_sign, vgl_deg, vgl_nak, vgl_pada, vgl_nl = get_lagna_details(vgl_deg)
+    special_lagnas.append({"name": "Vighati Lagna (VGL)", "sanskrit": "विघटी लग्न", "sign": vgl_sign, "sign_index": vgl_idx, "degree_formatted": format_degree_short(vgl_deg), "degree_decimal": round(vgl_deg, 4), "nakshatra": vgl_nak, "pada": vgl_pada, "nakshatra_lord": vgl_nl})
+
+    # 5. Varnada Lagna (VL)
+    # If Lagna is odd, count direct from Aries. If even, count reverse from Pisces.
+    asc_is_odd = asc_sign_idx % 2 != 0
+    hl_is_odd = hl_idx % 2 != 0
+    asc_dist = asc_sign_idx if asc_is_odd else (13 - asc_sign_idx)
+    hl_dist = hl_idx if hl_is_odd else (13 - hl_idx)
+    vl_count = (asc_dist + hl_dist) % 12
+    if vl_count == 0: vl_count = 12
+    vl_sign_idx = vl_count if asc_is_odd else (13 - vl_count)
+    vl_deg = ((vl_sign_idx - 1) * 30.0 + (asc_deg % 30.0)) % 360.0
+    vl_idx, vl_sign, vl_deg, vl_nak, vl_pada, vl_nl = get_lagna_details(vl_deg)
+    special_lagnas.append({"name": "Varnada Lagna (VL)", "sanskrit": "वर्णद लग्न", "sign": vl_sign, "sign_index": vl_idx, "degree_formatted": format_degree_short(vl_deg), "degree_decimal": round(vl_deg, 4), "nakshatra": vl_nak, "pada": vl_pada, "nakshatra_lord": vl_nl})
+
+    # 6. Sree Lagna (SL)
     sl_deg = (asc_deg + (moon_deg % (360.0 / 27.0)) * 27.0) % 360.0
-    sl_s_idx, sl_s_name, sl_dms, _ = degree_to_sign_and_dms(sl_deg)
-    sl_nak, _, sl_pada, _ = get_nakshatra_info(sl_deg)
+    sl_idx, sl_sign, sl_deg, sl_nak, sl_pada, sl_nl = get_lagna_details(sl_deg)
+    special_lagnas.append({"name": "Sree Lagna (SL)", "sanskrit": "श्री लग्न", "sign": sl_sign, "sign_index": sl_idx, "degree_formatted": format_degree_short(sl_deg), "degree_decimal": round(sl_deg, 4), "nakshatra": sl_nak, "pada": sl_pada, "nakshatra_lord": sl_nl})
 
-    # Indu Lagna (Wealth Lagna from Moon)
+    # 7. Pranapada Lagna (PL)
+    vighatis_elapsed = time_from_sun * 150.0
+    base_x = (vighatis_elapsed / 15.0) * 30.0
+    sun_sign_idx = int(sun_deg // 30) + 1
+    sun_modality = sun_sign_idx % 3
+    offset = 0.0 if sun_modality == 1 else (240.0 if sun_modality == 2 else 120.0)
+    pl_deg = (sun_deg + base_x + offset) % 360.0
+    pl_idx, pl_sign, pl_deg, pl_nak, pl_pada, pl_nl = get_lagna_details(pl_deg)
+    special_lagnas.append({"name": "Pranapada Lagna (PL)", "sanskrit": "प्राणपद लग्न", "sign": pl_sign, "sign_index": pl_idx, "degree_formatted": format_degree_short(pl_deg), "degree_decimal": round(pl_deg, 4), "nakshatra": pl_nak, "pada": pl_pada, "nakshatra_lord": pl_nl})
+
+    # 8. Indu Lagna (IL)
     indu_rays = {"Sun": 30, "Moon": 16, "Mars": 6, "Mercury": 8, "Jupiter": 10, "Venus": 12, "Saturn": 1}
     ninth_lord_lagna = sign_lords[((asc_sign_idx - 1 + 8) % 12) + 1]
     moon_sign_idx = int(moon_deg // 30) + 1
@@ -738,70 +835,67 @@ def calculate_arudhas_and_special_lagnas(
     indu_offset = (total_rays % 12)
     indu_sign_idx = ((moon_sign_idx - 1 + (indu_offset if indu_offset > 0 else 12) - 1) % 12) + 1
     indu_deg = ((indu_sign_idx - 1) * 30.0 + (moon_deg % 30.0)) % 360.0
-    indu_nak, _, indu_pada, _ = get_nakshatra_info(indu_deg)
+    indu_idx, indu_sign, indu_deg, indu_nak, indu_pada, indu_nl = get_lagna_details(indu_deg)
+    special_lagnas.append({"name": "Indu Lagna (IL)", "sanskrit": "इन्दु लग्न", "sign": indu_sign, "sign_index": indu_idx, "degree_formatted": format_degree_short(indu_deg), "degree_decimal": round(indu_deg, 4), "nakshatra": indu_nak, "pada": indu_pada, "nakshatra_lord": indu_nl})
 
-    special_lagnas = [
-        {
-            "name": "Hora Lagna (HL)",
-            "sanskrit": "होरा लग्न (HL)",
-            "sign": hl_s_name,
-            "sign_sanskrit": ZODIAC_SIGNS[hl_s_idx - 1]["sanskrit"],
-            "sign_index": hl_s_idx,
-            "degree_formatted": format_degree_short(hl_deg),
-            "degree_decimal": round(hl_deg, 4),
-            "nakshatra": hl_nak,
-            "pada": hl_pada,
-            "significance": "Financial prosperity, wealth generation and liquid assets."
-        },
-        {
-            "name": "Ghati Lagna (GL)",
-            "sanskrit": "घटी लग्न (GL)",
-            "sign": gl_s_name,
-            "sign_sanskrit": ZODIAC_SIGNS[gl_s_idx - 1]["sanskrit"],
-            "sign_index": gl_s_idx,
-            "degree_formatted": format_degree_short(gl_deg),
-            "degree_decimal": round(gl_deg, 4),
-            "nakshatra": gl_nak,
-            "pada": gl_pada,
-            "significance": "Power, authority, fame, high social and political status."
-        },
-        {
-            "name": "Bhava Lagna (BL)",
-            "sanskrit": "भाव लग्न (BL)",
-            "sign": bl_s_name,
-            "sign_sanskrit": ZODIAC_SIGNS[bl_s_idx - 1]["sanskrit"],
-            "sign_index": bl_s_idx,
-            "degree_formatted": format_degree_short(bl_deg),
-            "degree_decimal": round(bl_deg, 4),
-            "nakshatra": bl_nak,
-            "pada": bl_pada,
-            "significance": "General physical strength and vitality."
-        },
-        {
-            "name": "Sree Lagna (SL)",
-            "sanskrit": "श्री लग्न (SL)",
-            "sign": sl_s_name,
-            "sign_sanskrit": ZODIAC_SIGNS[sl_s_idx - 1]["sanskrit"],
-            "sign_index": sl_s_idx,
-            "degree_formatted": format_degree_short(sl_deg),
-            "degree_decimal": round(sl_deg, 4),
-            "nakshatra": sl_nak,
-            "pada": sl_pada,
-            "significance": "Blessings of Goddess Lakshmi, sustained fortune and marital harmony."
-        },
-        {
-            "name": "Indu Lagna (IL)",
-            "sanskrit": "इन्दु लग्न (IL)",
-            "sign": ZODIAC_SIGNS[indu_sign_idx - 1]["name"],
-            "sign_sanskrit": ZODIAC_SIGNS[indu_sign_idx - 1]["sanskrit"],
-            "sign_index": indu_sign_idx,
-            "degree_formatted": format_degree_short(indu_deg),
-            "degree_decimal": round(indu_deg, 4),
-            "nakshatra": indu_nak,
-            "pada": indu_pada,
-            "significance": "Extraordinary wealth accumulation and financial windfall potential."
-        }
-    ]
+    # 9. Bhrigu Bindu (BB)
+    rahu_deg = planet_deg_map.get("Rahu", 0.0)
+    bb_deg = (rahu_deg + ((moon_deg - rahu_deg) % 360.0) / 2.0) % 360.0
+    bb_idx, bb_sign, bb_deg, bb_nak, bb_pada, bb_nl = get_lagna_details(bb_deg)
+    special_lagnas.append({"name": "Bhrigu Bindu (BB)", "sanskrit": "भृगु बिंदु", "sign": bb_sign, "sign_index": bb_idx, "degree_formatted": format_degree_short(bb_deg), "degree_decimal": round(bb_deg, 4), "nakshatra": bb_nak, "pada": bb_pada, "nakshatra_lord": bb_nl})
+
+    # 10. Beeja Sphuta (BS) - Sun + Venus + Jupiter
+    venus_deg = planet_deg_map.get("Venus", 0.0)
+    jupiter_deg = planet_deg_map.get("Jupiter", 0.0)
+    bs_deg = (sun_deg + venus_deg + jupiter_deg) % 360.0
+    bs_idx, bs_sign, bs_deg, bs_nak, bs_pada, bs_nl = get_lagna_details(bs_deg)
+    special_lagnas.append({"name": "Beeja Sphuta (BS)", "sanskrit": "बीज स्फुट", "sign": bs_sign, "sign_index": bs_idx, "degree_formatted": format_degree_short(bs_deg), "degree_decimal": round(bs_deg, 4), "nakshatra": bs_nak, "pada": bs_pada, "nakshatra_lord": bs_nl})
+
+    # 11. Kshetra Sphuta (KS) - Moon + Mars + Jupiter
+    mars_deg = planet_deg_map.get("Mars", 0.0)
+    ks_deg = (moon_deg + mars_deg + jupiter_deg) % 360.0
+    ks_idx, ks_sign, ks_deg, ks_nak, ks_pada, ks_nl = get_lagna_details(ks_deg)
+    special_lagnas.append({"name": "Kshetra Sphuta (KS)", "sanskrit": "क्षेत्र स्फुट", "sign": ks_sign, "sign_index": ks_idx, "degree_formatted": format_degree_short(ks_deg), "degree_decimal": round(ks_deg, 4), "nakshatra": ks_nak, "pada": ks_pada, "nakshatra_lord": ks_nl})
+
+    # 12. Yogi Point
+    yogi_deg = (sun_deg + moon_deg + 93.33333333) % 360.0
+    yogi_idx, yogi_sign, yogi_deg, yogi_nak, yogi_pada, yogi_nl = get_lagna_details(yogi_deg)
+    special_lagnas.append({"name": "Yogi Point", "sanskrit": "योगी बिंदु", "sign": yogi_sign, "sign_index": yogi_idx, "degree_formatted": format_degree_short(yogi_deg), "degree_decimal": round(yogi_deg, 4), "nakshatra": yogi_nak, "pada": yogi_pada, "nakshatra_lord": yogi_nl})
+
+    # 13. Saha Yogi
+    saha_yogi_planet = sign_lords[yogi_idx]
+    saha_deg = planet_deg_map.get(saha_yogi_planet, yogi_deg)
+    saha_idx, saha_sign, saha_deg, saha_nak, saha_pada, saha_nl = get_lagna_details(saha_deg)
+    special_lagnas.append({"name": f"Saha Yogi ({saha_yogi_planet})", "sanskrit": "सह योगी", "sign": saha_sign, "sign_index": saha_idx, "degree_formatted": format_degree_short(saha_deg), "degree_decimal": round(saha_deg, 4), "nakshatra": saha_nak, "pada": saha_pada, "nakshatra_lord": saha_nl})
+
+    # 14. Ava Yogi
+    ava_deg = (yogi_deg + 186.66666667) % 360.0
+    ava_idx, ava_sign, ava_deg, ava_nak, ava_pada, ava_nl = get_lagna_details(ava_deg)
+    special_lagnas.append({"name": "Ava Yogi Point", "sanskrit": "अव योगी", "sign": ava_sign, "sign_index": ava_idx, "degree_formatted": format_degree_short(ava_deg), "degree_decimal": round(ava_deg, 4), "nakshatra": ava_nak, "pada": ava_pada, "nakshatra_lord": ava_nl})
+
+    # 15. 22nd Drekkana
+    drek_deg = (asc_deg + 210.0) % 360.0
+    drek_idx, drek_sign, drek_deg, drek_nak, drek_pada, drek_nl = get_lagna_details(drek_deg)
+    special_lagnas.append({"name": "22nd Drekkana", "sanskrit": "22वाँ द्रेष्काण", "sign": drek_sign, "sign_index": drek_idx, "degree_formatted": format_degree_short(drek_deg), "degree_decimal": round(drek_deg, 4), "nakshatra": drek_nak, "pada": drek_pada, "nakshatra_lord": drek_nl})
+
+    # 16. 64th Navamsa
+    nav_deg = (moon_deg + 210.0) % 360.0
+    nav_idx, nav_sign, nav_deg, nav_nak, nav_pada, nav_nl = get_lagna_details(nav_deg)
+    special_lagnas.append({"name": "64th Navamsa", "sanskrit": "64वाँ नवांश", "sign": nav_sign, "sign_index": nav_idx, "degree_formatted": format_degree_short(nav_deg), "degree_decimal": round(nav_deg, 4), "nakshatra": nav_nak, "pada": nav_pada, "nakshatra_lord": nav_nl})
+
+    # 17. Dagdha Rashis
+    tithi_elapsed = ((moon_deg - sun_deg) % 360.0) / 12.0
+    tithi_num = int(tithi_elapsed) + 1
+    if tithi_num > 15: tithi_num -= 15
+    dagdha_map = {
+        1: "Libra, Capricorn", 2: "Sagittarius, Pisces", 3: "Leo, Capricorn",
+        4: "Taurus, Aquarius", 5: "Gemini, Virgo", 6: "Aries, Leo",
+        7: "Cancer, Sagittarius", 8: "Gemini, Virgo", 9: "Leo, Scorpio",
+        10: "Leo, Scorpio", 11: "Sagittarius, Pisces", 12: "Aries, Libra",
+        13: "Taurus, Leo", 14: "Pisces, Gemini", 15: "None"
+    }
+    dagdha_signs = dagdha_map.get(tithi_num, "None")
+    special_lagnas.append({"name": "Dagdha Rashis", "sanskrit": "दग्ध राशियाँ", "sign": dagdha_signs, "sign_index": 0, "degree_formatted": "-", "degree_decimal": 0.0, "nakshatra": "-", "pada": "-", "nakshatra_lord": "-"})
 
     return arudha_padas, special_lagnas
 
