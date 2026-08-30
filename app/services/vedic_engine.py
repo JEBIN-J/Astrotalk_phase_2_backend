@@ -568,6 +568,38 @@ def calculate_combustion(planets_list: List[Dict[str, Any]], sun_deg: float):
 # =========================================================================
 # 3. ARUDHA PADAS & SPECIAL LAGNAS ENGINE
 # =========================================================================
+
+def get_stronger_lord(sign_idx, lord1, lord2, planets_list, planet_sign_map, planet_deg_map):
+    # Determine the stronger of two lords for Scorpio (8, Mars/Ketu) or Aquarius (11, Saturn/Rahu)
+    l1_sign = planet_sign_map.get(lord1, 1)
+    l2_sign = planet_sign_map.get(lord2, 1)
+    
+    # Rule 1: If one is in the sign itself and the other is elsewhere, the one elsewhere is stronger
+    if l1_sign == sign_idx and l2_sign != sign_idx:
+        return lord2
+    if l2_sign == sign_idx and l1_sign != sign_idx:
+        return lord1
+        
+    # Rule 2: Planet with more conjunctions is stronger
+    l1_conj = sum(1 for p in planets_list if planet_sign_map.get(p.get("planet_name_simple", p["name"].split(" ")[0]), -1) == l1_sign)
+    l2_conj = sum(1 for p in planets_list if planet_sign_map.get(p.get("planet_name_simple", p["name"].split(" ")[0]), -1) == l2_sign)
+    
+    if l1_conj > l2_conj:
+        return lord1
+    elif l2_conj > l1_conj:
+        return lord2
+        
+    # Rule 3: Planet with higher degrees (0-30) in its sign is stronger
+    l1_deg_mod = planet_deg_map.get(lord1, 0.0) % 30.0
+    l2_deg_mod = planet_deg_map.get(lord2, 0.0) % 30.0
+    
+    # Rahu/Ketu are retrograde, some systems measure their advancement in reverse (30 - degree)
+    # But for simplicity, we just compare the raw degrees in the sign as commonly used
+    if l1_deg_mod > l2_deg_mod:
+        return lord1
+    else:
+        return lord2
+
 def calculate_arudhas_and_special_lagnas(
     asc_deg: float,
     asc_sign_idx: int,
@@ -583,12 +615,15 @@ def calculate_arudhas_and_special_lagnas(
     Calculate 12 Arudha Padas (AL, UL, A1-A12) with Parashara Exception Rules,
     and Special Lagnas (Hora Lagna, Ghati Lagna, Bhava Lagna, Sree Lagna, Indu Lagna).
     """
-    # Map sign lords
+    # Map sign lords and degrees
     planet_sign_map = {}
+    planet_deg_map = {}
     for p in planets_list:
         p_name = p.get("planet_name_simple", p["name"].split(" ")[0])
         if "sign_index" in p:
             planet_sign_map[p_name] = p["sign_index"]
+        if "degree_decimal" in p:
+            planet_deg_map[p_name] = p["degree_decimal"]
 
     sign_lords = {
         1: "Mars", 2: "Venus", 3: "Mercury", 4: "Moon", 5: "Sun", 6: "Mercury",
@@ -613,22 +648,45 @@ def calculate_arudhas_and_special_lagnas(
 
     for h in range(1, 13):
         h_sign_idx = ((asc_sign_idx + h - 2) % 12) + 1
-        lord_name = sign_lords[h_sign_idx]
+        
+        if h_sign_idx == 8:
+            lord_name = get_stronger_lord(8, "Mars", "Ketu", planets_list, planet_sign_map, planet_deg_map)
+        elif h_sign_idx == 11:
+            lord_name = get_stronger_lord(11, "Saturn", "Rahu", planets_list, planet_sign_map, planet_deg_map)
+        else:
+            lord_name = sign_lords[h_sign_idx]
+            
         lord_sign_idx = planet_sign_map.get(lord_name, h_sign_idx)
         
-        # Distance from house to lord
-        dist = ((lord_sign_idx - h_sign_idx) % 12)
-        raw_arudha = ((lord_sign_idx - 1 + dist) % 12) + 1
+        # To match AstroSage exact calculation, we first find the true mathematical distance in degrees
+        # between the exact House Cusp and the exact Planet Longitude.
         
-        # Parashara Exceptions: If Arudha falls in 1st or 7th from house, shift by 10th from house
-        dist_from_house = ((raw_arudha - h_sign_idx) % 12)
+        # 1. Get exact House Cusp longitude
+        # Equal house cusp midpoint based on Ascendant degree
+        house_deg = ((h_sign_idx - 1) * 30.0 + (asc_deg % 30.0)) % 360.0
+            
+        # 2. Get exact Lord longitude
+        lord_deg = planet_deg_map.get(lord_name, house_deg)
+        
+        # 3. AstroSage Formula: Arudha Longitude = Lord Longitude + (Lord Longitude - House Cusp)
+        dist_deg = (lord_deg - house_deg) % 360.0
+        raw_arudha_deg = (lord_deg + dist_deg) % 360.0
+        
+        # 4. Determine raw Arudha sign from the exact longitude
+        raw_arudha = int(raw_arudha_deg // 30.0) + 1
+        
+        # 5. Apply Parashara Exceptions
+        # If the exact longitude lands in the 1st or 7th sign from the original house sign,
+        # we shift the sign to the 10th from the shifted sign (or keep exact degree? Usually just shift sign)
+        dist_from_house = (raw_arudha - h_sign_idx) % 12
         if dist_from_house in [0, 6]:  # 1st or 7th
             final_arudha = ((raw_arudha - 1 + 9) % 12) + 1
         else:
             final_arudha = raw_arudha
-
-        # Approximate Arudha exact longitude (same degree offset as Lagna or lord)
-        arudha_deg = ((final_arudha - 1) * 30.0 + (asc_deg % 30.0)) % 360.0
+            
+        # The final degree fraction is the exact degree fraction from raw_arudha_deg
+        arudha_deg = ((final_arudha - 1) * 30.0 + (raw_arudha_deg % 30.0)) % 360.0
+        
         nak_name, nak_lord, pada, _ = get_nakshatra_info(arudha_deg)
         code, name, significance = arudha_names[h - 1]
         
