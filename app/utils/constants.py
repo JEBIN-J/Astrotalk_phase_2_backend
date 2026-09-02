@@ -150,7 +150,7 @@ NAKSHATRAS = [
     {"index": 10, "name": "Magha", "lord": "Ketu", "gana": "Rakshasa", "yoni": "Rat (Mooshika)", "varna": "Shudra", "vashya": "Chatushpada", "nadi": "Antya (Kapha)"},
     {"index": 11, "name": "Purva Phalguni", "lord": "Venus", "gana": "Manushya", "yoni": "Rat (Mooshika)", "varna": "Brahmin", "vashya": "Manava", "nadi": "Madhya (Pitta)"},
     {"index": 12, "name": "Uttara Phalguni", "lord": "Sun", "gana": "Manushya", "yoni": "Cow (Gau)", "varna": "Kshatriya", "vashya": "Manava", "nadi": "Adi (Vata)"},
-    {"index": 13, "name": "Hasta", "lord": "Mercury", "gana": "Deva", "yoni": "Buffalo (Mahisha)", "varna": "Vaishya", "vashya": "Manava", "nadi": "Adi (Vata)"},
+    {"index": 13, "name": "Hasta", "lord": "Moon", "gana": "Deva", "yoni": "Buffalo (Mahisha)", "varna": "Vaishya", "vashya": "Manava", "nadi": "Adi (Vata)"},
     {"index": 14, "name": "Chitra", "lord": "Mars", "gana": "Rakshasa", "yoni": "Tiger (Vyaghra)", "varna": "Shudra", "vashya": "Manava", "nadi": "Madhya (Pitta)"},
     {"index": 15, "name": "Swati", "lord": "Rahu", "gana": "Deva", "yoni": "Buffalo (Mahisha)", "varna": "Mleccha", "vashya": "Manava", "nadi": "Antya (Kapha)"},
     {"index": 16, "name": "Vishakha", "lord": "Jupiter", "gana": "Rakshasa", "yoni": "Tiger (Vyaghra)", "varna": "Mleccha", "vashya": "Manava", "nadi": "Antya (Kapha)"},

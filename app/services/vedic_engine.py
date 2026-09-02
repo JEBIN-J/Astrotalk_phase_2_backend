@@ -686,15 +686,25 @@ def calculate_arudha_padas_for_chart(asc_deg: float, asc_sign_idx: int, planets_
         lord_sign_idx = planet_sign_map.get(lord_name, h_sign_idx)
         house_deg = ((h_sign_idx - 1) * 30.0 + (asc_deg % 30.0)) % 360.0
         lord_deg = planet_deg_map.get(lord_name, house_deg)
-        dist_deg = (lord_deg - house_deg) % 360.0
-        raw_arudha_deg = (lord_deg + dist_deg) % 360.0
-        raw_arudha = int(raw_arudha_deg // 30.0) + 1
-        dist_from_house = (raw_arudha - h_sign_idx) % 12
-        if dist_from_house in [0, 6]:
-            final_arudha = ((raw_arudha - 1 + 9) % 12) + 1
+        
+        # Whole sign classical calculation to determine the correct sign
+        dist_signs = (lord_sign_idx - h_sign_idx) % 12
+        raw_arudha_sign = ((lord_sign_idx - 1 + dist_signs) % 12) + 1
+        
+        # Parashara Exceptions
+        dist_from_house = (raw_arudha_sign - h_sign_idx) % 12
+        if dist_from_house == 0:
+            final_arudha = ((raw_arudha_sign - 1 + 9) % 12) + 1  # 10th house
+        elif dist_from_house == 6:
+            final_arudha = ((raw_arudha_sign - 1 + 3) % 12) + 1  # 4th house
         else:
-            final_arudha = raw_arudha
-        arudha_deg = ((final_arudha - 1) * 30.0 + (raw_arudha_deg % 30.0)) % 360.0
+            final_arudha = raw_arudha_sign
+            
+        # Exact degree longitude inside the classical sign (for time variations)
+        lord_deg_in_sign = lord_deg % 30.0
+        house_deg_in_sign = house_deg % 30.0
+        arudha_deg_in_sign = (lord_deg_in_sign + (lord_deg_in_sign - house_deg_in_sign)) % 30.0
+        arudha_deg = ((final_arudha - 1) * 30.0 + arudha_deg_in_sign) % 360.0
         
         nak_name, nak_lord, pada, _ = get_nakshatra_info(arudha_deg)
         code, name, significance = ARUDHA_NAMES[h - 1]
