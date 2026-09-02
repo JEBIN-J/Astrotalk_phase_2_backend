@@ -640,6 +640,83 @@ def get_stronger_lord(sign_idx, lord1, lord2, planets_list, planet_sign_map, pla
     else:
         return lord2
 
+
+ARUDHA_NAMES = [
+    ("AL (A1)", "Arudha Lagna", "Image, Public Status & Manifested Self"),
+    ("A2", "Dhana Pada", "Wealth, Financial Assets & Family Resources"),
+    ("A3", "Bhratri Pada", "Siblings, Courage, Communication & Energy"),
+    ("A4", "Matri Pada / Sukha Pada", "Home, Vehicles, Mother & Inner Happiness"),
+    ("A5", "Putra Pada / Mantra Pada", "Progeny, Knowledge, Mantras & Speculation"),
+    ("A6", "Shatru Pada / Roga Pada", "Debts, Diseases, Competitions & Litigation"),
+    ("A7", "Dara Pada", "Spouse, Business Partnerships & Trade Relations"),
+    ("A8", "Mrityu Pada / Randhra Pada", "Longevity, Transformation & Occult Knowledge"),
+    ("A9", "Bhagya Pada", "Fortune, Higher Learning, Father & Dharma"),
+    ("A10", "Rajya Pada / Karma Pada", "Career Success, Fame, Achievements & Power"),
+    ("A11", "Labha Pada", "Gains, Professional Networks & Fulfillment of Desires"),
+    ("UL (A12)", "Upapada Lagna", "Marriage, Relationship Quality & Life Partner")
+]
+
+def calculate_arudha_padas_for_chart(asc_deg: float, asc_sign_idx: int, planets_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    planet_sign_map = {}
+    planet_deg_map = {}
+    for p in planets_list:
+        p_name = p.get("planet_name_simple", p.get("name", "").split(" ")[0])
+        if "sign_index" in p:
+            planet_sign_map[p_name] = p["sign_index"]
+        if "absolute_degree" in p:
+            planet_deg_map[p_name] = p["absolute_degree"]
+        elif "degree_decimal" in p and "sign_index" in p:
+            planet_deg_map[p_name] = (p["sign_index"] - 1) * 30.0 + (p["degree_decimal"] % 30.0)
+
+    sign_lords = {
+        1: "Mars", 2: "Venus", 3: "Mercury", 4: "Moon", 5: "Sun", 6: "Mercury",
+        7: "Venus", 8: "Mars", 9: "Jupiter", 10: "Saturn", 11: "Saturn", 12: "Jupiter"
+    }
+
+    arudha_padas = []
+    for h in range(1, 13):
+        h_sign_idx = ((asc_sign_idx + h - 2) % 12) + 1
+        if h_sign_idx == 8:
+            lord_name = get_stronger_lord(8, "Mars", "Ketu", planets_list, planet_sign_map, planet_deg_map)
+        elif h_sign_idx == 11:
+            lord_name = get_stronger_lord(11, "Saturn", "Rahu", planets_list, planet_sign_map, planet_deg_map)
+        else:
+            lord_name = sign_lords[h_sign_idx]
+            
+        lord_sign_idx = planet_sign_map.get(lord_name, h_sign_idx)
+        house_deg = ((h_sign_idx - 1) * 30.0 + (asc_deg % 30.0)) % 360.0
+        lord_deg = planet_deg_map.get(lord_name, house_deg)
+        dist_deg = (lord_deg - house_deg) % 360.0
+        raw_arudha_deg = (lord_deg + dist_deg) % 360.0
+        raw_arudha = int(raw_arudha_deg // 30.0) + 1
+        dist_from_house = (raw_arudha - h_sign_idx) % 12
+        if dist_from_house in [0, 6]:
+            final_arudha = ((raw_arudha - 1 + 9) % 12) + 1
+        else:
+            final_arudha = raw_arudha
+        arudha_deg = ((final_arudha - 1) * 30.0 + (raw_arudha_deg % 30.0)) % 360.0
+        
+        nak_name, nak_lord, pada, _ = get_nakshatra_info(arudha_deg)
+        code, name, significance = ARUDHA_NAMES[h - 1]
+        
+        arudha_padas.append({
+            "code": code,
+            "name": name,
+            "house_number": h,
+            "sign": ZODIAC_SIGNS[final_arudha - 1]["name"],
+            "sign_sanskrit": ZODIAC_SIGNS[final_arudha - 1]["sanskrit"],
+            "sign_index": final_arudha,
+            "degree_formatted": format_degree_short(arudha_deg),
+            "degree_decimal": round(arudha_deg, 4),
+            "nakshatra": nak_name,
+            "pada": pada,
+            "nakshatra_lord": nak_lord,
+            "significance": significance,
+            "absolute_degree": arudha_deg
+        })
+    return arudha_padas
+
+
 def calculate_arudhas_and_special_lagnas(
     asc_deg: float,
     asc_sign_idx: int,
@@ -655,95 +732,16 @@ def calculate_arudhas_and_special_lagnas(
     Calculate 12 Arudha Padas (AL, UL, A1-A12) with Parashara Exception Rules,
     and Special Lagnas (Hora Lagna, Ghati Lagna, Bhava Lagna, Sree Lagna, Indu Lagna).
     """
-    # Map sign lords and degrees
-    planet_sign_map = {}
     planet_deg_map = {}
     for p in planets_list:
-        p_name = p.get("planet_name_simple", p["name"].split(" ")[0])
-        if "sign_index" in p:
-            planet_sign_map[p_name] = p["sign_index"]
+        p_name = p.get("planet_name_simple", p.get("name", "").split(" ")[0])
         if "degree_decimal" in p:
-            planet_deg_map[p_name] = p["degree_decimal"]
-
-    sign_lords = {
-        1: "Mars", 2: "Venus", 3: "Mercury", 4: "Moon", 5: "Sun", 6: "Mercury",
-        7: "Venus", 8: "Mars", 9: "Jupiter", 10: "Saturn", 11: "Saturn", 12: "Jupiter"
-    }
-
-    arudha_padas = []
-    arudha_names = [
-        ("AL (A1)", "Arudha Lagna", "Image, Public Status & Manifested Self"),
-        ("A2", "Dhana Pada", "Wealth, Financial Assets & Family Resources"),
-        ("A3", "Bhratri Pada", "Siblings, Courage, Communication & Energy"),
-        ("A4", "Matri Pada / Sukha Pada", "Home, Vehicles, Mother & Inner Happiness"),
-        ("A5", "Putra Pada / Mantra Pada", "Progeny, Knowledge, Mantras & Speculation"),
-        ("A6", "Shatru Pada / Roga Pada", "Debts, Diseases, Competitions & Litigation"),
-        ("A7", "Dara Pada", "Spouse, Business Partnerships & Trade Relations"),
-        ("A8", "Mrityu Pada / Randhra Pada", "Longevity, Transformation & Occult Knowledge"),
-        ("A9", "Bhagya Pada", "Fortune, Higher Learning, Father & Dharma"),
-        ("A10", "Rajya Pada / Karma Pada", "Career Success, Fame, Achievements & Power"),
-        ("A11", "Labha Pada", "Gains, Professional Networks & Fulfillment of Desires"),
-        ("UL (A12)", "Upapada Lagna", "Marriage, Relationship Quality & Life Partner")
-    ]
-
-    for h in range(1, 13):
-        h_sign_idx = ((asc_sign_idx + h - 2) % 12) + 1
-        
-        if h_sign_idx == 8:
-            lord_name = get_stronger_lord(8, "Mars", "Ketu", planets_list, planet_sign_map, planet_deg_map)
-        elif h_sign_idx == 11:
-            lord_name = get_stronger_lord(11, "Saturn", "Rahu", planets_list, planet_sign_map, planet_deg_map)
-        else:
-            lord_name = sign_lords[h_sign_idx]
-            
-        lord_sign_idx = planet_sign_map.get(lord_name, h_sign_idx)
-        
-        # To match AstroSage exact calculation, we first find the true mathematical distance in degrees
-        # between the exact House Cusp and the exact Planet Longitude.
-        
-        # 1. Get exact House Cusp longitude
-        # Equal house cusp midpoint based on Ascendant degree
-        house_deg = ((h_sign_idx - 1) * 30.0 + (asc_deg % 30.0)) % 360.0
-            
-        # 2. Get exact Lord longitude
-        lord_deg = planet_deg_map.get(lord_name, house_deg)
-        
-        # 3. AstroSage Formula: Arudha Longitude = Lord Longitude + (Lord Longitude - House Cusp)
-        dist_deg = (lord_deg - house_deg) % 360.0
-        raw_arudha_deg = (lord_deg + dist_deg) % 360.0
-        
-        # 4. Determine raw Arudha sign from the exact longitude
-        raw_arudha = int(raw_arudha_deg // 30.0) + 1
-        
-        # 5. Apply Parashara Exceptions
-        # If the exact longitude lands in the 1st or 7th sign from the original house sign,
-        # we shift the sign to the 10th from the shifted sign (or keep exact degree? Usually just shift sign)
-        dist_from_house = (raw_arudha - h_sign_idx) % 12
-        if dist_from_house in [0, 6]:  # 1st or 7th
-            final_arudha = ((raw_arudha - 1 + 9) % 12) + 1
-        else:
-            final_arudha = raw_arudha
-            
-        # The final degree fraction is the exact degree fraction from raw_arudha_deg
-        arudha_deg = ((final_arudha - 1) * 30.0 + (raw_arudha_deg % 30.0)) % 360.0
-        
-        nak_name, nak_lord, pada, _ = get_nakshatra_info(arudha_deg)
-        code, name, significance = arudha_names[h - 1]
-        
-        arudha_padas.append({
-            "code": code,
-            "name": name,
-            "house_number": h,
-            "sign": ZODIAC_SIGNS[final_arudha - 1]["name"],
-            "sign_sanskrit": ZODIAC_SIGNS[final_arudha - 1]["sanskrit"],
-            "sign_index": final_arudha,
-            "degree_formatted": format_degree_short(arudha_deg),
-            "degree_decimal": round(arudha_deg, 4),
-            "nakshatra": nak_name,
-            "pada": pada,
-            "nakshatra_lord": nak_lord,
-            "significance": significance
-        })
+            if "absolute_degree" in p:
+                planet_deg_map[p_name] = p["absolute_degree"]
+            elif "sign_index" in p:
+                planet_deg_map[p_name] = (p["sign_index"] - 1) * 30.0 + (p["degree_decimal"] % 30.0)
+    
+    arudha_padas = calculate_arudha_padas_for_chart(asc_deg, asc_sign_idx, planets_list)
 
     # Special Lagnas & Mathematical Sphutas
     import swisseph as swe
@@ -826,12 +824,22 @@ def calculate_arudhas_and_special_lagnas(
     pl_idx, pl_sign, pl_deg, pl_nak, pl_pada, pl_nl = get_lagna_details(pl_deg)
     special_lagnas.append({"name": "Pranapada Lagna (PL)", "sanskrit": "प्राणपद लग्न", "sign": pl_sign, "sign_index": pl_idx, "degree_formatted": format_degree_short(pl_deg), "degree_decimal": round(pl_deg, 4), "nakshatra": pl_nak, "pada": pl_pada, "nakshatra_lord": pl_nl})
 
-    # 8. Indu Lagna (IL)
-    indu_rays = {"Sun": 30, "Moon": 16, "Mars": 6, "Mercury": 8, "Jupiter": 10, "Venus": 12, "Saturn": 1}
+    # 8. Indu Lagna (IL) - For wealth
+    # Rule: Kala points of 9th lord from Lagna + Kala points of 9th lord from Moon
+    sign_lords = {
+        1: "Mars", 2: "Venus", 3: "Mercury", 4: "Moon", 5: "Sun", 6: "Mercury",
+        7: "Venus", 8: "Mars", 9: "Jupiter", 10: "Saturn", 11: "Saturn", 12: "Jupiter"
+    }
+    
+    kala_points = {
+        "Sun": 30, "Moon": 16, "Mars": 6, "Mercury": 8,
+        "Jupiter": 10, "Venus": 12, "Saturn": 1
+    }
+    
     ninth_lord_lagna = sign_lords[((asc_sign_idx - 1 + 8) % 12) + 1]
     moon_sign_idx = int(moon_deg // 30) + 1
     ninth_lord_moon = sign_lords[((moon_sign_idx - 1 + 8) % 12) + 1]
-    total_rays = indu_rays.get(ninth_lord_lagna, 8) + indu_rays.get(ninth_lord_moon, 8)
+    total_rays = kala_points.get(ninth_lord_lagna, 8) + kala_points.get(ninth_lord_moon, 8)
     indu_offset = (total_rays % 12)
     indu_sign_idx = ((moon_sign_idx - 1 + (indu_offset if indu_offset > 0 else 12) - 1) % 12) + 1
     indu_deg = ((indu_sign_idx - 1) * 30.0 + (moon_deg % 30.0)) % 360.0
@@ -1067,7 +1075,7 @@ def calculate_varga_sign(degree: float, varga_num: int, d1_sign_idx: int) -> int
     return d1_sign_idx
 
 
-def calculate_all_divisional_charts(planets_list: List[Dict[str, Any]], asc_deg: float) -> Dict[str, Any]:
+def calculate_all_divisional_charts(planets_list: List[Dict[str, Any]], asc_deg: float, upagrahas_list: List[Dict[str, Any]], special_lagnas: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Generate comprehensive datasets for all 16 Classical Shodashavarga Divisional Charts."""
     varga_definitions = [
         ("D-1", "Rashi", "Natal Chart / Physical Reality & General Life", 1),
@@ -1094,29 +1102,70 @@ def calculate_all_divisional_charts(planets_list: List[Dict[str, Any]], asc_deg:
 
     divisional_charts = {}
     asc_d1_sign = int(asc_deg // 30) + 1
+    
+    def get_d_chart_details(deg):
+        deg = deg % 360.0
+        nak_name, nak_lord, pada, _ = get_nakshatra_info(deg)
+        return nak_name, pada, nak_lord
 
     for code, name, desc, v_num in varga_definitions:
         chart_asc_sign = calculate_varga_sign(asc_deg, v_num, asc_d1_sign)
-        chart_planets = []
+        def map_objects_to_varga(objects_list, is_planet=False):
+            mapped_list = []
+            for obj in objects_list:
+                obj_name = obj.get("name", "")
+                
+                if is_planet:
+                    p_name = obj.get("planet_name_simple", obj_name.split(" ")[0])
+                    d1_sign = obj.get("sign_index", 1)
+                    obj_abs_deg = (d1_sign - 1) * 30.0 + (obj.get("degree_decimal", 0.0) % 30.0)
+                else:
+                    p_name = obj_name
+                    obj_abs_deg = obj.get("degree_decimal", 0.0)
+                    d1_sign = obj.get("sign_index", 1)
 
-        for p in planets_list:
-            p_name = p.get("planet_name_simple", p["name"].split(" ")[0])
-            p_deg = p.get("degree_decimal", 0.0)
-            d1_sign = p.get("sign_index", 1)
-            
-            v_sign = calculate_varga_sign(p_deg, v_num, d1_sign)
-            h_num = ((v_sign - chart_asc_sign) % 12) + 1
-            
-            chart_planets.append({
-                "planet": p_name,
-                "sign": ZODIAC_SIGNS[v_sign - 1]["name"],
-                "sign_sanskrit": ZODIAC_SIGNS[v_sign - 1]["sanskrit"],
-                "sign_index": v_sign,
-                "house": h_num,
-                "is_retrograde": p.get("is_retrograde", False),
-                "is_combust": p.get("is_combust", False),
-                "status_marker": p.get("status_marker", "")
-            })
+                v_sign = calculate_varga_sign(obj_abs_deg, v_num, d1_sign)
+                h_num = ((v_sign - chart_asc_sign) % 12) + 1
+                
+                deg_in_sign = obj_abs_deg % 30.0
+                offset = deg_in_sign % (30.0 / v_num)
+                d_chart_deg_in_sign = offset * v_num
+                d_chart_absolute_deg = (v_sign - 1) * 30.0 + d_chart_deg_in_sign
+                
+                p_nak, p_pada, p_nl = get_d_chart_details(d_chart_absolute_deg)
+                
+                mapped_obj = {
+                    "name": obj_name,
+                    "planet": p_name,
+                    "planet_name_simple": p_name,
+                    "sign": ZODIAC_SIGNS[v_sign - 1]["name"],
+                    "sign_sanskrit": ZODIAC_SIGNS[v_sign - 1]["sanskrit"],
+                    "sign_index": v_sign,
+                    "house": h_num,
+                    "degree_decimal": round(d_chart_deg_in_sign, 4),
+                    "degree_formatted": format_degree_short(d_chart_deg_in_sign),
+                    "nakshatra": p_nak,
+                    "pada": p_pada,
+                    "nakshatra_lord": p_nl,
+                    "absolute_degree": d_chart_absolute_deg
+                }
+                if is_planet:
+                    mapped_obj["is_retrograde"] = obj.get("is_retrograde", False)
+                    mapped_obj["is_combust"] = obj.get("is_combust", False)
+                    mapped_obj["status_marker"] = obj.get("status_marker", "")
+                if "sanskrit" in obj: mapped_obj["sanskrit"] = obj["sanskrit"]
+                if "color" in obj: mapped_obj["color"] = obj["color"]
+                if "significance" in obj: mapped_obj["significance"] = obj["significance"]
+                
+                mapped_list.append(mapped_obj)
+            return mapped_list
+
+        chart_planets = map_objects_to_varga(planets_list, is_planet=True)
+        chart_upagrahas = map_objects_to_varga(upagrahas_list, is_planet=False)
+        chart_special_lagnas = map_objects_to_varga(special_lagnas, is_planet=False)
+        
+        chart_asc_absolute_deg = (chart_asc_sign - 1) * 30.0 + ((asc_deg % (30.0 / v_num)) * v_num)
+        chart_arudhas = calculate_arudha_padas_for_chart(chart_asc_absolute_deg, chart_asc_sign, chart_planets)
 
         divisional_charts[code] = {
             "code": code,
@@ -1127,7 +1176,10 @@ def calculate_all_divisional_charts(planets_list: List[Dict[str, Any]], asc_deg:
             "ascendant_sign": ZODIAC_SIGNS[chart_asc_sign - 1]["name"],
             "ascendant_sign_sanskrit": ZODIAC_SIGNS[chart_asc_sign - 1]["sanskrit"],
             "ascendant_sign_index": chart_asc_sign,
-            "planets": chart_planets
+            "planets": chart_planets,
+            "upagrahas": chart_upagrahas,
+            "arudha_padas": chart_arudhas,
+            "special_lagnas": chart_special_lagnas
         }
 
     return divisional_charts
@@ -2508,7 +2560,7 @@ def generate_full_kundli(
     )
 
     # 7. All 16 Divisional Charts D1-D60 & Bhava Chalit
-    divisional_charts = calculate_all_divisional_charts(planets_list, asc_deg)
+    divisional_charts = calculate_all_divisional_charts(planets_list, asc_deg, upagrahas_list, special_lagnas)
     bhava_chalit = calculate_bhava_chalit(asc_deg, planets_list)
 
     # 8. Exact Vimshottari Mahadasha + Antardashas
