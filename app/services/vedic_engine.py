@@ -413,39 +413,36 @@ def calculate_upagrahas(
     weekday = birth_dt.weekday()  # 0=Monday, 6=Sunday
     w_idx = (weekday + 1) % 7     # Sunday=0, Monday=1, ...
     
-    # Ghatis relative to 30 Ghati Day for Upagrahas
-    # Day Ghatis for Sun(Kaala), Mars(Mrityu), Merc(Ardha), Jup(Yama), Sat(Mandi)
-    mandi_day = [26, 22, 18, 14, 10, 6, 2]
-    kaala_day = [2, 26, 22, 18, 14, 10, 6]
-    mrityu_day = [10, 6, 2, 26, 22, 18, 14]
-    ardha_day = [14, 10, 6, 2, 26, 22, 18]
-    yama_day = [18, 14, 10, 6, 2, 26, 22]
-
-    # Night Ghatis
-    mandi_night = [10, 6, 2, 26, 22, 18, 14]
-    kaala_night = [14, 10, 6, 2, 26, 22, 18]
-    mrityu_night = [22, 18, 14, 10, 6, 2, 26]
-    ardha_night = [26, 22, 18, 14, 10, 6, 2]
-    yama_night = [2, 26, 22, 18, 14, 10, 6]
-
+    # 8-part division of Day/Night for Upagrahas (Ashtamamsa calculation)
     if is_day_birth:
-        len_day = sunset_jd - sunrise_jd
+        duration = sunset_jd - sunrise_jd
         jd_base = sunrise_jd
-        g_mandi, g_kaala, g_mrityu, g_ardha, g_yama = mandi_day[w_idx], kaala_day[w_idx], mrityu_day[w_idx], ardha_day[w_idx], yama_day[w_idx]
+        start_lord = w_idx
     else:
-        len_day = next_sunrise_jd - sunset_jd
+        duration = next_sunrise_jd - sunset_jd
         jd_base = sunset_jd
-        g_mandi, g_kaala, g_mrityu, g_ardha, g_yama = mandi_night[w_idx], kaala_night[w_idx], mrityu_night[w_idx], ardha_night[w_idx], yama_night[w_idx]
+        # Night starts from 5th weekday lord
+        start_lord = (w_idx + 4) % 7
 
-    g_gulika = (g_mandi - 4.0) if g_mandi >= 4.0 else (g_mandi + 26.0)
+    def get_upagraha_fraction(planet_idx, is_end=True):
+        part_idx = (planet_idx - start_lord) % 7
+        return (part_idx + 1) / 8.0 if is_end else part_idx / 8.0
+
+    # Planet indices: Sun=0, Mars=2, Merc=3, Jup=4, Sat=6
+    frac_kaala = get_upagraha_fraction(0, True)
+    frac_mrityu = get_upagraha_fraction(2, True)
+    frac_ardha = get_upagraha_fraction(3, True)
+    frac_yama = get_upagraha_fraction(4, True)
+    frac_mandi = get_upagraha_fraction(6, True)
+    frac_gulika = get_upagraha_fraction(6, False)
     
     # Calculate JDs of Upagrahas
-    jd_mandi = jd_base + (g_mandi / 30.0) * len_day
-    jd_gulika = jd_base + (g_gulika / 30.0) * len_day
-    jd_kaala = jd_base + (g_kaala / 30.0) * len_day
-    jd_mrityu = jd_base + (g_mrityu / 30.0) * len_day
-    jd_ardha = jd_base + (g_ardha / 30.0) * len_day
-    jd_yama = jd_base + (g_yama / 30.0) * len_day
+    jd_mandi = jd_base + frac_mandi * duration
+    jd_gulika = jd_base + frac_gulika * duration
+    jd_kaala = jd_base + frac_kaala * duration
+    jd_mrityu = jd_base + frac_mrityu * duration
+    jd_ardha = jd_base + frac_ardha * duration
+    jd_yama = jd_base + frac_yama * duration
     
     # Exact Sidereal Ascendants at those times
     mandi_deg = calculate_ascendant_and_mc(jd_mandi, latitude, longitude, ayanamsa)[0]
@@ -787,22 +784,22 @@ def calculate_arudhas_and_special_lagnas(
     special_lagnas = []
 
     # 1. Bhava Lagna (BL)
-    bl_deg = (sun_sunrise_deg + (time_from_sun * 15.0)) % 360.0
+    bl_deg = (sun_deg + (time_from_sun * 15.0)) % 360.0
     bl_idx, bl_sign, bl_deg, bl_nak, bl_pada, bl_nl = get_lagna_details(bl_deg)
     special_lagnas.append({"name": "Bhava Lagna (BL)", "sanskrit": "भाव लग्न", "sign": bl_sign, "sign_index": bl_idx, "degree_formatted": format_degree_short(bl_deg), "degree_decimal": round(bl_deg, 4), "nakshatra": bl_nak, "pada": bl_pada, "nakshatra_lord": bl_nl})
 
     # 2. Hora Lagna (HL)
-    hl_deg = (sun_sunrise_deg + (time_from_sun * 30.0)) % 360.0
+    hl_deg = (sun_deg + (time_from_sun * 30.0)) % 360.0
     hl_idx, hl_sign, hl_deg, hl_nak, hl_pada, hl_nl = get_lagna_details(hl_deg)
     special_lagnas.append({"name": "Hora Lagna (HL)", "sanskrit": "होरा लग्न", "sign": hl_sign, "sign_index": hl_idx, "degree_formatted": format_degree_short(hl_deg), "degree_decimal": round(hl_deg, 4), "nakshatra": hl_nak, "pada": hl_pada, "nakshatra_lord": hl_nl})
 
     # 3. Ghati Lagna (GL)
-    gl_deg = (sun_sunrise_deg + (time_from_sun * 75.0)) % 360.0
+    gl_deg = (sun_deg + (time_from_sun * 75.0)) % 360.0
     gl_idx, gl_sign, gl_deg, gl_nak, gl_pada, gl_nl = get_lagna_details(gl_deg)
     special_lagnas.append({"name": "Ghati Lagna (GL)", "sanskrit": "घटी लग्न", "sign": gl_sign, "sign_index": gl_idx, "degree_formatted": format_degree_short(gl_deg), "degree_decimal": round(gl_deg, 4), "nakshatra": gl_nak, "pada": gl_pada, "nakshatra_lord": gl_nl})
 
     # 4. Vighati Lagna (VGL) - 4500 degrees per hour
-    vgl_deg = (sun_sunrise_deg + (time_from_sun * 4500.0)) % 360.0
+    vgl_deg = (sun_deg + (time_from_sun * 4500.0)) % 360.0
     vgl_idx, vgl_sign, vgl_deg, vgl_nak, vgl_pada, vgl_nl = get_lagna_details(vgl_deg)
     special_lagnas.append({"name": "Vighati Lagna (VGL)", "sanskrit": "विघटी लग्न", "sign": vgl_sign, "sign_index": vgl_idx, "degree_formatted": format_degree_short(vgl_deg), "degree_decimal": round(vgl_deg, 4), "nakshatra": vgl_nak, "pada": vgl_pada, "nakshatra_lord": vgl_nl})
 
@@ -1195,57 +1192,179 @@ def calculate_all_divisional_charts(planets_list: List[Dict[str, Any]], asc_deg:
     return divisional_charts
 
 
-def calculate_bhava_chalit(asc_deg: float, planets_list: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Calculate Bhava Chalit (Cuspal Chart) showing exact cusp midpoints and house entries."""
-    asc_sign_idx = int(asc_deg // 30) + 1
+def calculate_bhava_chalit(
+    asc_deg: float,
+    planets_list: List[Dict[str, Any]],
+    jd: float = None,
+    latitude: float = None,
+    longitude: float = None,
+    ayanamsa: float = None,
+    bhava_system: str = "Porphyry (Sripathi)"
+) -> Dict[str, Any]:
+    """
+    Calculate Bhava Chalit (Cuspal Chart) using real Sripathi/Porphyry house cusps
+    from Swiss Ephemeris. The house cusps divide the ecliptic into 12 unequal houses
+    based on the actual Ascendant, MC, and geographic latitude.
+
+    Porphyry / Sripathi method:
+      - The four quadrant cusps (ASC, MC, DSC, IC) are calculated from the
+        Julian Day, latitude, and longitude via Swiss Ephemeris.
+      - The three intermediate house cusps in each quadrant are obtained by
+        trisecting the quadrant arc.
+      - All tropical cusps are then converted to sidereal by subtracting the
+        Lahiri ayanamsa calculated for the exact birth Julian Day.
+      - Planets are assigned to Bhava houses by finding which cusp span they
+        fall into (the house whose start <= planet_lon < end, with proper
+        360° wrap-around).
+
+    Convention (Parashara-compatible):
+      - Bhava 1 starts at cusp_1 (ASC / Lagna).
+      - Bhava N starts at cusp_N and ends at cusp_(N+1).
+      - Bhava 12 ends back at cusp_1.
+      - We display the Bhava Madhya (midpoint = cusp itself) in the chart.
+    """
+    # ------------------------------------------------------------------ #
+    # 1. Compute real Porphyry / Sripathi sidereal house cusps             #
+    # ------------------------------------------------------------------ #
+    sidereal_cusps = []   # 12 cusp longitudes, each 0 <= x < 360
+
+    if jd is not None and latitude is not None and longitude is not None and ayanamsa is not None and SWISSEPH_AVAILABLE and swe:
+        # Determine house system byte code
+        h_sys = b'O'  # Porphyry (= Sripathi trisection)
+        if "Equal" in bhava_system:
+            h_sys = b'E'
+        elif "Placidus" in bhava_system or "KP" in bhava_system:
+            h_sys = b'P'
+
+        try:
+            # swe.houses returns 12 tropical cusp longitudes + ascmc
+            trop_cusps, ascmc = swe.houses(jd, latitude, longitude, h_sys)
+            # Convert each cusp from tropical to sidereal (Lahiri)
+            sidereal_cusps = [(c - ayanamsa) % 360.0 for c in trop_cusps]
+        except Exception:
+            sidereal_cusps = []
+
+    # Fallback: Equal Houses if Swiss Ephemeris unavailable or failed
+    if not sidereal_cusps or len(sidereal_cusps) < 12:
+        # Each bhava is exactly 30° wide starting from ASC
+        sidereal_cusps = [(asc_deg + i * 30.0) % 360.0 for i in range(12)]
+
+    # ------------------------------------------------------------------ #
+    # 2. Build Bhava Sandhis and Bhava Madhyas                            #
+    #                                                                      #
+    # In classical Sripathi / Parashara Vedic convention:                  #
+    #   - The value returned by swe.houses() for each house IS the         #
+    #     Bhava Madhya (midpoint of the house).                            #
+    #   - Bhava Sandhi (boundary) = midpoint between two adjacent Madhyas. #
+    #   - Bhava Start of house N  = Sandhi between N-1 and N               #
+    #   - Bhava End   of house N  = Sandhi between N and N+1               #
+    #   - Planets occupy the house whose Sandhi range they fall within.    #
+    # ------------------------------------------------------------------ #
+
+    def _arc_midpoint(a: float, b: float) -> float:
+        """Midpoint of two longitudes on a 360° circle, handling the 0°/360° boundary."""
+        diff = (b - a) % 360.0
+        return (a + diff / 2.0) % 360.0
+
+    # Build the 12 Bhava Sandhis (one per boundary, sandhi[h] = boundary before house h+1)
+    bhava_sandhis = []
+    for h in range(12):
+        prev_madhya = sidereal_cusps[(h - 1) % 12]
+        this_madhya = sidereal_cusps[h]
+        bhava_sandhis.append(_arc_midpoint(prev_madhya, this_madhya))
+
     bhava_cusps = []
-    
-    for h in range(1, 13):
-        # Equal house cusp midpoint based on Ascendant degree
-        cusp_mid_deg = (asc_deg + (h - 1) * 30.0) % 360.0
-        cusp_start_deg = (cusp_mid_deg - 15.0) % 360.0
-        cusp_end_deg = (cusp_mid_deg + 15.0) % 360.0
-        
-        s_idx, s_name, dms, _ = degree_to_sign_and_dms(cusp_mid_deg)
-        
+    for h in range(12):
+        cusp_mid   = sidereal_cusps[h]          # Bhava Madhya
+        cusp_start = bhava_sandhis[h]            # Bhava Sandhi before this house
+        cusp_end   = bhava_sandhis[(h + 1) % 12] # Bhava Sandhi after this house
+
+        # Sign + nakshatra for Bhava Madhya (cusp)
+        s_idx,  s_name,  dms,  deg_in_sign = degree_to_sign_and_dms(cusp_mid)
+        nak_name,  nak_lord,  pada,  _     = get_nakshatra_info(cusp_mid)
+
+        # Sign + nakshatra for Bhava Start (Sandhi before)
+        ss_idx, ss_name, _, _              = degree_to_sign_and_dms(cusp_start)
+        snak_name, snak_lord, s_pada, _   = get_nakshatra_info(cusp_start)
+
+        # Sign + nakshatra for Bhava End (Sandhi after)
+        es_idx, es_name, _, _              = degree_to_sign_and_dms(cusp_end)
+        enak_name, enak_lord, e_pada, _   = get_nakshatra_info(cusp_end)
+
         bhava_cusps.append({
-            "house_number": h,
-            "cusp_midpoint_formatted": format_degree_short(cusp_mid_deg),
-            "cusp_midpoint_degree": round(cusp_mid_deg, 4),
-            "sign": s_name,
-            "sign_sanskrit": ZODIAC_SIGNS[s_idx - 1]["sanskrit"],
-            "sign_index": s_idx,
-            "start_degree": round(cusp_start_deg, 4),
-            "end_degree": round(cusp_end_deg, 4)
+            "house_number": h + 1,
+            # ---- Bhava Madhya (Cusp) ----
+            "cusp_midpoint_formatted": format_degree_short(cusp_mid),
+            "cusp_midpoint_degree":    round(cusp_mid, 6),
+            "sign":                    s_name,
+            "sign_sanskrit":           ZODIAC_SIGNS[s_idx - 1]["sanskrit"],
+            "sign_index":              s_idx,
+            "nakshatra":               nak_name,
+            "nakshatra_lord":          nak_lord,
+            "pada":                    pada,
+            "degree_decimal":          round(cusp_mid, 6),
+            # ---- Bhava Start (Sandhi) ----
+            "cusp_start_degree":       round(cusp_start, 6),
+            "start_formatted":         format_degree_short(cusp_start),
+            "start_sign":              ss_name,
+            "start_sign_index":        ss_idx,
+            "start_nakshatra":         snak_name,
+            "start_nakshatra_lord":    snak_lord,
+            "start_pada":              s_pada,
+            # ---- Bhava End (Sandhi) ----
+            "cusp_end_degree":         round(cusp_end, 6),
+            "end_formatted":           format_degree_short(cusp_end),
+            "end_sign":                es_name,
+            "end_sign_index":          es_idx,
+            "end_nakshatra":           enak_name,
+            "end_nakshatra_lord":      enak_lord,
+            "end_pada":                e_pada,
         })
 
-    # Determine planets in Bhava Chalit
+    # ------------------------------------------------------------------ #
+    # 3. Assign planets to Bhava houses (using Sandhi boundaries)         #
+    # ------------------------------------------------------------------ #
+    def find_bhava_for_longitude(p_lon: float) -> int:
+        """Return Bhava house number (1-12) using Bhava Sandhi (boundary) ranges."""
+        p_lon = p_lon % 360.0
+        for h in range(12):
+            start = bhava_sandhis[h]
+            end   = bhava_sandhis[(h + 1) % 12]
+            if start <= end:
+                # Normal case: cusp span does not cross 0°
+                if start <= p_lon < end:
+                    return h + 1
+            else:
+                # Span crosses 0°/360° boundary
+                if p_lon >= start or p_lon < end:
+                    return h + 1
+        # Fallback: planet exactly on the last cusp belongs to house 12
+        return 12
+
     chalit_planets = []
     for p in planets_list:
-        p_name = p.get("planet_name_simple", p["name"].split(" ")[0])
-        p_deg = p.get("degree_decimal", 0.0)
-        
-        # Calculate distance from Lagna cusp start (Asc - 15°)
-        lagna_start = (asc_deg - 15.0) % 360.0
-        dist = (p_deg - lagna_start) % 360.0
-        bhava_house = int(dist // 30.0) + 1
-        
+        p_name   = p.get("planet_name_simple", p["name"].split(" ")[0])
+        p_deg    = p.get("degree_decimal", 0.0)
+        bhava_h  = find_bhava_for_longitude(p_deg)
+
         chalit_planets.append({
-            "planet": p_name,
-            "bhava_house": bhava_house,
+            "planet":          p_name,
+            "bhava_house":     bhava_h,
             "degree_formatted": format_degree_short(p_deg),
-            "degree_decimal": round(p_deg, 4),
-            "is_retrograde": p.get("is_retrograde", False),
-            "is_combust": p.get("is_combust", False),
-            "status_marker": p.get("status_marker", "")
+            "degree_decimal":  round(p_deg, 6),
+            "is_retrograde":   p.get("is_retrograde", False),
+            "is_combust":      p.get("is_combust", False),
+            "status_marker":   p.get("status_marker", "")
         })
 
     return {
-        "title": "Bhava Chalit Chart",
-        "ascendant_degree": format_degree_short(asc_deg),
-        "cusps": bhava_cusps,
-        "planets": chalit_planets
+        "title":             "Bhava Chalit Chart",
+        "house_system":      bhava_system,
+        "ascendant_degree":  format_degree_short(asc_deg),
+        "cusps":             bhava_cusps,
+        "planets":           chalit_planets
     }
+
 
 
 # =========================================================================
@@ -2571,7 +2690,11 @@ def generate_full_kundli(
 
     # 7. All 16 Divisional Charts D1-D60 & Bhava Chalit
     divisional_charts = calculate_all_divisional_charts(planets_list, asc_deg, upagrahas_list, special_lagnas)
-    bhava_chalit = calculate_bhava_chalit(asc_deg, planets_list)
+    bhava_chalit = calculate_bhava_chalit(
+        asc_deg, planets_list,
+        jd=jd, latitude=latitude, longitude=longitude,
+        ayanamsa=ayanamsa, bhava_system=bhava_system
+    )
 
     # 8. Exact Vimshottari Mahadasha + Antardashas
     current_dasha, dasha_timeline = calculate_vimshottari_dasha(moon_nak_idx, moon_deg, birth_dt, days_in_year)
