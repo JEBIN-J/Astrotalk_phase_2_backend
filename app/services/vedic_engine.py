@@ -1291,6 +1291,9 @@ def calculate_bhava_chalit(
         es_idx, es_name, _, _              = degree_to_sign_and_dms(cusp_end)
         enak_name, enak_lord, e_pada, _   = get_nakshatra_info(cusp_end)
 
+        # KP Lords for Bhava Madhya (Cusp)
+        kp = calculate_kp_lords(cusp_mid)
+
         bhava_cusps.append({
             "house_number": h + 1,
             # ---- Bhava Madhya (Cusp) ----
@@ -1303,6 +1306,15 @@ def calculate_bhava_chalit(
             "nakshatra_lord":          nak_lord,
             "pada":                    pada,
             "degree_decimal":          round(cusp_mid, 6),
+            # ---- KP Lords (for Placidus/KP mode) ----
+            "rl":                      kp["rl"],
+            "nl":                      kp["nl"],
+            "sl":                      kp["sl"],
+            "ssl":                     kp["ssl"],
+            "sign_lord":               kp["sign_lord"],
+            "star_lord":               kp["star_lord"],
+            "sub_lord":                kp["sub_lord"],
+            "sub_sub_lord":            kp["sub_sub_lord"],
             # ---- Bhava Start (Sandhi) ----
             "cusp_start_degree":       round(cusp_start, 6),
             "start_formatted":         format_degree_short(cusp_start),
