@@ -1186,7 +1186,24 @@ def calculate_all_divisional_charts(planets_list: List[Dict[str, Any]], asc_deg:
                 vc["sign_sanskrit"] = ZODIAC_SIGNS[c_sign - 1]["sanskrit"]
                 
                 c_offset = (c["cusp_midpoint_degree"] % 30.0) % (30.0 / v_num)
-                vc["cusp_midpoint_formatted"] = format_degree_short(c_offset * v_num)
+                d_chart_c_deg = c_offset * v_num
+                vc["cusp_midpoint_formatted"] = format_degree_short(d_chart_c_deg)
+                
+                c_abs = (c_sign - 1) * 30.0 + d_chart_c_deg
+                c_nak, c_pada, c_nl = get_d_chart_details(c_abs)
+                vc["nakshatra"] = c_nak
+                vc["pada"] = c_pada
+                vc["nakshatra_lord"] = c_nl
+                
+                c_kp = calculate_kp_lords(c_abs)
+                vc["rl"] = c_kp["rl"]
+                vc["nl"] = c_kp["nl"]
+                vc["sl"] = c_kp["sl"]
+                vc["ssl"] = c_kp["ssl"]
+                vc["sign_lord"] = c_kp["sign_lord"]
+                vc["star_lord"] = c_kp["star_lord"]
+                vc["sub_lord"] = c_kp["sub_lord"]
+                vc["sub_sub_lord"] = c_kp["sub_sub_lord"]
                 
                 # Project Start Boundary
                 if "cusp_start_degree" in c and "start_sign_index" in c:
@@ -1194,7 +1211,14 @@ def calculate_all_divisional_charts(planets_list: List[Dict[str, Any]], asc_deg:
                     vc["start_sign"] = ZODIAC_SIGNS[s_sign - 1]["name"]
                     vc["start_sign_index"] = s_sign
                     s_offset = (c["cusp_start_degree"] % 30.0) % (30.0 / v_num)
-                    vc["start_formatted"] = format_degree_short(s_offset * v_num)
+                    d_chart_s_deg = s_offset * v_num
+                    vc["start_formatted"] = format_degree_short(d_chart_s_deg)
+                    
+                    s_abs = (s_sign - 1) * 30.0 + d_chart_s_deg
+                    s_nak, s_pada, s_nl = get_d_chart_details(s_abs)
+                    vc["start_nakshatra"] = s_nak
+                    vc["start_pada"] = s_pada
+                    vc["start_nakshatra_lord"] = s_nl
                 
                 # Project End Boundary
                 if "cusp_end_degree" in c and "end_sign_index" in c:
@@ -1202,7 +1226,14 @@ def calculate_all_divisional_charts(planets_list: List[Dict[str, Any]], asc_deg:
                     vc["end_sign"] = ZODIAC_SIGNS[e_sign - 1]["name"]
                     vc["end_sign_index"] = e_sign
                     e_offset = (c["cusp_end_degree"] % 30.0) % (30.0 / v_num)
-                    vc["end_formatted"] = format_degree_short(e_offset * v_num)
+                    d_chart_e_deg = e_offset * v_num
+                    vc["end_formatted"] = format_degree_short(d_chart_e_deg)
+                    
+                    e_abs = (e_sign - 1) * 30.0 + d_chart_e_deg
+                    e_nak, e_pada, e_nl = get_d_chart_details(e_abs)
+                    vc["end_nakshatra"] = e_nak
+                    vc["end_pada"] = e_pada
+                    vc["end_nakshatra_lord"] = e_nl
                 
                 varga_cusps.append(vc)
 
