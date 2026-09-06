@@ -1082,7 +1082,7 @@ def calculate_varga_sign(degree: float, varga_num: int, d1_sign_idx: int) -> int
     return d1_sign_idx
 
 
-def calculate_all_divisional_charts(planets_list: List[Dict[str, Any]], asc_deg: float, upagrahas_list: List[Dict[str, Any]], special_lagnas: List[Dict[str, Any]]) -> Dict[str, Any]:
+def calculate_all_divisional_charts(planets_list: List[Dict[str, Any]], asc_deg: float, upagrahas_list: List[Dict[str, Any]], special_lagnas: List[Dict[str, Any]], d1_bhava_cusps: List[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Generate comprehensive datasets for all 16 Classical Shodashavarga Divisional Charts."""
     varga_definitions = [
         ("D-1", "Rashi", "Natal Chart / Physical Reality & General Life", 1),
@@ -1174,6 +1174,31 @@ def calculate_all_divisional_charts(planets_list: List[Dict[str, Any]], asc_deg:
         chart_asc_absolute_deg = (chart_asc_sign - 1) * 30.0 + ((asc_deg % (30.0 / v_num)) * v_num)
         chart_arudhas = calculate_arudha_padas_for_chart(chart_asc_absolute_deg, chart_asc_sign, chart_planets)
 
+        varga_cusps = []
+        if d1_bhava_cusps:
+            for c in d1_bhava_cusps:
+                vc = c.copy()
+                
+                # Project Cusp Midpoint
+                c_sign = calculate_varga_sign(c["cusp_midpoint_degree"], v_num, c["sign_index"])
+                vc["sign"] = ZODIAC_SIGNS[c_sign - 1]["name"]
+                vc["sign_index"] = c_sign
+                vc["sign_sanskrit"] = ZODIAC_SIGNS[c_sign - 1]["sanskrit"]
+                
+                # Project Start Boundary
+                if "start_degree" in c and "start_sign_index" in c:
+                    s_sign = calculate_varga_sign(c["start_degree"], v_num, c["start_sign_index"])
+                    vc["start_sign"] = ZODIAC_SIGNS[s_sign - 1]["name"]
+                    vc["start_sign_index"] = s_sign
+                
+                # Project End Boundary
+                if "end_degree" in c and "end_sign_index" in c:
+                    e_sign = calculate_varga_sign(c["end_degree"], v_num, c["end_sign_index"])
+                    vc["end_sign"] = ZODIAC_SIGNS[e_sign - 1]["name"]
+                    vc["end_sign_index"] = e_sign
+                
+                varga_cusps.append(vc)
+
         divisional_charts[code] = {
             "code": code,
             "name": name,
@@ -1186,7 +1211,8 @@ def calculate_all_divisional_charts(planets_list: List[Dict[str, Any]], asc_deg:
             "planets": chart_planets,
             "upagrahas": chart_upagrahas,
             "arudha_padas": chart_arudhas,
-            "special_lagnas": chart_special_lagnas
+            "special_lagnas": chart_special_lagnas,
+            "cusps": varga_cusps
         }
 
     return divisional_charts
@@ -2714,13 +2740,13 @@ def generate_full_kundli(
         asc_deg, asc_sign_idx, planets_list, sun_deg, moon_deg, birth_dt, latitude, longitude, timezone
     )
 
-    # 7. All 16 Divisional Charts D1-D60 & Bhava Chalit
-    divisional_charts = calculate_all_divisional_charts(planets_list, asc_deg, upagrahas_list, special_lagnas)
+    # 7. Bhava Chalit & All 16 Divisional Charts D1-D60
     bhava_chalit = calculate_bhava_chalit(
         asc_deg, planets_list,
         jd=jd, latitude=latitude, longitude=longitude,
         ayanamsa=ayanamsa, bhava_system=bhava_system
     )
+    divisional_charts = calculate_all_divisional_charts(planets_list, asc_deg, upagrahas_list, special_lagnas, bhava_chalit.get("cusps"))
 
     # 8. Exact Vimshottari Mahadasha + Antardashas
     current_dasha, dasha_timeline = calculate_vimshottari_dasha(moon_nak_idx, moon_deg, birth_dt, days_in_year)
