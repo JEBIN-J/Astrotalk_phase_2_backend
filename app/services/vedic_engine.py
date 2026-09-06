@@ -1186,14 +1186,14 @@ def calculate_all_divisional_charts(planets_list: List[Dict[str, Any]], asc_deg:
                 vc["sign_sanskrit"] = ZODIAC_SIGNS[c_sign - 1]["sanskrit"]
                 
                 # Project Start Boundary
-                if "start_degree" in c and "start_sign_index" in c:
-                    s_sign = calculate_varga_sign(c["start_degree"], v_num, c["start_sign_index"])
+                if "cusp_start_degree" in c and "start_sign_index" in c:
+                    s_sign = calculate_varga_sign(c["cusp_start_degree"], v_num, c["start_sign_index"])
                     vc["start_sign"] = ZODIAC_SIGNS[s_sign - 1]["name"]
                     vc["start_sign_index"] = s_sign
                 
                 # Project End Boundary
-                if "end_degree" in c and "end_sign_index" in c:
-                    e_sign = calculate_varga_sign(c["end_degree"], v_num, c["end_sign_index"])
+                if "cusp_end_degree" in c and "end_sign_index" in c:
+                    e_sign = calculate_varga_sign(c["cusp_end_degree"], v_num, c["end_sign_index"])
                     vc["end_sign"] = ZODIAC_SIGNS[e_sign - 1]["name"]
                     vc["end_sign_index"] = e_sign
                 
