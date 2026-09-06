@@ -1266,12 +1266,21 @@ def calculate_bhava_chalit(
         diff = (b - a) % 360.0
         return (a + diff / 2.0) % 360.0
 
-    # Build the 12 Bhava Sandhis (one per boundary, sandhi[h] = boundary before house h+1)
+    # Build the 12 Bhava Sandhis (boundaries)
+    # For Sripathi (Porphyry) and Equal Houses: Cusp is Midpoint (Madhya), boundary is midpoint between cusps.
+    # For Placidus (KP) and Western systems: Cusp is the START of the house, so boundary is the cusp itself.
     bhava_sandhis = []
+    is_kp = "Placidus" in bhava_system or "KP" in bhava_system
+    
     for h in range(12):
-        prev_madhya = sidereal_cusps[(h - 1) % 12]
-        this_madhya = sidereal_cusps[h]
-        bhava_sandhis.append(_arc_midpoint(prev_madhya, this_madhya))
+        if is_kp:
+            # KP: House N starts exactly at Cusp N
+            bhava_sandhis.append(sidereal_cusps[h])
+        else:
+            # Sripathi: House N starts at midpoint between Cusp N-1 and Cusp N
+            prev_madhya = sidereal_cusps[(h - 1) % 12]
+            this_madhya = sidereal_cusps[h]
+            bhava_sandhis.append(_arc_midpoint(prev_madhya, this_madhya))
 
     bhava_cusps = []
     for h in range(12):
@@ -1359,14 +1368,19 @@ def calculate_bhava_chalit(
         p_deg    = p.get("degree_decimal", 0.0)
         bhava_h  = find_bhava_for_longitude(p_deg)
 
+        # Derive the physical sign from the absolute longitude
+        p_sign_idx, p_sign_name, _, _ = degree_to_sign_and_dms(p_deg)
+
         chalit_planets.append({
-            "planet":          p_name,
-            "bhava_house":     bhava_h,
+            "planet":           p_name,
+            "bhava_house":      bhava_h,
+            "sign_index":       p_sign_idx,
+            "sign":             p_sign_name,
             "degree_formatted": format_degree_short(p_deg),
-            "degree_decimal":  round(p_deg, 6),
-            "is_retrograde":   p.get("is_retrograde", False),
-            "is_combust":      p.get("is_combust", False),
-            "status_marker":   p.get("status_marker", "")
+            "degree_decimal":   round(p_deg, 6),
+            "is_retrograde":    p.get("is_retrograde", False),
+            "is_combust":       p.get("is_combust", False),
+            "status_marker":    p.get("status_marker", "")
         })
 
     return {
