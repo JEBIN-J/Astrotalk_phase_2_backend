@@ -1185,17 +1185,24 @@ def calculate_all_divisional_charts(planets_list: List[Dict[str, Any]], asc_deg:
                 vc["sign_index"] = c_sign
                 vc["sign_sanskrit"] = ZODIAC_SIGNS[c_sign - 1]["sanskrit"]
                 
+                c_offset = (c["cusp_midpoint_degree"] % 30.0) % (30.0 / v_num)
+                vc["cusp_midpoint_formatted"] = format_degree_short(c_offset * v_num)
+                
                 # Project Start Boundary
                 if "cusp_start_degree" in c and "start_sign_index" in c:
                     s_sign = calculate_varga_sign(c["cusp_start_degree"], v_num, c["start_sign_index"])
                     vc["start_sign"] = ZODIAC_SIGNS[s_sign - 1]["name"]
                     vc["start_sign_index"] = s_sign
+                    s_offset = (c["cusp_start_degree"] % 30.0) % (30.0 / v_num)
+                    vc["start_formatted"] = format_degree_short(s_offset * v_num)
                 
                 # Project End Boundary
                 if "cusp_end_degree" in c and "end_sign_index" in c:
                     e_sign = calculate_varga_sign(c["cusp_end_degree"], v_num, c["end_sign_index"])
                     vc["end_sign"] = ZODIAC_SIGNS[e_sign - 1]["name"]
                     vc["end_sign_index"] = e_sign
+                    e_offset = (c["cusp_end_degree"] % 30.0) % (30.0 / v_num)
+                    vc["end_formatted"] = format_degree_short(e_offset * v_num)
                 
                 varga_cusps.append(vc)
 
