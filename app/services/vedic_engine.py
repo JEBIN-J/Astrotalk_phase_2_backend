@@ -1141,6 +1141,8 @@ def calculate_all_divisional_charts(planets_list: List[Dict[str, Any]], asc_deg:
                 
                 p_nak, p_pada, p_nl = get_d_chart_details(d_chart_absolute_deg)
                 
+                p_kp = calculate_kp_lords(d_chart_absolute_deg)
+                
                 mapped_obj = {
                     "name": obj_name,
                     "planet": p_name,
@@ -1149,12 +1151,16 @@ def calculate_all_divisional_charts(planets_list: List[Dict[str, Any]], asc_deg:
                     "sign_sanskrit": ZODIAC_SIGNS[v_sign - 1]["sanskrit"],
                     "sign_index": v_sign,
                     "house": h_num,
-                    "degree_decimal": round(deg_in_sign, 4),
-                    "degree_formatted": format_degree_short(deg_in_sign),
+                    "degree_decimal": round(d_chart_deg_in_sign, 4),
+                    "degree_formatted": format_degree_short(d_chart_deg_in_sign),
                     "nakshatra": p_nak,
                     "pada": p_pada,
                     "nakshatra_lord": p_nl,
-                    "absolute_degree": d_chart_absolute_deg
+                    "absolute_degree": d_chart_absolute_deg,
+                    "rl": p_kp["rl"],
+                    "nl": p_kp["nl"],
+                    "sl": p_kp["sl"],
+                    "ssl": p_kp["ssl"]
                 }
                 if is_planet:
                     mapped_obj["is_retrograde"] = obj.get("is_retrograde", False)
@@ -1665,14 +1671,26 @@ def calculate_ashtottari_dasha(
     nak_groups = nak_groups_1 if method == 1 else nak_groups_2
     
     start_planet = "Venus"
+    planet_naks = []
     for planet, naks in nak_groups:
         if moon_nak_idx in naks:
             start_planet = planet
+            planet_naks = naks
             break
             
     start_idx = ASHTOTTARI_SEQUENCE.index(start_planet)
-    deg_in_nak = moon_deg - ((moon_nak_idx - 1) * 13.333333)
-    fraction_remaining = 1.0 - (deg_in_nak / 13.333333)
+    
+    # Calculate group span and elapsed degrees correctly, handling 360-degree boundary
+    total_span_deg = len(planet_naks) * 13.3333333333
+    
+    start_nak = planet_naks[0]
+    start_group_deg = (start_nak - 1) * 13.3333333333
+    
+    elapsed_in_group = (moon_deg - start_group_deg) % 360.0
+    
+    fraction_remaining = 1.0 - (elapsed_in_group / total_span_deg)
+    # Clamp fraction just in case of floating point inaccuracies
+    fraction_remaining = max(0.0, min(1.0, fraction_remaining))
     
     balance_years = ASHTOTTARI_YEARS[start_planet] * fraction_remaining
     
@@ -1797,24 +1815,36 @@ def calculate_advanced_dasha(
         lords = ["Mars", "Venus", "Mercury", "Moon", "Sun", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Saturn", "Jupiter"]
         
         planet_sign_idx = {}
+        asc_sign_idx = 1
         for p in planets_list:
+            if p.get("planet_name_simple", p["name"].split(" ")[0]) == "Ascendant":
+                asc_sign_idx = p.get("sign_index", 1)
             planet_sign_idx[p.get("planet_name_simple", p["name"].split(" ")[0])] = p.get("sign_index", 1)
             
         timeline = []
         curr = birth_date
         now = datetime.now()
+        
+        # Determine sequence direction based on KN Rao rules (1-6 Direct, 7-12 Indirect)
+        is_direct = asc_sign_idx <= 6
+        
         for i in range(12):
-            sign_name = signs[i]
-            lord_name = lords[i]
-            sign_idx = i + 1
+            if is_direct:
+                sign_idx = ((asc_sign_idx - 1 + i) % 12) + 1
+            else:
+                sign_idx = ((asc_sign_idx - 1 - i) % 12) + 1
+                
+            sign_name = signs[sign_idx - 1]
+            lord_name = lords[sign_idx - 1]
             lord_idx = planet_sign_idx.get(lord_name, 1)
             
+            # KN Rao duration rules
             if sign_idx == lord_idx:
                 dur = 12
             else:
-                if sign_idx in [1, 2, 3, 7, 8, 9]: # Direct
+                if sign_idx in [1, 2, 3, 7, 8, 9]: # Direct counting for duration
                     dur = ((lord_idx - sign_idx) % 12)
-                else: # Indirect
+                else: # Indirect counting for duration
                     dur = ((sign_idx - lord_idx) % 12)
                 if dur == 0: dur = 12
                 
