@@ -1577,8 +1577,8 @@ def calculate_yogini_dasha(
     start_idx -= 1
     if start_idx < 0: start_idx += 8
     
-    deg_in_nak = moon_deg - ((moon_nak_idx - 1) * 13.333333)
-    fraction_remaining = 1.0 - (deg_in_nak / 13.333333)
+    deg_in_nak = moon_deg - ((moon_nak_idx - 1) * (360.0 / 27.0))
+    fraction_remaining = 1.0 - (deg_in_nak / (360.0 / 27.0))
     
     start_planet = YOGINI_SEQUENCE[start_idx]
     total_years = YOGINI_YEARS[start_planet]
@@ -1664,8 +1664,8 @@ def calculate_ashtottari_dasha(
         ("Saturn", [20,21,22,23]), ("Jupiter", [24,25,26]), ("Rahu", [27,1,2,3]), ("Venus", [4,5])
     ]
     nak_groups_2 = [
-        ("Sun", [1,2,3,4]), ("Moon", [5,6,7]), ("Mars", [8,9,10,11]), ("Mercury", [12,13,14]),
-        ("Saturn", [15,16,17,18]), ("Jupiter", [19,20,21]), ("Rahu", [22,23,24,25]), ("Venus", [26,27])
+        ("Sun", [3,4,5,6]), ("Moon", [7,8,9]), ("Mars", [10,11,12,13]), ("Mercury", [14,15,16]),
+        ("Saturn", [17,18,19,20]), ("Jupiter", [21,22,23]), ("Rahu", [24,25,26,27]), ("Venus", [1,2])
     ]
     
     nak_groups = nak_groups_1 if method == 1 else nak_groups_2
@@ -1681,10 +1681,10 @@ def calculate_ashtottari_dasha(
     start_idx = ASHTOTTARI_SEQUENCE.index(start_planet)
     
     # Calculate group span and elapsed degrees correctly, handling 360-degree boundary
-    total_span_deg = len(planet_naks) * 13.3333333333
+    total_span_deg = len(planet_naks) * (360.0 / 27.0)
     
     start_nak = planet_naks[0]
-    start_group_deg = (start_nak - 1) * 13.3333333333
+    start_group_deg = (start_nak - 1) * (360.0 / 27.0)
     
     elapsed_in_group = (moon_deg - start_group_deg) % 360.0
     
@@ -1780,10 +1780,20 @@ def calculate_advanced_dasha(
         
         if "Tribhagi" in dasha_type:
             scale = 1.0 / 3.0
-            
+
+        # Tara Chakra variants: offset Moon degree by exact nakshatra spans to preserve balance
+        # Kshema Tara  = 4th nakshatra from Moon (offset +3)
+        # Utpanna Tara = 5th nakshatra from Moon (offset +4)
+        # Adhana Tara  = 8th nakshatra from Moon (offset +7)
+        if "Kshema Tara" in dasha_type:
+            start_deg = (moon_deg + (3 * 360.0 / 27.0)) % 360.0
+        elif "Utpanna Tara" in dasha_type:
+            start_deg = (moon_deg + (4 * 360.0 / 27.0)) % 360.0
+        elif "Adhana Tara" in dasha_type:
+            start_deg = (moon_deg + (7 * 360.0 / 27.0)) % 360.0
         # Parse if it's based on another planet/point
-        if "D1-" in dasha_type:
-            p_map = {"Sun": "Sun", "Mars": "Mars", "Mercury": "Mercury", "Jupiter": "Jupiter", "Venus": "Venus", "Saturn": "Saturn", "Rahu": "Rahu", "Ketu": "Ketu", "Lagna": "Ascendant"}
+        elif "D1-" in dasha_type:
+            p_map = {"Sun": "Sun", "Moon": "Moon", "Mars": "Mars", "Mercury": "Mercury", "Jupiter": "Jupiter", "Venus": "Venus", "Saturn": "Saturn", "Rahu": "Rahu", "Ketu": "Ketu", "Lagna": "Ascendant"}
             for k, v in p_map.items():
                 if k in dasha_type:
                     for p in planets_list:
@@ -1793,20 +1803,29 @@ def calculate_advanced_dasha(
                             break
                     break
         elif "D9-" in dasha_type or "D10-" in dasha_type:
-            v_mult = 9 if "D9-" in dasha_type else 10
-            p_map = {"Sun": "Sun", "Mars": "Mars", "Mercury": "Mercury", "Jupiter": "Jupiter", "Venus": "Venus", "Saturn": "Saturn", "Rahu": "Rahu", "Ketu": "Ketu", "Lagna": "Ascendant"}
+            p_map = {"Sun": "Sun", "Moon": "Moon", "Mars": "Mars", "Mercury": "Mercury", "Jupiter": "Jupiter", "Venus": "Venus", "Saturn": "Saturn", "Rahu": "Rahu", "Ketu": "Ketu", "Lagna": "Ascendant"}
             for k, v in p_map.items():
                 if k in dasha_type:
                     for p in planets_list:
                         p_name_check = p.get('planet_name_simple', p['name'].split(" ")[0])
                         if p_name_check == v:
-                            start_deg = (p.get('degree_decimal', 0.0) * v_mult) % 360
+                            lon = p.get('degree_decimal', 0.0)
+                            if "D9-" in dasha_type:
+                                start_deg = (lon * 9) % 360.0
+                            else:
+                                sign_idx = int(lon / 30)
+                                deg_in_sign = lon % 30
+                                part = int(deg_in_sign / 3.0)
+                                start_sign = sign_idx if (sign_idx + 1) % 2 != 0 else (sign_idx + 8) % 12
+                                d10_sign = (start_sign + part) % 12
+                                d10_deg = (deg_in_sign % 3.0) * 10.0
+                                start_deg = d10_sign * 30.0 + d10_deg
                             break
                     break
-                    
+
         # Calculate start nakshatra for the start_deg
-        start_nak_idx = int(start_deg / 13.333333) + 1
-        
+        start_nak_idx = int(start_deg / (360.0 / 27.0)) + 1
+
         _, timeline = calculate_vimshottari_dasha(start_nak_idx, start_deg, birth_date, days_in_year, scale)
         return timeline
         
@@ -1825,8 +1844,11 @@ def calculate_advanced_dasha(
         curr = birth_date
         now = datetime.now()
         
-        # Determine sequence direction based on KN Rao rules (1-6 Direct, 7-12 Indirect)
-        is_direct = asc_sign_idx <= 6
+        # Determine sequence direction based on KN Rao rules
+        # Direction is based on the 9th house from Lagna being Odd/Even-footed
+        # Odd-footed signs (1, 2, 3, 7, 8, 9) result in Direct sequence
+        ninth_house = ((asc_sign_idx - 1 + 8) % 12) + 1
+        is_direct = ninth_house in [1, 2, 3, 7, 8, 9]
         
         for i in range(12):
             if is_direct:
