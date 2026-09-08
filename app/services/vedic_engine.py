@@ -987,17 +987,17 @@ def calculate_varga_sign(degree: float, varga_num: int, d1_sign_idx: int) -> int
         
     elif varga_num == 6:  # D-6 Shashtamsha (5° divisions)
         part = int(deg_in_sign / 5.0)  # 0..5
-        start = d1_sign_idx if d1_sign_idx % 2 != 0 else d1_sign_idx + 6
+        start = 1 if d1_sign_idx % 2 != 0 else 7  # Odd from Aries, Even from Libra
         return ((start - 1 + part) % 12) + 1
         
     elif varga_num == 8:  # D-8 Ashtamsha (3°45' divisions)
         part = int(deg_in_sign / 3.75)  # 0..7
         if d1_sign_idx in [1, 4, 7, 10]:
-            start = d1_sign_idx
+            start = 1   # Movable from Aries
         elif d1_sign_idx in [2, 5, 8, 11]:
-            start = d1_sign_idx + 8
+            start = 9   # Fixed from Sagittarius
         else:
-            start = d1_sign_idx + 4
+            start = 5   # Dual from Leo
         return ((start - 1 + part) % 12) + 1
         
     elif varga_num == 11:  # D-11 Ekadashamsha / Rudramsha (2°43'38" divisions)
@@ -1911,8 +1911,18 @@ def apply_trikona_shodhana(bindus):
     groups = [[0, 4, 8], [1, 5, 9], [2, 6, 10], [3, 7, 11]]
     reduced = list(bindus)
     for group in groups:
-        min_val = min(reduced[i] for i in group)
-        if min_val > 0:
+        vals = [reduced[i] for i in group]
+        zeros = vals.count(0)
+        if zeros == 2:
+            # If two are 0, the third becomes 0
+            for i in group:
+                reduced[i] = 0
+        elif zeros == 1:
+            # If one is 0, no reduction is done
+            pass
+        elif zeros == 0:
+            # All three have points -> subtract the minimum
+            min_val = min(vals)
             for i in group:
                 reduced[i] -= min_val
     return reduced
@@ -1937,6 +1947,8 @@ def apply_ekadhipatya_shodhana(bindus, planet_occupancy):
             val_with_p, val_without_p = reduced[sign_with_p], reduced[sign_without_p]
             if val_without_p > val_with_p:
                 reduced[sign_without_p] = val_with_p
+            else:
+                reduced[sign_without_p] = 0
     return reduced
 
 def calculate_shodhya_pinda(reduced_bindus, planet_positions):
@@ -1987,6 +1999,11 @@ def calculate_parashara_ashtakvarga(lagna_sign_idx: int, planet_sign_indices: Di
             "Sun": [1, 2, 4, 7, 8, 10, 11], "Moon": [3, 6, 11], "Mars": [3, 5, 6, 10, 11, 12],
             "Mercury": [6, 8, 9, 10, 11, 12], "Jupiter": [5, 6, 11, 12], "Venus": [6, 11, 12],
             "Saturn": [3, 5, 6, 11], "Lagna": [1, 3, 4, 6, 10, 11]
+        },
+        "Lagna": {
+            "Sun": [3, 4, 6, 10, 11, 12], "Moon": [3, 6, 10, 11], "Mars": [1, 3, 6, 10, 11],
+            "Mercury": [1, 2, 4, 6, 8, 10, 11], "Jupiter": [1, 2, 4, 5, 6, 7, 9, 10, 11], "Venus": [1, 2, 3, 4, 5, 8, 9, 11],
+            "Saturn": [1, 3, 4, 6, 10, 11], "Lagna": [3, 6, 10, 11]
         }
     }
 
@@ -2036,8 +2053,8 @@ def calculate_parashara_ashtakvarga(lagna_sign_idx: int, planet_sign_indices: Di
 
     # Calculate planet occupancy array (0-11)
     planet_occupancy = [False] * 12
-    for p, pos in positions.items():
-        if p != "Lagna":
+    for p, pos in planet_sign_indices.items():
+        if p in ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu"]:
             planet_occupancy[pos - 1] = True
             
     # Calculate advanced reductions
