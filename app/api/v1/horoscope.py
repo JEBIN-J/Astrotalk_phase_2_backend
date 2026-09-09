@@ -50,9 +50,12 @@ def get_jaimini():
 def get_bnn():
     """Calculate exact BNN linkages and event analysis."""
     data = parse_horoscope_data()
+    target_date_str = request.json.get("target_date_str") if request.is_json else None
+    
     result = generate_bnn_chart(
         data["name"], data["date_of_birth"], data["time_of_birth"],
-        data["place_of_birth"], data["latitude"], data["longitude"], data["timezone"]
+        data["place_of_birth"], data["latitude"], data["longitude"], data["timezone"],
+        target_date_str=target_date_str
     )
     result = remove_hindi_text(result)
     return jsonify(result)

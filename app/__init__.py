@@ -9,7 +9,7 @@ from app.api.v1.places import places_bp
 from app.api.v1.ai_astro import ai_astro_bp
 from app.api.v1.reports import reports_bp
 from app.api.v1.admin import admin_bp
-from app.api.v1.ai_vision import ai_vision_bp
+# from app.api.v1.ai_vision import ai_vision_bp
 from app.api.v1.content import content_bp
 
 def create_app(config_class=config) -> Flask:
@@ -67,7 +67,7 @@ def create_app(config_class=config) -> Flask:
     app.register_blueprint(ai_astro_bp, url_prefix='/api/v1/ai-astro')
     app.register_blueprint(reports_bp, url_prefix='/api/v1/reports')
     app.register_blueprint(admin_bp, url_prefix='/api/v1/admin')
-    app.register_blueprint(ai_vision_bp, url_prefix='/api/v1/ai-vision')
+    # app.register_blueprint(ai_vision_bp, url_prefix='/api/v1/ai-vision')
     app.register_blueprint(content_bp, url_prefix='/api/v1/content')
 
     return app
