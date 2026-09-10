@@ -141,8 +141,15 @@ def generate_bnn_chart(
     nodes_progression = {}
     if rahu and ketu:
         years_per_sign = 18.55 / 12.0
-        deg_in_sign = rahu["degree_decimal"] % 30
-        years_elapsed_in_sign = (deg_in_sign / 30.0) * years_per_sign
+        
+        # Rahu/Ketu move backward (30 degrees -> 0 degrees)
+        # If at 10 degrees, it has traveled 20 degrees from 30.
+        r_deg_in_sign = rahu["degree_decimal"] % 30
+        r_elapsed_deg = 30.0 - r_deg_in_sign
+        if r_elapsed_deg == 30.0: 
+            r_elapsed_deg = 0.0
+            
+        years_elapsed_in_sign = (r_elapsed_deg / 30.0) * years_per_sign
         
         cycle = int(current_age // 18.55) + 1
         total_years_from_start_of_sign = current_age + years_elapsed_in_sign

@@ -47,15 +47,15 @@ def get_bnn_relationship(sign_index_a: int, sign_index_b: int) -> dict:
 # Event domains and their primary confirming Karakas
 BNN_EVENTS = {
     "Career": ["Saturn", "Sun"],
-    "Marriage": ["Venus", "Mars"],
-    "Education": ["Mercury", "Jupiter"],
-    "Children": ["Jupiter", "Venus"],
-    "Property": ["Mars", "Saturn"],
-    "Wealth": ["Venus", "Jupiter"],
-    "Foreign Travel": ["Moon", "Rahu"],
+    "Marriage": ["Jupiter", "Venus"],
+    "Education": ["Jupiter", "Mercury"],
+    "Children": ["Jupiter", "Sun"],
+    "Property": ["Saturn", "Mars"],
+    "Wealth": ["Saturn", "Venus"],
+    "Foreign Travel": ["Rahu", "Moon"],
     "Spirituality": ["Ketu", "Jupiter"],
-    "Health": ["Sun", "Mars"],
-    "Relationships": ["Venus", "Moon"]
+    "Health": ["Rahu", "Sun"],
+    "Relationships": ["Jupiter", "Moon"]
 }
 
 def analyze_bnn_combination(planet1: str, planet2: str) -> str:
