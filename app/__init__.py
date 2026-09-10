@@ -11,6 +11,7 @@ from app.api.v1.reports import reports_bp
 from app.api.v1.admin import admin_bp
 # from app.api.v1.ai_vision import ai_vision_bp
 from app.api.v1.content import content_bp
+from app.api.v1.prashna import prashna_bp
 
 def create_app(config_class=config) -> Flask:
     """Create and configure the Flask Application instance."""
@@ -69,5 +70,6 @@ def create_app(config_class=config) -> Flask:
     app.register_blueprint(admin_bp, url_prefix='/api/v1/admin')
     # app.register_blueprint(ai_vision_bp, url_prefix='/api/v1/ai-vision')
     app.register_blueprint(content_bp, url_prefix='/api/v1/content')
+    app.register_blueprint(prashna_bp)
 
     return app
