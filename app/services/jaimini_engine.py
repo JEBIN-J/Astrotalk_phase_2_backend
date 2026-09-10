@@ -357,37 +357,44 @@ def calculate_chara_dasha(asc_sign_idx: int, planets: List[Dict], birth_dt: date
 
 def calculate_jaimini_yogas(planets: List[Dict], chara_karakas: List[Dict]) -> List[Dict]:
     yogas = []
-    # Raja Yoga: AK and AmK conjunct or aspecting each other
     ak = next((k for k in chara_karakas if k["karaka_code"] == "AK"), None)
     amk = next((k for k in chara_karakas if k["karaka_code"] == "AmK"), None)
+    dk = next((k for k in chara_karakas if k["karaka_code"] == "DK"), None)
+    pik = next((k for k in chara_karakas if k["karaka_code"] == "PiK"), None)
     
-    if ak and amk:
-        # Check conjunction
+    if not ak: return yogas
+    ak_aspects = get_rashi_aspects(ak["sign_index"])
+
+    # 1. AK + AmK
+    if amk:
         if ak["sign_index"] == amk["sign_index"]:
-            yogas.append({
-                "yoga": "Jaimini Raja Yoga",
-                "planets": f"{ak['planet']} (AK) + {amk['planet']} (AmK)",
-                "rule": "AK and AmK are conjunct",
-                "evidence": f"Both in {get_sign_name(ak['sign_index'])}",
-                "status": "Formed"
-            })
-        else:
-            # Check aspect
-            ak_aspects = get_rashi_aspects(ak["sign_index"])
-            if amk["sign_index"] in ak_aspects:
-                yogas.append({
-                    "yoga": "Jaimini Raja Yoga",
-                    "planets": f"{ak['planet']} (AK) aspecting {amk['planet']} (AmK)",
-                    "rule": "AK and AmK aspect each other via Rashi Drishti",
-                    "evidence": f"{get_sign_name(ak['sign_index'])} aspects {get_sign_name(amk['sign_index'])}",
-                    "status": "Formed"
-                })
+            yogas.append({"yoga": "Jaimini Raja Yoga", "planets": f"{ak['planet']} (AK) + {amk['planet']} (AmK)", "rule": "AK and AmK are conjunct", "evidence": f"Both in {get_sign_name(ak['sign_index'])}", "status": "Formed"})
+        elif amk["sign_index"] in ak_aspects:
+            yogas.append({"yoga": "Jaimini Raja Yoga", "planets": f"{ak['planet']} (AK) aspecting {amk['planet']} (AmK)", "rule": "AK and AmK aspect each other via Rashi Drishti", "evidence": f"{get_sign_name(ak['sign_index'])} aspects {get_sign_name(amk['sign_index'])}", "status": "Formed"})
+
+    # 2. AK + DK
+    if dk:
+        if ak["sign_index"] == dk["sign_index"]:
+            yogas.append({"yoga": "Jaimini Maha Yoga", "planets": f"{ak['planet']} (AK) + {dk['planet']} (DK)", "rule": "AK and DK are conjunct", "evidence": f"Both in {get_sign_name(ak['sign_index'])}", "status": "Formed"})
+        elif dk["sign_index"] in ak_aspects:
+            yogas.append({"yoga": "Jaimini Maha Yoga", "planets": f"{ak['planet']} (AK) aspecting {dk['planet']} (DK)", "rule": "AK and DK aspect each other via Rashi Drishti", "evidence": f"{get_sign_name(ak['sign_index'])} aspects {get_sign_name(dk['sign_index'])}", "status": "Formed"})
+
+    # 3. AmK + DK
+    if amk and dk:
+        if amk["sign_index"] == dk["sign_index"]:
+            yogas.append({"yoga": "Wealth Yoga", "planets": f"{amk['planet']} (AmK) + {dk['planet']} (DK)", "rule": "AmK and DK are conjunct", "evidence": f"Both in {get_sign_name(amk['sign_index'])}", "status": "Formed"})
+        elif dk["sign_index"] in get_rashi_aspects(amk["sign_index"]):
+            yogas.append({"yoga": "Wealth Yoga", "planets": f"{amk['planet']} (AmK) aspecting {dk['planet']} (DK)", "rule": "AmK and DK aspect each other", "evidence": f"{get_sign_name(amk['sign_index'])} aspects {get_sign_name(dk['sign_index'])}", "status": "Formed"})
+
     return yogas
 
 def calculate_special_lagnas(kundli: Dict) -> List[Dict]:
     planets = kundli.get("planets", [])
-    asc_deg = kundli.get("ascendant", {}).get("degree_decimal", 0.0) if isinstance(kundli.get("ascendant"), dict) else 0.0
-    sun = next((p for p in planets if p["planet_name_simple"] == "Sun"), None)
+    
+    asc = next((p for p in planets if p.get("planet_name_simple") == "Ascendant"), None)
+    asc_deg = asc["degree_decimal"] if asc else 0.0
+    
+    sun = next((p for p in planets if p.get("planet_name_simple") == "Sun"), None)
     sun_deg = sun["degree_decimal"] if sun else 0.0
     
     hl_deg = (sun_deg + asc_deg * 2) % 360.0
