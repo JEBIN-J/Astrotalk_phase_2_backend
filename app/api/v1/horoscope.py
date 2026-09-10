@@ -5,6 +5,7 @@ from app.services.lal_kitab_engine import generate_lal_kitab_chart
 from app.services.bnn_engine import generate_bnn_chart
 from app.services.jaimini_engine import generate_jaimini_chart
 from app.services.daily_horoscope_engine import generate_daily_horoscope
+from app.services.kota_engine import generate_kota_chakra
 
 horoscope_bp = Blueprint('horoscope', __name__)
 
@@ -337,3 +338,17 @@ def daily_horoscope():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@horoscope_bp.route("/kota-chakra", methods=["POST"])
+def get_kota_chakra():
+    """Calculate complete Kota Chakra including 28 Nakshatras and Transit mapping."""
+    data = parse_horoscope_data()
+    transit_date = request.json.get("transit_date")
+    transit_time = request.json.get("transit_time")
+    
+    result = generate_kota_chakra(
+        data["name"], data["date_of_birth"], data["time_of_birth"],
+        data["place_of_birth"], data["latitude"], data["longitude"], data["timezone"],
+        transit_date_str=transit_date, transit_time_str=transit_time
+    )
+    result = remove_hindi_text(result)
+    return jsonify(result)

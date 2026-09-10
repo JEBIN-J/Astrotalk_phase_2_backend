@@ -2694,48 +2694,7 @@ def calculate_vimsopaka(planets_list: List[Dict[str, Any]], divisional_charts: D
             
     return results
 
-def calculate_kot_chakra(planets_list: List[Dict[str, Any]], moon_nak_idx: int) -> Dict[str, Any]:
-    """Generate Kot Chakra layout dynamically based on Moon's position."""
-    sections = {
-        "Stambha (Inner Pillar)": [],
-        "Madhya (Middle)": [],
-        "Prakara (Boundary)": [],
-        "Bahya (Exterior)": []
-    }
-    
-    moon_planet = next((p for p in planets_list if p.get("planet_name_simple", "") == "Moon"), None)
-    moon_deg = moon_planet.get("degree_decimal", 0.0) if moon_planet else 0.0
-    
-    for p in planets_list:
-        p_name = p.get("planet_name_simple", p["name"].split(" ")[0])
-        if p_name == "Ascendant":
-            continue
-            
-        nak_name = p.get("nakshatra", "")
-        deg = p.get("degree_decimal", 0.0)
-        dist = abs(deg - moon_deg)
-        if dist > 180: dist = 360 - dist
-        
-        if dist < 45:
-            sec = "Stambha (Inner Pillar)"
-        elif dist < 90:
-            sec = "Madhya (Middle)"
-        elif dist < 135:
-            sec = "Prakara (Boundary)"
-        else:
-            sec = "Bahya (Exterior)"
-            
-        sections[sec].append({
-            "planet": p_name,
-            "color": p.get("color", "#475569"),
-            "nakshatra": nak_name,
-            "degree": p.get("degree_formatted", "")
-        })
-        
-    return {
-        "sections": sections,
-        "moon_nakshatra_reference": moon_planet.get("nakshatra", "") if moon_planet else ""
-    }
+
 
 
 def detect_vedic_yogas(planets_list: List[Dict[str, Any]], asc_sign_idx: int) -> List[Dict[str, Any]]:
@@ -3037,7 +2996,6 @@ def generate_full_kundli(
         jd, latitude, longitude, ayanamsa, asc_deg, mc_deg, sun_deg, moon_deg
     )
     vimsopaka_data = calculate_vimsopaka(planets_list, divisional_charts)
-    kot_chakra_data = calculate_kot_chakra(planets_list, moon_nak_idx)
 
     # 11. Classical Vedic Yogas
     yogas_data = detect_vedic_yogas(planets_list, asc_sign_idx)
@@ -3107,7 +3065,7 @@ def generate_full_kundli(
         "shadbala": shadbala_data,
         "bhava_bala": bhava_bala_data,
         "vimsopaka": vimsopaka_data,
-        "kot_chakra": kot_chakra_data,
+        "kot_chakra": None,
         "panchanga": panchanga_data,
         "yogas": yogas_data,
         "vedic_yogas": yogas_data,
