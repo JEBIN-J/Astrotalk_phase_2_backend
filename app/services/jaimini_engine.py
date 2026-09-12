@@ -518,7 +518,10 @@ def generate_jaimini_chart(
     # 7. Chara Dasha
     # Parse DOB
     try:
-        birth_dt = datetime.strptime(f"{dob_str} {tob_str}", "%Y-%m-%d %H:%M")
+        tob_parts = [int(p) for p in tob_str.split(":")]
+        second_part = tob_parts[2] if len(tob_parts) > 2 else 0
+        dob = datetime.strptime(dob_str, "%Y-%m-%d")
+        birth_dt = datetime(dob.year, dob.month, dob.day, tob_parts[0], tob_parts[1], second_part)
     except:
         birth_dt = datetime.now()
         

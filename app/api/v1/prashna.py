@@ -82,8 +82,29 @@ def get_prashna_chart():
     
     # Calculate Ashtottari Applicability
     # Standard Parashari Rule: Rahu in Kendra/Trikona from Lagna Lord
-    ashtottari_applicable = True
-    ashtottari_reason = "Ashtottari conditionally applicable based on Parashari rules."
+    ashtottari_applicable = False
+    ashtottari_reason = "Ashtottari is NOT applicable (Rahu is not in Kendra/Trikona from Lagna Lord)."
+    
+    try:
+        asc_planet = next((p for p in base_chart["planets"] if p["planet_name_simple"] == "Ascendant"), None)
+        rahu_planet = next((p for p in base_chart["planets"] if p["planet_name_simple"] == "Rahu"), None)
+        
+        if asc_planet and rahu_planet:
+            lagna_lord_name = asc_planet.get("sign_lord", "")
+            lagna_lord_planet = next((p for p in base_chart["planets"] if p["planet_name_simple"] == lagna_lord_name), None)
+            
+            if lagna_lord_planet:
+                ll_sign = lagna_lord_planet.get("sign_index", 1)
+                rahu_sign = rahu_planet.get("sign_index", 1)
+                
+                # Distance inclusive (e.g. if both in Aries, distance is 1)
+                distance = (rahu_sign - ll_sign) % 12 + 1
+                
+                if distance in [1, 4, 7, 10, 5, 9]:
+                    ashtottari_applicable = True
+                    ashtottari_reason = f"Ashtottari is APPLICABLE: Rahu is in house {distance} from Lagna Lord ({lagna_lord_name})."
+    except Exception as e:
+        pass
     
     # Section 1: Vimshottari
     vimshottari = base_chart.get("vimshottari_full_payload", {
@@ -143,8 +164,8 @@ def get_prashna_chart():
     )
     
     chara = {
-        "current": jaimini_data.get("chara_dasha_current", {}),
-        "timeline": jaimini_data.get("chara_dasha_timeline", [])
+        "current": jaimini_data.get("current_period", {}),
+        "timeline": jaimini_data.get("chara_dasha", [])
     }
     
     # Section 6: Navamsa (D9)
@@ -160,8 +181,9 @@ def get_prashna_chart():
         d1_sign = p["sign"]
         d9_sign = p.get("navamsha", "")
         # D9 sign in the API is typically a dict if from get_navamsha, let's extract string if needed
-        d9_sign_str = d9_sign if isinstance(d9_sign, str) else (d9_sign.get("sign") if isinstance(d9_sign, dict) else str(d9_sign))
+        d9_sign_str = d9_sign if isinstance(d9_sign, str) else (d9_sign.get("navamsha_sign") if isinstance(d9_sign, dict) else str(d9_sign))
         is_var = (d1_sign == d9_sign_str)
+        
         d9_planet_positions.append({
             "planet": p["planet_name_simple"],
             "d1_sign": d1_sign,
