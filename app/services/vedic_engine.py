@@ -15,6 +15,9 @@ import math
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Tuple, Optional
 from app.utils.constants import ZODIAC_SIGNS, NAKSHATRAS, PLANETS_INFO, VIMSHOTTARI_SEQUENCE, POPULAR_CITIES
+from pydantic import BaseModel
+from collections import defaultdict
+import app.services.vimshottari_engine as vimshottari_engine
 
 try:
     import swisseph as swe
@@ -2980,7 +2983,18 @@ def generate_full_kundli(
     divisional_charts = calculate_all_divisional_charts(planets_list, asc_deg, upagrahas_list, special_lagnas, bhava_chalit.get("cusps"))
 
     # 8. Exact Vimshottari Mahadasha + Antardashas
-    current_dasha, dasha_timeline = calculate_vimshottari_dasha(moon_nak_idx, moon_deg, birth_dt, days_in_year)
+    vimshottari_data = vimshottari_engine.calculate_vimshottari_dasha_full(
+        moon_nak_idx=moon_nak_idx,
+        moon_deg=moon_deg,
+        calculation_date=birth_dt,
+        moon_sign_name=moon_sign_name,
+        moon_nak_name=moon_nak_name,
+        moon_nak_lord=moon_nak_lord,
+        moon_pada=moon_pada,
+        days_in_year=days_in_year
+    )
+    current_dasha = vimshottari_data['current']
+    dasha_timeline = vimshottari_data['timeline']
 
     # 9. Exact Parashara Ashtakavarga for all Divisional Charts
     ashtakvarga_data = {}
@@ -3014,7 +3028,7 @@ def generate_full_kundli(
     summary_insights = [
         {"title": "Ascendant Power", "desc": f"Ascendant in {asc_sign_name} ({asc_dms}) with Moon Star Lord grants solid resilience and sharp strategic discipline."},
         {"title": "Moon Sign & Mind", "desc": f"Moon in {moon_sign_name} ({moon_nak_name} Pada {moon_pada}) grants an analytical, detail-oriented intellect with artistic flair."},
-        {"title": "Active Planetary Period", "desc": f"Currently navigating {current_dasha['active_mahadasha']} Mahadasha under {current_dasha.get('active_antardasha', 'Saturn')} Antardasha."}
+        {"title": "Active Planetary Period", "desc": f"Currently navigating {current_dasha.get('mahadasha', current_dasha.get('active_mahadasha', '-'))} Mahadasha under {current_dasha.get('antardasha', current_dasha.get('active_antardasha', '-'))} Antardasha."}
     ]
 
     accuracy_metadata = {
@@ -3036,6 +3050,8 @@ def generate_full_kundli(
         "latitude": latitude,
         "longitude": longitude,
         "timezone": timezone,
+        "julian_day": jd,
+        "utc_hour": hour_utc,
         "formatted_datetime_header": f"{birth_dt.strftime('%d-%b-%Y %I:%M:%S %p')}",
         "ayanamsa_value": f"Lahiri {degree_to_sign_and_dms(ayanamsa)[2]}",
         "ayanamsa_formatted": f"Lahiri {degree_to_sign_and_dms(ayanamsa)[2]}",
@@ -3061,6 +3077,7 @@ def generate_full_kundli(
         "bhava_chalit": bhava_chalit,
         "current_running_dasha": current_dasha,
         "vimshottari_dasha_timeline": dasha_timeline,
+        "vimshottari_full_payload": vimshottari_data,
         "ashtakvarga": ashtakvarga_data,
         "shadbala": shadbala_data,
         "bhava_bala": bhava_bala_data,

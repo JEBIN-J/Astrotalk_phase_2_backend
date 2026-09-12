@@ -58,6 +58,7 @@ def get_prashna_chart():
     lat = float(req_data.get("latitude", 28.6139))
     lon = float(req_data.get("longitude", 77.2090))
     tz = float(req_data.get("timezone", 5.5))
+    days_in_year = float(req_data.get("days_in_year", 365.256364))
     
     # Base Chart Calculation
     # We pass the Prashna date/time as the "birth" parameters
@@ -68,7 +69,8 @@ def get_prashna_chart():
         pob_str=pob,
         latitude=lat,
         longitude=lon,
-        timezone=tz
+        timezone=tz,
+        days_in_year=days_in_year
     )
     
     # Extract Moon Details
@@ -84,10 +86,10 @@ def get_prashna_chart():
     ashtottari_reason = "Ashtottari conditionally applicable based on Parashari rules."
     
     # Section 1: Vimshottari
-    vimshottari = {
-        "current": base_chart["current_running_dasha"],
-        "timeline": base_chart["vimshottari_dasha_timeline"]
-    }
+    vimshottari = base_chart.get("vimshottari_full_payload", {
+        "current": base_chart.get("current_running_dasha"),
+        "timeline": base_chart.get("vimshottari_dasha_timeline")
+    })
     
     # Section 2: Yogini
     dob_dt = datetime.strptime(q_date, "%Y-%m-%d")
@@ -99,7 +101,8 @@ def get_prashna_chart():
         moon_nak_idx=nak_idx, 
         moon_deg=moon_deg, 
         birth_date=dob_dt, 
-        planets_list=base_chart["planets"]
+        planets_list=base_chart["planets"],
+        days_in_year=days_in_year
     )
     
     yogini = {
@@ -108,7 +111,7 @@ def get_prashna_chart():
     }
     
     # Section 3: Kala Chakra
-    kala_chakra = calculate_kalachakra_dasha(moon_deg, dob_dt)
+    kala_chakra = calculate_kalachakra_dasha(moon_deg, dob_dt, days_in_year=days_in_year)
     
     # Section 4: Ashtottari
     ashtottari_timeline = calculate_advanced_dasha(
@@ -116,7 +119,8 @@ def get_prashna_chart():
         moon_nak_idx=nak_idx, 
         moon_deg=moon_deg, 
         birth_date=dob_dt, 
-        planets_list=base_chart["planets"]
+        planets_list=base_chart["planets"],
+        days_in_year=days_in_year
     )
     
     ashtottari = {
@@ -151,27 +155,29 @@ def get_prashna_chart():
     else:
         d9_data = next((c for c in divisional_charts if c.get("id") == "D-9"), None)
     
-    vargottama_planets = []
+    d9_planet_positions = []
     for p in base_chart["planets"]:
-        if p["planet_name_simple"] == "Ascendant": continue
-        # Vargottama if D1 sign == D9 sign
         d1_sign = p["sign"]
         d9_sign = p.get("navamsha", "")
-        is_var = (d1_sign == d9_sign)
-        vargottama_planets.append({
+        # D9 sign in the API is typically a dict if from get_navamsha, let's extract string if needed
+        d9_sign_str = d9_sign if isinstance(d9_sign, str) else (d9_sign.get("sign") if isinstance(d9_sign, dict) else str(d9_sign))
+        is_var = (d1_sign == d9_sign_str)
+        d9_planet_positions.append({
             "planet": p["planet_name_simple"],
             "d1_sign": d1_sign,
-            "d9_sign": d9_sign,
+            "d9_sign": d9_sign_str,
             "vargottama": is_var
         })
         
     navamsa = {
         "chart": d9_data,
-        "vargottama_planets": vargottama_planets,
+        "d9_planet_positions": d9_planet_positions,
         "karakas": jaimini_data.get("karakas", [])
     }
     
     # Overview & Common Planetary Data
+    utc_hr_str = f"{int(base_chart.get('utc_hour', 0)):02d}:{int((base_chart.get('utc_hour', 0) % 1) * 60):02d} UTC"
+    
     overview = {
         "question_date": q_date,
         "question_time": q_time,
@@ -179,6 +185,8 @@ def get_prashna_chart():
         "latitude": lat,
         "longitude": lon,
         "timezone": tz,
+        "utc_time": utc_hr_str,
+        "julian_day": round(base_chart.get("julian_day", 0), 4),
         "ayanamsa": base_chart["ayanamsa_formatted"],
         "prashna_lagna": base_chart["ascendant_sign"],
         "lagna_degree": base_chart["ascendant_degree_formatted"],
