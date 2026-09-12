@@ -1579,8 +1579,8 @@ def calculate_vimshottari_dasha(
 # ---------------------------------------------------------
 # YOGINI DASHA
 # ---------------------------------------------------------
-YOGINI_SEQUENCE = ["Mangala", "Pingala", "Dhanya", "Bhramari", "Bhadrika", "Ulka", "Siddha", "Sankata"]
-YOGINI_YEARS = {"Mangala": 1, "Pingala": 2, "Dhanya": 3, "Bhramari": 4, "Bhadrika": 5, "Ulka": 6, "Siddha": 7, "Sankata": 8}
+YOGINI_SEQUENCE = ["Mangala (Moon)", "Pingala (Sun)", "Dhanya (Jupiter)", "Bhramari (Mars)", "Bhadrika (Mercury)", "Ulka (Saturn)", "Siddha (Venus)", "Sankata (Rahu)"]
+YOGINI_YEARS = {"Mangala (Moon)": 1, "Pingala (Sun)": 2, "Dhanya (Jupiter)": 3, "Bhramari (Mars)": 4, "Bhadrika (Mercury)": 5, "Ulka (Saturn)": 6, "Siddha (Venus)": 7, "Sankata (Rahu)": 8}
 
 def calculate_yogini_dasha(
     moon_nak_idx: int,
@@ -1617,18 +1617,30 @@ def calculate_yogini_dasha(
         is_completed = d_end <= now
         
         antardashas = []
-        ad_start = current_start
+        if cycles == 0 and seq_idx == start_idx:
+            theoretical_md_start = current_start - timedelta(days=(d_years - balance_years) * days_in_year)
+        else:
+            theoretical_md_start = current_start
+            
+        ad_start = theoretical_md_start
+        ad_seq_start = seq_idx
         
         for ad_i in range(8):
-            ad_p_name = YOGINI_SEQUENCE[(seq_idx + ad_i) % 8]
-            ad_years_duration = actual_years * (YOGINI_YEARS[ad_p_name] / 36.0)
-            ad_end = ad_start + timedelta(days=ad_years_duration * days_in_year)
-            ad_active = ad_start <= now < ad_end
+            ad_p_name = YOGINI_SEQUENCE[(ad_seq_start + ad_i) % 8]
+            ad_years_duration = d_years * (YOGINI_YEARS[ad_p_name] / 36.0)
+            ad_end_theoretical = ad_start + timedelta(days=ad_years_duration * days_in_year)
+            
+            if cycles == 0 and seq_idx == start_idx and ad_end_theoretical <= current_start:
+                ad_start = ad_end_theoretical
+                continue
+                
+            effective_ad_start = max(ad_start, current_start)
+            ad_active = effective_ad_start <= now < ad_end_theoretical
             
             antardashas.append({
                 "planet": ad_p_name,
-                "start": ad_start.strftime("%d %b %Y"),
-                "end": ad_end.strftime("%d %b %Y"),
+                "start": effective_ad_start.strftime("%d %b %Y"),
+                "end": ad_end_theoretical.strftime("%d %b %Y"),
                 "is_active": ad_active
             })
             
@@ -1640,7 +1652,7 @@ def calculate_yogini_dasha(
                     "end": d_end.strftime("%d %b %Y")
                 }
                 
-            ad_start = ad_end
+            ad_start = ad_end_theoretical
             
         timeline.append({
             "planet": p_name,
@@ -1719,24 +1731,38 @@ def calculate_ashtottari_dasha(
     cycles = 0
     while (current_start - birth_date).days / days_in_year < 100:
         p_name = ASHTOTTARI_SEQUENCE[seq_idx]
-        actual_years = balance_years if (cycles == 0 and seq_idx == start_idx) else ASHTOTTARI_YEARS[p_name]
+        d_years = ASHTOTTARI_YEARS[p_name]
+        actual_years = balance_years if (cycles == 0 and seq_idx == start_idx) else d_years
         d_end = current_start + timedelta(days=actual_years * days_in_year)
         
         is_active = current_start <= now < d_end
         is_completed = d_end <= now
         
         antardashas = []
-        ad_start = current_start
+        if cycles == 0 and seq_idx == start_idx:
+            theoretical_md_start = current_start - timedelta(days=(d_years - balance_years) * days_in_year)
+        else:
+            theoretical_md_start = current_start
+            
+        ad_start = theoretical_md_start
+        ad_seq_start = seq_idx
+        
         for ad_i in range(8):
-            ad_p_name = ASHTOTTARI_SEQUENCE[(seq_idx + ad_i) % 8]
-            ad_years_duration = actual_years * (ASHTOTTARI_YEARS[ad_p_name] / 108.0)
-            ad_end = ad_start + timedelta(days=ad_years_duration * days_in_year)
-            ad_active = ad_start <= now < ad_end
+            ad_p_name = ASHTOTTARI_SEQUENCE[(ad_seq_start + ad_i) % 8]
+            ad_years_duration = d_years * (ASHTOTTARI_YEARS[ad_p_name] / 108.0)
+            ad_end_theoretical = ad_start + timedelta(days=ad_years_duration * days_in_year)
+            
+            if cycles == 0 and seq_idx == start_idx and ad_end_theoretical <= current_start:
+                ad_start = ad_end_theoretical
+                continue
+                
+            effective_ad_start = max(ad_start, current_start)
+            ad_active = effective_ad_start <= now < ad_end_theoretical
             
             antardashas.append({
                 "planet": ad_p_name,
-                "start": ad_start.strftime("%d %b %Y"),
-                "end": ad_end.strftime("%d %b %Y"),
+                "start": effective_ad_start.strftime("%d %b %Y"),
+                "end": ad_end_theoretical.strftime("%d %b %Y"),
                 "is_active": ad_active
             })
             
@@ -1747,7 +1773,7 @@ def calculate_ashtottari_dasha(
                     "start": current_start.strftime("%d %b %Y"),
                     "end": d_end.strftime("%d %b %Y")
                 }
-            ad_start = ad_end
+            ad_start = ad_end_theoretical
             
         timeline.append({
             "planet": p_name,
