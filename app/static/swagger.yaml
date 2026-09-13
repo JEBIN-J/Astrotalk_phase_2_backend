@@ -1,0 +1,233 @@
+openapi: 3.0.0
+info:
+  title: AstroTalk Phase 2 API
+  description: API Documentation for AstroTalk Backend.
+  version: 1.0.0
+servers:
+- url: http://localhost:5000
+  description: Local server
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    HoroscopeRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Rahul Sharma
+        date_of_birth:
+          type: string
+          example: '1995-08-15'
+        time_of_birth:
+          type: string
+          example: 06:30
+        place_of_birth:
+          type: string
+          example: New Delhi, India
+        latitude:
+          type: number
+          example: 28.6139
+        longitude:
+          type: number
+          example: 77.209
+        timezone:
+          type: number
+          example: 5.5
+paths:
+  /api/v1/horoscope/kundli:
+    post:
+      tags:
+      - Vedic
+      summary: Full Janam Kundli
+      description: Returns all Vedic details.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HoroscopeRequest'
+      responses:
+        '200':
+          description: Successful response
+  /api/v1/horoscope/divisional:
+    post:
+      tags:
+      - Vedic
+      summary: Divisional Charts (Rashi, Navamsa, Bhava, etc.)
+      description: Returns all 16 charts.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HoroscopeRequest'
+      responses:
+        '200':
+          description: Successful response
+  /api/v1/horoscope/planets:
+    post:
+      tags:
+      - Vedic
+      summary: Planetary Info
+      description: Returns exact planetary degrees.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HoroscopeRequest'
+      responses:
+        '200':
+          description: Successful response
+  /api/v1/horoscope/upagrahas:
+    post:
+      tags:
+      - Vedic
+      summary: Upagrahas
+      description: Returns Upagrahas.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HoroscopeRequest'
+      responses:
+        '200':
+          description: Successful response
+  /api/v1/horoscope/arudhas:
+    post:
+      tags:
+      - Vedic
+      summary: Arudhas
+      description: Returns Arudha Padas.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HoroscopeRequest'
+      responses:
+        '200':
+          description: Successful response
+  /api/v1/horoscope/dasha:
+    post:
+      tags:
+      - Dasha
+      summary: Dasha timeline
+      description: Returns Dasha timeline.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: '#/components/schemas/HoroscopeRequest'
+              - type: object
+                properties:
+                  dasha_type:
+                    type: string
+                    example: Vimshottari Dasha
+      responses:
+        '200':
+          description: Successful response
+  /api/v1/horoscope/ashtakvarga:
+    post:
+      tags:
+      - Ashtakvarga
+      summary: Ashtakvarga
+      description: Returns Ashtakvarga points.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HoroscopeRequest'
+      responses:
+        '200':
+          description: Successful response
+  /api/v1/horoscope/jaimini:
+    post:
+      tags:
+      - Jaimini
+      summary: Jaimini Astrology
+      description: Returns Jaimini details.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HoroscopeRequest'
+      responses:
+        '200':
+          description: Successful response
+  /api/v1/horoscope/bnn:
+    post:
+      tags:
+      - BNN
+      summary: Bhrigu Nandi Nadi (BNN)
+      description: Returns BNN linkages.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HoroscopeRequest'
+      responses:
+        '200':
+          description: Successful response
+  /api/v1/horoscope/lal-kitab:
+    post:
+      tags:
+      - Lal Kitab
+      summary: Lal Kitab
+      description: Returns Lal Kitab details.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HoroscopeRequest'
+      responses:
+        '200':
+          description: Successful response
+  /api/v1/horoscope/kota-chakra:
+    post:
+      tags:
+      - Kota Chakra
+      summary: Kota Chakra
+      description: Returns Kota Chakra details.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HoroscopeRequest'
+      responses:
+        '200':
+          description: Successful response
+  /api/v1/places/search:
+    get:
+      tags:
+      - Places
+      summary: Search cities
+      parameters:
+      - name: q
+        in: query
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: List of cities
+  /api/v1/content/quotes:
+    get:
+      tags:
+      - Content
+      summary: Get astrology quotes
+      responses:
+        '200':
+          description: List of quotes

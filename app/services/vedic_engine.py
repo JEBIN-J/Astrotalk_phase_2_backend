@@ -417,7 +417,10 @@ def calculate_upagrahas(
     if jd_ut_birth < sunrise_jd:
         res_rise = swe.rise_trans(jd_ut_start - 1.0, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos)
         sunrise_jd = res_rise[1][0]
-        
+        adjusted_dt = birth_dt - __import__('datetime').timedelta(days=1)
+    else:
+        adjusted_dt = birth_dt
+
     res_set = swe.rise_trans(sunrise_jd, swe.SUN, swe.CALC_SET | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos)
     sunset_jd = res_set[1][0]
     
@@ -425,8 +428,8 @@ def calculate_upagrahas(
     next_sunrise_jd = res_rise_next[1][0]
     
     is_day_birth = sunrise_jd <= jd_ut_birth < sunset_jd
-    
-    weekday = birth_dt.weekday()  # 0=Monday, 6=Sunday
+        
+    weekday = adjusted_dt.weekday()  # 0=Monday, 6=Sunday
     w_idx = (weekday + 1) % 7     # Sunday=0, Monday=1, ...
     
     # 8-part division of Day/Night for Upagrahas (Ashtamamsa calculation)
@@ -2326,7 +2329,15 @@ def calculate_shadbala(planets_deg: Dict[str, float], asc_deg: float, mc_deg: fl
         
         # Abda, Maasa, Vaara, Hora dynamically computed
         if birth_dt:
-            vaara_index = birth_dt.weekday() # 0=Mon, 6=Sun
+            sunrise_approx = 6.0 # Approx 6 AM sunrise
+            hours_since_sunrise = (birth_dt.hour + birth_dt.minute/60.0 - sunrise_approx)
+            
+            if hours_since_sunrise < 0: 
+                hours_since_sunrise += 24.0
+                vaara_index = (birth_dt - __import__('datetime').timedelta(days=1)).weekday()
+            else:
+                vaara_index = birth_dt.weekday() # 0=Mon, 6=Sun
+                
             vaara_map = {0: "Moon", 1: "Mars", 2: "Mercury", 3: "Jupiter", 4: "Venus", 5: "Saturn", 6: "Sun"}
             vaara_lord = vaara_map[vaara_index]
             
@@ -2336,9 +2347,6 @@ def calculate_shadbala(planets_deg: Dict[str, float], asc_deg: float, mc_deg: fl
                 start_idx = hora_sequence.index(vaara_lord)
             except ValueError:
                 start_idx = 0
-            sunrise_approx = 6.0 # Approx 6 AM sunrise
-            hours_since_sunrise = (birth_dt.hour + birth_dt.minute/60.0 - sunrise_approx)
-            if hours_since_sunrise < 0: hours_since_sunrise += 24.0
             hora_index = int(hours_since_sunrise) % 24
             hora_lord = hora_sequence[(start_idx + hora_index) % 7]
             

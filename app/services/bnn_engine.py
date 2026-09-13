@@ -5,7 +5,7 @@ from app.services.bnn_rules import BNN_KARAKAS, BNN_TRINE_GROUPS, get_bnn_relati
 
 def calculate_current_age(dob_str: str, target_date_str: str = None) -> float:
     dob = datetime.strptime(dob_str, "%Y-%m-%d")
-    now = datetime.strptime(target_date_str, "%Y-%m-%d") if target_date_str else datetime.now()
+    now = datetime.strptime(target_date_str, "%Y-%m-%d") if target_date_str else datetime.utcnow() + __import__('datetime').timedelta(hours=5.5)
     days_alive = (now - dob).days
     return days_alive / 365.25
 
@@ -30,7 +30,7 @@ def generate_bnn_chart(
     natal_planets = [p for p in kundli.get("planets", []) if p.get("planet_name_simple", p["name"].split(" ")[0]) in valid_planets]
     
     # Also fetch current transit planets
-    now = datetime.strptime(target_date_str, "%Y-%m-%d") if target_date_str else datetime.now()
+    now = datetime.strptime(target_date_str, "%Y-%m-%d") if target_date_str else datetime.utcnow() + __import__('datetime').timedelta(hours=timezone)
     transit_kundli = generate_full_kundli(
         "Transit", now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S"), pob_str, latitude, longitude, timezone
     )

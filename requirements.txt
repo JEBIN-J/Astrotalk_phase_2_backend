@@ -14,3 +14,4 @@ scikit-image>=0.22.0
 numpy>=1.26.0
 pytz
 google-generativeai>=0.4.0
+flask-swagger-ui==4.11.1

@@ -2,6 +2,7 @@
 import time
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from flask_swagger_ui import get_swaggerui_blueprint
 from app.core.config import config
 from app.api.v1.auth import auth_bp
 from app.api.v1.horoscope import horoscope_bp
@@ -70,6 +71,17 @@ def create_app(config_class=config) -> Flask:
     app.register_blueprint(admin_bp, url_prefix='/api/v1/admin')
     # app.register_blueprint(ai_vision_bp, url_prefix='/api/v1/ai-vision')
     app.register_blueprint(content_bp, url_prefix='/api/v1/content')
-    app.register_blueprint(prashna_bp)
+    # Swagger UI Setup
+    SWAGGER_URL = '/apidocs'
+    API_URL = '/static/swagger.yaml'
+    swaggerui_blueprint = get_swaggerui_blueprint(
+        SWAGGER_URL,
+        API_URL,
+        config={
+            'app_name': "AstroTalk API Documentation",
+            'syntaxHighlight': False
+        }
+    )
+    app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
 
     return app

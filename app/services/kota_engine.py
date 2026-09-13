@@ -94,7 +94,7 @@ def generate_kota_chakra(
     
     # 2. Calculate Transit Chart
     if not transit_date_str or not transit_time_str:
-        now = datetime.now()
+        now = datetime.utcnow() + timedelta(hours=timezone)
         transit_date_str = now.strftime("%Y-%m-%d")
         transit_time_str = now.strftime("%H:%M")
         
@@ -102,7 +102,7 @@ def generate_kota_chakra(
     try:
         t_dt = datetime.strptime(f"{transit_date_str} {transit_time_str}", "%Y-%m-%d %H:%M")
     except:
-        t_dt = datetime.now()
+        t_dt = datetime.utcnow() + timedelta(hours=timezone)
         
     t_prev = t_dt - timedelta(days=1)
     
