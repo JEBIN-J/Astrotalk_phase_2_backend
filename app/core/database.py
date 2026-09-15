@@ -28,6 +28,34 @@ def init_db():
         if 'annotated_image' not in columns:
             conn.execute("ALTER TABLE palm_annotations ADD COLUMN annotated_image TEXT")
             
+        # Tarot tables
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS tarot_daily_readings (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                card_id TEXT NOT NULL,
+                orientation TEXT NOT NULL,
+                seed TEXT NOT NULL,
+                date TEXT NOT NULL,
+                timezone REAL NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE(user_id, date)
+            )
+        ''')
+        
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS tarot_readings_history (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                reading_type TEXT NOT NULL,
+                question TEXT,
+                spread_data TEXT NOT NULL,
+                astrology_snapshot TEXT,
+                seed TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        ''')
+        
         conn.commit()
     finally:
         conn.close()

@@ -301,3 +301,18 @@ class AIAstroResponse(BaseModel):
     lucky_color: str
     lucky_day: str
     auspicious_time: str
+
+
+# --- TAROT SCHEMAS ---
+class TarotReadingRequest(BaseModel):
+    question: Optional[str] = Field(None, json_schema_extra={"example": "What should I focus on today?"})
+    seed: Optional[str] = Field(None, description="Deterministic seed for reproducing reading")
+
+class AstroTarotRequest(BaseModel):
+    question: Optional[str] = Field(None)
+    birth_date: str = Field(..., description="YYYY-MM-DD format")
+    birth_time: str = Field(..., description="HH:MM in 24-hour format")
+    latitude: float = Field(...)
+    longitude: float = Field(...)
+    timezone: float = Field(...)
+    seed: Optional[str] = Field(None)
