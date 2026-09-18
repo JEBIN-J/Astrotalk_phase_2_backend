@@ -403,6 +403,9 @@ def calculate_planets(jd: float, ayanamsa_val: float) -> List[Dict[str, Any]]:
         ("Jupiter", swe.JUPITER if SWISSEPH_AVAILABLE else 5),
         ("Venus", swe.VENUS if SWISSEPH_AVAILABLE else 3),
         ("Saturn", swe.SATURN if SWISSEPH_AVAILABLE else 6),
+        ("Uranus", swe.URANUS if SWISSEPH_AVAILABLE else 7),
+        ("Neptune", swe.NEPTUNE if SWISSEPH_AVAILABLE else 8),
+        ("Pluto", swe.PLUTO if SWISSEPH_AVAILABLE else 9),
         ("Rahu", swe.MEAN_NODE if SWISSEPH_AVAILABLE else 10)
     ]
 
@@ -894,8 +897,11 @@ def generate_kp_system(
     })
 
     moon_lon = 0.0
+    sun_lon = 0.0
 
     for p in raw_planets:
+        if p["name"] == "Sun":
+            sun_lon = p["longitude"]
         p_name = p["name"]
         p_deg = p["longitude"]
         p_kp = calculate_kp_sub_lords(p_deg)
@@ -904,6 +910,8 @@ def generate_kp_system(
 
         if p_name == "Moon":
             moon_lon = p_deg
+        if p_name == "Sun":
+            sun_lon = p_deg
 
         retro_tag = " (R)" if p["is_retrograde"] else ""
 
@@ -935,6 +943,41 @@ def generate_kp_system(
             "navamsha_sign_index": p_nav_sign,
             "color": PLANET_COLORS.get(p_name, "#4338CA")
         })
+
+    # Add Fortuna (Pars Fortuna) -> Ascendant + Moon - Sun
+    fortuna_deg = (asc_deg + moon_lon - sun_lon) % 360.0
+    f_kp = calculate_kp_sub_lords(fortuna_deg)
+    f_nav_sign = calculate_navamsha_sign(fortuna_deg)
+    f_house = find_house_for_degree(fortuna_deg, cusp_degrees)
+    
+    planets_list.append({
+        "name": "Fortuna",
+        "planet_name_simple": "Fortuna",
+        "display_name": "Fortuna",
+        "table_display_name": "Fortuna",
+        "sanskrit_name": "Fortuna",
+        "longitude": fortuna_deg,
+        "sign": f_kp["sign_name"],
+        "sign_index": f_kp["sign_index"],
+        "sign_sanskrit": f_kp["sign_sanskrit"],
+        "house": f_house,
+        "degree_formatted": f_kp["degree_formatted"],
+        "degree_decimal": round(fortuna_deg, 4),
+        "nakshatra": f_kp["nakshatra_name"],
+        "nakshatra_lord": f_kp["nakshatra_lord"],
+        "pada": f_kp["pada"],
+        "rl": f_kp["rl"],
+        "nl": f_kp["nl"],
+        "sl": f_kp["sl"],
+        "ssl": f_kp["ssl"],
+        "rashi_lord": f_kp["rashi_lord"],
+        "sub_lord": f_kp["sub_lord"],
+        "sub_sub_lord": f_kp["sub_sub_lord"],
+        "is_retrograde": False,
+        "speed": 0.0,
+        "navamsha_sign_index": f_nav_sign,
+        "color": PLANET_COLORS.get("Fortuna", "#4338CA")
+    })
 
     cusps_info = []
     for h in range(1, 13):
@@ -988,6 +1031,12 @@ def generate_kp_system(
     }
 
     # D9 Navamsa Chart Data
+    def get_navamsa_data(deg, nav_sign_idx):
+        deg_in_sign = deg % 30.0
+        nav_deg = (deg_in_sign % (30.0 / 9.0)) * 9.0
+        abs_nav_deg = (nav_sign_idx - 1) * 30.0 + nav_deg
+        return calculate_kp_sub_lords(abs_nav_deg)
+
     d9_chart = {
         "ascendant_sign_index": asc_nav_sign,
         "planets": [
@@ -996,9 +1045,16 @@ def generate_kp_system(
                 "name": p["name"],
                 "sign_index": p["navamsha_sign_index"],
                 "house": ((p["navamsha_sign_index"] - asc_nav_sign) % 12) + 1,
-                "degree_formatted": p["degree_formatted"],
+                "degree_formatted": get_navamsa_data(p["longitude"], p["navamsha_sign_index"])["degree_formatted"],
                 "is_retrograde": p["is_retrograde"],
-                "status_marker": " (R)" if p["is_retrograde"] else ""
+                "status_marker": " (R)" if p["is_retrograde"] else "",
+                "rl": get_navamsa_data(p["longitude"], p["navamsha_sign_index"])["rl"],
+                "nl": get_navamsa_data(p["longitude"], p["navamsha_sign_index"])["nl"],
+                "sl": get_navamsa_data(p["longitude"], p["navamsha_sign_index"])["sl"],
+                "ssl": get_navamsa_data(p["longitude"], p["navamsha_sign_index"])["ssl"],
+                "sign": ZODIAC_SIGNS[p["navamsha_sign_index"] - 1]["name"],
+                "nakshatra": get_navamsa_data(p["longitude"], p["navamsha_sign_index"])["nakshatra_name"],
+                "pada": get_navamsa_data(p["longitude"], p["navamsha_sign_index"])["pada"]
             } for p in planets_list
         ]
     }
@@ -1058,8 +1114,25 @@ def generate_kp_system(
         significators_data
     )
 
+    # Vedic Day Lord
+    WEEKDAY_LORDS = ["Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Sun"]
+    offset = 0 if (tob_parts[0] + tob_parts[1] / 60.0) >= 6.0 else -1
+    day_idx = (birth_dt + timedelta(days=offset)).weekday()
+    day_lord = WEEKDAY_LORDS[day_idx]
+    
+    moon_kp = next((p for p in planets_list if p["name"] == "Moon"), planets_list[0])
+
+    ruling_planets = {
+        "lagna_rashi_lord": planets_list[0]["rashi_lord"],
+        "lagna_nakshatra_lord": planets_list[0]["nakshatra_lord"],
+        "moon_rashi_lord": moon_kp["rashi_lord"],
+        "moon_nakshatra_lord": moon_kp["nakshatra_lord"],
+        "day_lord": day_lord
+    }
+
     return {
         "status": "success",
+        "ruling_planets": ruling_planets,
         "person_name": name,
         "date_of_birth": dob_str,
         "time_of_birth": tob_str,
