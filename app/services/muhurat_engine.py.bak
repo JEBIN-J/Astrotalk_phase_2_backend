@@ -1,9 +1,4 @@
-try:
-    import swisseph as swe
-    SWISSEPH_AVAILABLE = True
-except ImportError:
-    swe = None
-    SWISSEPH_AVAILABLE = False
+import swisseph as swe
 from datetime import datetime, timedelta
 import math
 
@@ -65,11 +60,7 @@ class MuhuratEngine:
         
     def _jd_to_time_str(self, jd):
         """Convert Julian Day to localized 12-hour AM/PM string"""
-        if SWISSEPH_AVAILABLE and swe is not None:
-            y, m, d, h = swe.revjul(jd + (self.tz / 24.0), swe.GREG_CAL)
-        else:
-            dt = datetime(2000, 1, 1, 12, 0, 0) + timedelta(days=(jd + (self.tz / 24.0) - 2451545.0))
-            h = dt.hour + dt.minute / 60.0 + dt.second / 3600.0
+        y, m, d, h = swe.revjul(jd + (self.tz / 24.0), swe.GREG_CAL)
         hours = int(h)
         minutes = int(round((h - hours) * 60))
         if minutes == 60:
@@ -83,32 +74,23 @@ class MuhuratEngine:
         
     def get_full_muhurat(self, date_str):
         dt = datetime.strptime(date_str, "%Y-%m-%d")
-        if SWISSEPH_AVAILABLE and swe is not None:
-            jd_ut = swe.julday(dt.year, dt.month, dt.day, 0.0)
-            res_rise = swe.rise_trans(jd_ut, swe.SUN, swe.CALC_RISE, self.geopos)
-            res_set = swe.rise_trans(jd_ut, swe.SUN, swe.CALC_SET, self.geopos)
-            next_rise = swe.rise_trans(jd_ut + 1, swe.SUN, swe.CALC_RISE, self.geopos)
-            rise_jd = res_rise[1][0]
-            set_jd = res_set[1][0]
-            next_rise_jd = next_rise[1][0]
-            sunrise_str = self._jd_to_time_str(rise_jd)
-            sunset_str = self._jd_to_time_str(set_jd)
-            sun_lon = swe.calc_ut(rise_jd, swe.SUN)[0][0]
-            moon_lon = swe.calc_ut(rise_jd, swe.MOON)[0][0]
-        else:
-            from app.services.vedic_engine import calculate_julian_day, get_planet_longitudes_precise, calculate_lahiri_ayanamsa
-            jd_ut = calculate_julian_day(dt.year, dt.month, dt.day, 0.0)
-            sunrise_ut = 6.0 - self.tz
-            sunset_ut = 18.0 - self.tz
-            rise_jd = calculate_julian_day(dt.year, dt.month, dt.day, sunrise_ut)
-            set_jd = calculate_julian_day(dt.year, dt.month, dt.day, sunset_ut)
-            next_rise_jd = rise_jd + 1.0
-            sunrise_str = self._jd_to_time_str(rise_jd)
-            sunset_str = self._jd_to_time_str(set_jd)
-            ayan = calculate_lahiri_ayanamsa(rise_jd)
-            planets = get_planet_longitudes_precise(rise_jd, ayan)
-            sun_lon = (planets["Sun"][0] + ayan) % 360.0
-            moon_lon = (planets["Moon"][0] + ayan) % 360.0
+        jd_ut = swe.julday(dt.year, dt.month, dt.day, 0.0)
+        
+        # 1. Sunrise and Sunset
+        res_rise = swe.rise_trans(jd_ut, swe.SUN, swe.CALC_RISE, self.geopos)
+        res_set = swe.rise_trans(jd_ut, swe.SUN, swe.CALC_SET, self.geopos)
+        next_rise = swe.rise_trans(jd_ut + 1, swe.SUN, swe.CALC_RISE, self.geopos)
+        
+        rise_jd = res_rise[1][0]
+        set_jd = res_set[1][0]
+        next_rise_jd = next_rise[1][0]
+        
+        sunrise_str = self._jd_to_time_str(rise_jd)
+        sunset_str = self._jd_to_time_str(set_jd)
+        
+        # 2. Panchanga Calculation (at Sunrise)
+        sun_lon = swe.calc_ut(rise_jd, swe.SUN)[0][0]
+        moon_lon = swe.calc_ut(rise_jd, swe.MOON)[0][0]
         
         # Tithi
         tithi_val = (moon_lon - sun_lon) % 360

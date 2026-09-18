@@ -1,3 +1,4 @@
+from app.services.kp_engine import generate_kp_system
 """Flask Horoscope, Janam Kundli, Dasha & Ashtakvarga Blueprint."""
 from flask import Blueprint, jsonify, request
 from app.services.vedic_engine import generate_full_kundli
@@ -352,3 +353,32 @@ def get_kota_chakra():
     )
     result = remove_hindi_text(result)
     return jsonify(result)
+
+
+@horoscope_bp.route("/kp", methods=["POST"])
+def get_kp_system():
+    """
+    Real-Time Calculation-Based KP (Krishnamurti Paddhati) System API.
+    Calculates dynamic KP Chart, Vimshottari Dasha, Significators, Aspects,
+    Nakshatra Nadi, and 4-Step KP from user birth details and selected Ayanamsa.
+    """
+    try:
+        data = parse_horoscope_data()
+        ayanamsa = request.json.get("ayanamsa", "Krishnamurti (KP New)")
+        
+        result = generate_kp_system(
+            name=data.get("name", "User"),
+            dob_str=data.get("date_of_birth", "1998-12-13"),
+            tob_str=data.get("time_of_birth", "09:30"),
+            pob_str=data.get("place_of_birth", "Delhi, India"),
+            latitude=float(data.get("latitude", 28.6139)),
+            longitude=float(data.get("longitude", 77.2090)),
+            timezone=float(data.get("timezone", 5.5)),
+            ayanamsa_name=ayanamsa
+        )
+        return jsonify(remove_hindi_text(result))
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": f"Unable to calculate KP chart: {str(e)}"
+        }), 400

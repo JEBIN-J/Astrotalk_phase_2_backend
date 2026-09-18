@@ -62,25 +62,12 @@ def get_muhurat_month():
             # Calling full get_full_muhurat for 30 days is too slow.
             # We'll use the internal calculation logic.
             dt = datetime.strptime(date_str, "%Y-%m-%d")
-            try:
-                import swisseph as swe
-                swe_ok = True
-            except ImportError:
-                swe = None
-                swe_ok = False
-            if swe_ok and swe is not None:
-                jd_ut = swe.julday(dt.year, dt.month, dt.day, 0.0)
-                res_rise = swe.rise_trans(jd_ut, swe.SUN, swe.CALC_RISE, engine.geopos)
-                rise_jd = res_rise[1][0]
-                sun_lon = swe.calc_ut(rise_jd, swe.SUN)[0][0]
-                moon_lon = swe.calc_ut(rise_jd, swe.MOON)[0][0]
-            else:
-                from app.services.vedic_engine import calculate_julian_day, get_planet_longitudes_precise, calculate_lahiri_ayanamsa
-                rise_jd = calculate_julian_day(dt.year, dt.month, dt.day, 6.0 - tz)
-                ayan = calculate_lahiri_ayanamsa(rise_jd)
-                planets = get_planet_longitudes_precise(rise_jd, ayan)
-                sun_lon = (planets["Sun"][0] + ayan) % 360.0
-                moon_lon = (planets["Moon"][0] + ayan) % 360.0
+            import swisseph as swe
+            jd_ut = swe.julday(dt.year, dt.month, dt.day, 0.0)
+            res_rise = swe.rise_trans(jd_ut, swe.SUN, swe.CALC_RISE, engine.geopos)
+            rise_jd = res_rise[1][0]
+            sun_lon = swe.calc_ut(rise_jd, swe.SUN)[0][0]
+            moon_lon = swe.calc_ut(rise_jd, swe.MOON)[0][0]
             
             tithi_val = (moon_lon - sun_lon) % 360
             tithi_index = int(tithi_val / 12.0)

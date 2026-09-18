@@ -402,39 +402,36 @@ def calculate_upagrahas(
     upagrahas_list = []
     asc_sign_idx = int(asc_deg // 30) + 1
 
+    try:
+        import swisseph as swe
+    except ImportError:
+        try:
+            import pyswisseph as swe
+        except ImportError:
+            swe = None
     hour_ut = birth_dt.hour - timezone + birth_dt.minute/60.0 + birth_dt.second/3600.0
-    if SWISSEPH_AVAILABLE and swe is not None:
-        jd_ut_birth = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day, hour_ut)
-        geopos = (longitude, latitude, 0.0)
-        swe.set_sid_mode(swe.SIDM_LAHIRI)
-        ayanamsa = swe.get_ayanamsa_ut(jd_ut_birth)
-        jd_ut_start = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day, 0.0)
-        res_rise = swe.rise_trans(jd_ut_start, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos)
+    jd_ut_birth = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day, hour_ut)
+    geopos = (longitude, latitude, 0.0)
+    
+    swe.set_sid_mode(swe.SIDM_LAHIRI)
+    ayanamsa = swe.get_ayanamsa_ut(jd_ut_birth)
+    
+    jd_ut_start = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day, 0.0)
+    res_rise = swe.rise_trans(jd_ut_start, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos)
+    sunrise_jd = res_rise[1][0]
+    
+    if jd_ut_birth < sunrise_jd:
+        res_rise = swe.rise_trans(jd_ut_start - 1.0, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos)
         sunrise_jd = res_rise[1][0]
-        if jd_ut_birth < sunrise_jd:
-            res_rise = swe.rise_trans(jd_ut_start - 1.0, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos)
-            sunrise_jd = res_rise[1][0]
-            adjusted_dt = birth_dt - timedelta(days=1)
-        else:
-            adjusted_dt = birth_dt
-        res_set = swe.rise_trans(sunrise_jd, swe.SUN, swe.CALC_SET | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos)
-        sunset_jd = res_set[1][0]
-        res_rise_next = swe.rise_trans(sunset_jd, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos)
-        next_sunrise_jd = res_rise_next[1][0]
+        adjusted_dt = birth_dt - __import__('datetime').timedelta(days=1)
     else:
-        jd_ut_birth = calculate_julian_day(birth_dt.year, birth_dt.month, birth_dt.day, hour_ut)
-        ayanamsa = calculate_lahiri_ayanamsa(jd_ut_birth)
-        sunrise_ut = 6.0 - timezone
-        sunset_ut = 18.0 - timezone
-        sunrise_jd = calculate_julian_day(birth_dt.year, birth_dt.month, birth_dt.day, sunrise_ut)
-        sunset_jd = calculate_julian_day(birth_dt.year, birth_dt.month, birth_dt.day, sunset_ut)
-        if jd_ut_birth < sunrise_jd:
-            adjusted_dt = birth_dt - timedelta(days=1)
-            sunrise_jd -= 1.0
-            sunset_jd -= 1.0
-        else:
-            adjusted_dt = birth_dt
-        next_sunrise_jd = sunrise_jd + 1.0
+        adjusted_dt = birth_dt
+
+    res_set = swe.rise_trans(sunrise_jd, swe.SUN, swe.CALC_SET | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos)
+    sunset_jd = res_set[1][0]
+    
+    res_rise_next = swe.rise_trans(sunset_jd, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos)
+    next_sunrise_jd = res_rise_next[1][0]
     
     is_day_birth = sunrise_jd <= jd_ut_birth < sunset_jd
         
@@ -499,10 +496,7 @@ def calculate_upagrahas(
     time_from_sun = (jd_ut_birth - sunrise_jd) * 24.0
     vighatis_elapsed = time_from_sun * 150.0
     base_x = (vighatis_elapsed / 15.0) * 30.0
-    if SWISSEPH_AVAILABLE and swe is not None:
-        sun_sunrise_deg = swe.calc_ut(sunrise_jd, swe.SUN, swe.FLG_SWIEPH | swe.FLG_SIDEREAL)[0][0]
-    else:
-        sun_sunrise_deg = sun_deg
+    sun_sunrise_deg = swe.calc_ut(sunrise_jd, swe.SUN, swe.FLG_SWIEPH | swe.FLG_SIDEREAL)[0][0]
     sun_sign_idx = int(sun_sunrise_deg // 30) + 1
     sun_modality = sun_sign_idx % 3
     offset = 0.0 if sun_modality == 1 else (240.0 if sun_modality == 2 else 120.0)
@@ -782,29 +776,29 @@ def calculate_arudhas_and_special_lagnas(
     arudha_padas = calculate_arudha_padas_for_chart(asc_deg, asc_sign_idx, planets_list)
 
     # Special Lagnas & Mathematical Sphutas
+    import swisseph as swe
+    
+    # Calculate exact elapsed time from exact Sunrise using Swiss Ephemeris
     hour_ut = birth_dt.hour - timezone + birth_dt.minute/60.0 + birth_dt.second/3600.0
-    if SWISSEPH_AVAILABLE and swe is not None:
-        jd_ut_birth = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day, hour_ut)
-        jd_ut_start = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day, 0.0)
-        geopos = (longitude, latitude, 0.0)
-        res_rise = swe.rise_trans(jd_ut_start, swe.SUN, swe.CALC_RISE, geopos)
+    jd_ut_birth = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day, hour_ut)
+    
+    jd_ut_start = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day, 0.0)
+    geopos = (longitude, latitude, 0.0)
+    
+    res_rise = swe.rise_trans(jd_ut_start, swe.SUN, swe.CALC_RISE, geopos)
+    sunrise_jd_ut = res_rise[1][0]
+    
+    if jd_ut_birth < sunrise_jd_ut:
+        jd_ut_yesterday = jd_ut_start - 1.0
+        res_rise = swe.rise_trans(jd_ut_yesterday, swe.SUN, swe.CALC_RISE, geopos)
         sunrise_jd_ut = res_rise[1][0]
-        if jd_ut_birth < sunrise_jd_ut:
-            jd_ut_yesterday = jd_ut_start - 1.0
-            res_rise = swe.rise_trans(jd_ut_yesterday, swe.SUN, swe.CALC_RISE, geopos)
-            sunrise_jd_ut = res_rise[1][0]
-        time_from_sun = (jd_ut_birth - sunrise_jd_ut) * 24.0
-        swe.set_sid_mode(swe.SIDM_LAHIRI)
-        flag = swe.FLG_SWIEPH | swe.FLG_SIDEREAL
-        sun_sunrise_deg = swe.calc_ut(sunrise_jd_ut, swe.SUN, flag)[0][0]
-    else:
-        jd_ut_birth = calculate_julian_day(birth_dt.year, birth_dt.month, birth_dt.day, hour_ut)
-        sunrise_ut = 6.0 - timezone
-        sunrise_jd_ut = calculate_julian_day(birth_dt.year, birth_dt.month, birth_dt.day, sunrise_ut)
-        if jd_ut_birth < sunrise_jd_ut:
-            sunrise_jd_ut -= 1.0
-        time_from_sun = (jd_ut_birth - sunrise_jd_ut) * 24.0
-        sun_sunrise_deg = sun_deg
+        
+    time_from_sun = (jd_ut_birth - sunrise_jd_ut) * 24.0
+
+    # Calculate exact Sun degree at Sunrise
+    swe.set_sid_mode(swe.SIDM_LAHIRI)
+    flag = swe.FLG_SWIEPH | swe.FLG_SIDEREAL
+    sun_sunrise_deg = swe.calc_ut(sunrise_jd_ut, swe.SUN, flag)[0][0]
 
     def get_lagna_details(deg):
         deg = deg % 360.0

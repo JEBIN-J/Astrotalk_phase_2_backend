@@ -1,3 +1,8 @@
+import sys
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+except Exception:
+    pass
 #!/usr/bin/env python3
 """AstroTalk Flask Backend Server Runner."""
 from app import create_app
