@@ -1045,7 +1045,7 @@ def generate_kp_system(
                 "name": p["name"],
                 "sign_index": p["navamsha_sign_index"],
                 "house": ((p["navamsha_sign_index"] - asc_nav_sign) % 12) + 1,
-                "degree_formatted": p.get("degree_formatted", "-"),
+                "degree_formatted": get_navamsa_deg(p["longitude"]),
                 "is_retrograde": p["is_retrograde"],
                 "status_marker": " (R)" if p["is_retrograde"] else "",
                 "rl": p.get("rl", "-"),
@@ -1083,7 +1083,7 @@ def generate_kp_system(
                 "planet": p["name"],
                 "name": p["name"],
                 "house": p["house"],
-                "sign_index": p["sign_index"],
+                "sign_index": cusps_info[p["house"] - 1]["sign_index"] if p.get("house") else p["sign_index"],
                 "degree_formatted": p["degree_formatted"],
                 "is_retrograde": p["is_retrograde"],
                 "status_marker": " (R)" if p["is_retrograde"] else ""
