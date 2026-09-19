@@ -1011,6 +1011,7 @@ def generate_kp_system(
             "sub_sub_lord": c_kp["sub_sub_lord"],
             "span_degrees": round(span, 2),
             "occupants": occupants,
+            "navamsha_sign_index": calculate_navamsha_sign(c_deg),
             "occupants_str": ", ".join(occupants) if occupants else "None"
         })
 
@@ -1031,11 +1032,10 @@ def generate_kp_system(
     }
 
     # D9 Navamsa Chart Data
-    def get_navamsa_data(deg, nav_sign_idx):
+    def get_navamsa_deg(deg):
         deg_in_sign = deg % 30.0
         nav_deg = (deg_in_sign % (30.0 / 9.0)) * 9.0
-        abs_nav_deg = (nav_sign_idx - 1) * 30.0 + nav_deg
-        return calculate_kp_sub_lords(abs_nav_deg)
+        return format_deg_in_sign(nav_deg)
 
     d9_chart = {
         "ascendant_sign_index": asc_nav_sign,
@@ -1045,16 +1045,16 @@ def generate_kp_system(
                 "name": p["name"],
                 "sign_index": p["navamsha_sign_index"],
                 "house": ((p["navamsha_sign_index"] - asc_nav_sign) % 12) + 1,
-                "degree_formatted": get_navamsa_data(p["longitude"], p["navamsha_sign_index"])["degree_formatted"],
+                "degree_formatted": p.get("degree_formatted", "-"),
                 "is_retrograde": p["is_retrograde"],
                 "status_marker": " (R)" if p["is_retrograde"] else "",
-                "rl": get_navamsa_data(p["longitude"], p["navamsha_sign_index"])["rl"],
-                "nl": get_navamsa_data(p["longitude"], p["navamsha_sign_index"])["nl"],
-                "sl": get_navamsa_data(p["longitude"], p["navamsha_sign_index"])["sl"],
-                "ssl": get_navamsa_data(p["longitude"], p["navamsha_sign_index"])["ssl"],
+                "rl": p.get("rl", "-"),
+                "nl": p.get("nl", "-"),
+                "sl": p.get("sl", "-"),
+                "ssl": p.get("ssl", "-"),
                 "sign": ZODIAC_SIGNS[p["navamsha_sign_index"] - 1]["name"],
-                "nakshatra": get_navamsa_data(p["longitude"], p["navamsha_sign_index"])["nakshatra_name"],
-                "pada": get_navamsa_data(p["longitude"], p["navamsha_sign_index"])["pada"]
+                "nakshatra": p.get("nakshatra", "-"),
+                "pada": p.get("pada", "-")
             } for p in planets_list
         ]
     }
