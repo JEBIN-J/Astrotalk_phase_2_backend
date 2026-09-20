@@ -638,13 +638,16 @@ def calculate_kp_aspects(
 ) -> Dict[str, Any]:
     """Calculate major and minor astrological aspects."""
     ASPECT_DEFINITIONS = [
-        {"name": "Conjunction", "angle": 0.0, "orb": 8.0, "nature": "Neutral / Powerful", "desc": "Unification of planetary energies"},
-        {"name": "Semi-Sextile", "angle": 30.0, "orb": 2.0, "nature": "Mild Harmonious", "desc": "Subtle cooperation and growth"},
-        {"name": "Sextile", "angle": 60.0, "orb": 6.0, "nature": "Harmonious", "desc": "Opportunities and smooth coordination"},
-        {"name": "Square", "angle": 90.0, "orb": 6.0, "nature": "Adverse / Dynamic", "desc": "Tension, challenge, and action required"},
-        {"name": "Trine", "angle": 120.0, "orb": 8.0, "nature": "Highly Harmonious", "desc": "Blessings, fortune, and natural harmony"},
-        {"name": "Quincunx", "angle": 150.0, "orb": 2.0, "nature": "Adverse / Adjustive", "desc": "Misalignment requiring psychological adjustment"},
-        {"name": "Opposition", "angle": 180.0, "orb": 8.0, "nature": "Adverse / Polarizing", "desc": "Confrontation, awareness, and relational dynamic"}
+        {"name": "Conjunction", "short_name": "Conj", "angle": 0.0, "orb": 15.0, "nature": "Neutral / Powerful", "desc": "Unification of planetary energies"},
+        {"name": "Semi-Sextile", "short_name": "Semi", "angle": 30.0, "orb": 1.0, "nature": "Mild Harmonious", "desc": "Subtle cooperation and growth"},
+        {"name": "Semi-Square", "short_name": "Ssqu", "angle": 45.0, "orb": 1.0, "nature": "Adverse", "desc": "Minor tension"},
+        {"name": "Sextile", "short_name": "Sext", "angle": 60.0, "orb": 6.0, "nature": "Harmonious", "desc": "Opportunities and smooth coordination"},
+        {"name": "Quintile", "short_name": "Quin", "angle": 72.0, "orb": 1.0, "nature": "Harmonious", "desc": "Creativity and talent"},
+        {"name": "Square", "short_name": "Squr", "angle": 90.0, "orb": 9.0, "nature": "Adverse / Dynamic", "desc": "Tension, challenge, and action required"},
+        {"name": "Trine", "short_name": "Trin", "angle": 120.0, "orb": 9.0, "nature": "Highly Harmonious", "desc": "Blessings, fortune, and natural harmony"},
+        {"name": "Sesquiquadrate", "short_name": "Ssqu", "angle": 135.0, "orb": 1.0, "nature": "Adverse", "desc": "Friction and irritation"},
+        {"name": "Quincunx", "short_name": "Quin", "angle": 150.0, "orb": 1.0, "nature": "Adverse / Adjustive", "desc": "Misalignment requiring psychological adjustment"},
+        {"name": "Opposition", "short_name": "Oppn", "angle": 180.0, "orb": 15.0, "nature": "Adverse / Polarizing", "desc": "Confrontation, awareness, and relational dynamic"}
     ]
 
     planet_aspects = []
@@ -670,9 +673,11 @@ def calculate_kp_aspects(
                         "planet_1": p1["name"],
                         "planet_2": p2["name"],
                         "aspect_name": asp["name"],
+                        "short_name": asp.get("short_name", asp["name"][:4]),
                         "aspect_angle": asp["angle"],
                         "actual_angle": round(diff, 2),
                         "orb": round(orb, 2),
+                        "strength": round(asp["orb"] - orb, 2),
                         "nature": asp["nature"],
                         "is_applying": is_applying,
                         "description": asp["desc"]
@@ -726,18 +731,18 @@ def calculate_nakshatra_nadi(
         sl_sig = p_sig_map.get(sl, {})
         ssl_sig = p_sig_map.get(ssl, {})
 
-        script = f"{p_name} ({p['house']}) → {nl} ({','.join(map(str, nl_sig.get('all_significators', []))) or p['house']}) → {sl} ({','.join(map(str, sl_sig.get('all_significators', []))) or p['house']}) → {ssl}"
+        script = f"{p_name} ({p['house']}) -> {nl} ({','.join(map(str, nl_sig.get('all_significators', []))) or p['house']}) -> {sl} ({','.join(map(str, sl_sig.get('all_significators', []))) or p['house']}) -> {ssl}"
 
         links = []
-        all_houses = sig.get("all_significators", [])
-        if any(h in all_houses for h in [1, 5, 9]):
-            links.append({"type": "Dharma Trine (1-5-9)", "houses": [h for h in all_houses if h in [1, 5, 9]], "nature": "Spiritual, Talent, Merit"})
-        if any(h in all_houses for h in [2, 6, 10, 11]):
-            links.append({"type": "Wealth & Career (2-6-10-11)", "houses": [h for h in all_houses if h in [2, 6, 10, 11]], "nature": "Financial Prosperity & Professional Growth"})
-        if any(h in all_houses for h in [4, 7, 10]):
-            links.append({"type": "Kendra Axis (4-7-10)", "houses": [h for h in all_houses if h in [4, 7, 10]], "nature": "Worldly Activity, Status & Public Standing"})
-        if any(h in all_houses for h in [8, 12]):
-            links.append({"type": "Transformation / Moksha (8-12)", "houses": [h for h in all_houses if h in [8, 12]], "nature": "Deep Introspection, Change, Foreign Connect"})
+        all_houses = set(sig.get("all_significators", []))
+        if len(all_houses.intersection({1, 5, 9})) >= 2:
+            links.append({"type": "Dharma Trine (1-5-9)", "houses": list(all_houses.intersection({1, 5, 9})), "nature": "Spiritual, Talent, Merit"})
+        if len(all_houses.intersection({2, 6, 10, 11})) >= 2:
+            links.append({"type": "Wealth & Career (2-6-10-11)", "houses": list(all_houses.intersection({2, 6, 10, 11})), "nature": "Financial Prosperity & Professional Growth"})
+        if len(all_houses.intersection({4, 7, 10})) >= 2:
+            links.append({"type": "Kendra Axis (4-7-10)", "houses": list(all_houses.intersection({4, 7, 10})), "nature": "Worldly Activity, Status & Public Standing"})
+        if len(all_houses.intersection({8, 12})) == 2:
+            links.append({"type": "Transformation / Moksha (8-12)", "houses": list(all_houses.intersection({8, 12})), "nature": "Deep Introspection, Change, Foreign Connect"})
 
         nadi_cards.append({
             "planet": p_name,
@@ -786,7 +791,7 @@ def calculate_four_step(
         step_3_summary = f"Sub Lord {sl} occupies H{sl_sig.get('level_b', [p['house']])[0]}, rules {sl_sig.get('level_d', [])}"
         step_4_summary = f"Star Lord of Sub {sub_nl} occupies H{sub_nl_sig.get('level_b', [p['house']])[0]}, rules {sub_nl_sig.get('level_d', [])}"
 
-        flow = f"Offer ({p['house']}) → Fruit ({nl_sig.get('level_b', [p['house']])[0]}) → Decider Sub ({sl_sig.get('level_b', [p['house']])[0]}) → End Result ({sub_nl_sig.get('level_b', [p['house']])[0]})"
+        flow = f"Offer ({p['house']}) -> Fruit ({nl_sig.get('level_b', [p['house']])[0]}) -> Decider Sub ({sl_sig.get('level_b', [p['house']])[0]}) -> End Result ({sub_nl_sig.get('level_b', [p['house']])[0]})"
 
         four_step_planets.append({
             "subject": p_name,
@@ -817,7 +822,7 @@ def calculate_four_step(
         step_3_summary = f"Sub Lord {sl} in H{sl_sig.get('level_b', [c_num])[0]}, rules {sl_sig.get('level_d', [])}"
         step_4_summary = f"Star Lord of Sub {sub_nl} in H{sub_nl_sig.get('level_b', [c_num])[0]}, rules {sub_nl_sig.get('level_d', [])}"
 
-        flow = f"Cusp {c_num} → Star Lord {nl} → Sub Lord {sl} → End Result {sub_nl}"
+        flow = f"Cusp {c_num} -> Star Lord {nl} -> Sub Lord {sl} -> End Result {sub_nl}"
 
         four_step_cusps.append({
             "subject": f"Cusp {c_num}",
