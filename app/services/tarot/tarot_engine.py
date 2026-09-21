@@ -53,21 +53,22 @@ class TarotEngine:
         is_up = orientation == "Upright"
         
         # Base meaning
-        meaning = card['meaning_upright'] if is_up else card['meaning_reversed']
-        keywords = card['keywords_upright'] if is_up else card['keywords_reversed']
+        meaning = card.get('upright_meaning', '') if is_up else card.get('reversed_meaning', '')
+        keywords = card.get('keywords', [])
         
         # Contextual meaning
         context_meaning = meaning
         if context == "love":
-            context_meaning = card['love_upright'] if is_up else card['love_reversed']
+            context_meaning = card.get('love_meaning', meaning)
         elif context == "career":
-            context_meaning = card['career_upright'] if is_up else card['career_reversed']
+            context_meaning = card.get('career_meaning', meaning)
         elif context == "finance":
-            context_meaning = card['finance_upright'] if is_up else card['finance_reversed']
+            context_meaning = card.get('finance_meaning', meaning)
         elif context == "spiritual":
-            context_meaning = card['spiritual_upright'] if is_up else card['spiritual_reversed']
+            context_meaning = card.get('spiritual_meaning', meaning)
         elif context == "yes_no":
-            context_meaning = f"The answer leans towards {card['yes_no']}."
+            yn = card.get('yes_no_meaning', 'Maybe')
+            context_meaning = f"The answer leans towards {yn}."
             
         return {
             "card_id": card["id"],
@@ -76,9 +77,9 @@ class TarotEngine:
             "keywords": keywords,
             "core_meaning": meaning,
             "context_meaning": context_meaning,
-            "astrology_correspondence": card.get("astrological_correspondence"),
-            "element": card.get("element"),
-            "yes_no": card.get("yes_no") if context == "yes_no" else None
+            "astrology_correspondence": None,
+            "element": None,
+            "yes_no": card.get("yes_no_meaning") if context == "yes_no" else None
         }
 
     @staticmethod
