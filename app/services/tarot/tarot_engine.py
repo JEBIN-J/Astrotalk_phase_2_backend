@@ -79,7 +79,15 @@ class TarotEngine:
             "context_meaning": context_meaning,
             "astrology_correspondence": None,
             "element": None,
-            "yes_no": card.get("yes_no_meaning") if context == "yes_no" else None
+            "yes_no": card.get("yes_no_meaning") if context == "yes_no" else None,
+            "image": card.get("image"),
+            "card_description": card.get("card_description"),
+            "upright_meaning": card.get("upright_meaning"),
+            "reversed_meaning": card.get("reversed_meaning"),
+            "advice": card.get("advice"),
+            "love_meaning": card.get("love_meaning"),
+            "career_meaning": card.get("career_meaning"),
+            "yes_no_meaning": card.get("yes_no_meaning")
         }
 
     @staticmethod
