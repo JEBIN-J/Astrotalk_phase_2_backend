@@ -21,7 +21,9 @@ def parse_horoscope_data():
         "longitude": float(data.get("longitude", 77.2090)),
         "timezone": float(data.get("timezone", 5.5)),
         "days_in_year": float(data.get("days_in_year", 365.256364)),
-        "bhava_system": data.get("bhava_system", "Porphyry (Sripathi)")
+        "bhava_system": data.get("bhava_system", "Porphyry (Sripathi)"),
+        "ayanamsa": data.get("ayanamsa", "LAHIRI"),
+        "custom_ayanamsa": float(data.get("custom_ayanamsa", 0.0)) if data.get("custom_ayanamsa") is not None else None
     }
 
 import re
@@ -44,7 +46,7 @@ def get_jaimini():
     result = generate_jaimini_chart(
         data["name"], data["date_of_birth"], data["time_of_birth"],
         data["place_of_birth"], data["latitude"], data["longitude"], data["timezone"]
-    )
+    , ayanamsa=data["ayanamsa"], custom_ayanamsa=data["custom_ayanamsa"])
     result = remove_hindi_text(result)
     return jsonify(result)
 
@@ -82,7 +84,7 @@ def get_kundli():
     result = generate_full_kundli(
         data["name"], data["date_of_birth"], data["time_of_birth"],
         data["place_of_birth"], data["latitude"], data["longitude"], data["timezone"],
-        days_in_year, bhava_system
+        days_in_year, bhava_system, ayanamsa=data["ayanamsa"], custom_ayanamsa=data["custom_ayanamsa"]
     )
     result = remove_hindi_text(result)
     return jsonify(result)
@@ -107,7 +109,8 @@ def get_planets():
     data = parse_horoscope_data()
     result = generate_full_kundli(
         data["name"], data["date_of_birth"], data["time_of_birth"],
-        data["place_of_birth"], data["latitude"], data["longitude"], data["timezone"]
+        data["place_of_birth"], data["latitude"], data["longitude"], data["timezone"],
+        ayanamsa=data["ayanamsa"], custom_ayanamsa=data["custom_ayanamsa"]
     )
     resp = {
         "person_name": result["person_name"],
@@ -132,7 +135,7 @@ def get_dasha():
         data["name"], data["date_of_birth"], data["time_of_birth"],
         data["place_of_birth"], data["latitude"], data["longitude"], data["timezone"],
         days_in_year
-    )
+    , ayanamsa=data["ayanamsa"], custom_ayanamsa=data["custom_ayanamsa"])
     
     if dasha_type == "Vimshottari Dasha":
         timeline = result["vimshottari_dasha_timeline"]
@@ -282,7 +285,7 @@ def get_ashtakvarga():
     result = generate_full_kundli(
         data["name"], data["date_of_birth"], data["time_of_birth"],
         data["place_of_birth"], data["latitude"], data["longitude"], data["timezone"]
-    )
+    , ayanamsa=data["ayanamsa"], custom_ayanamsa=data["custom_ayanamsa"])
     return jsonify(remove_hindi_text(result["ashtakvarga"]))
 
 @horoscope_bp.route("/upagrahas", methods=["POST"])
@@ -292,7 +295,7 @@ def get_upagrahas():
     result = generate_full_kundli(
         data["name"], data["date_of_birth"], data["time_of_birth"],
         data["place_of_birth"], data["latitude"], data["longitude"], data["timezone"]
-    )
+    , ayanamsa=data["ayanamsa"], custom_ayanamsa=data["custom_ayanamsa"])
     resp = {
         "person_name": result["person_name"],
         "upagrahas": result["upagrahas"]
@@ -306,7 +309,7 @@ def get_arudhas():
     result = generate_full_kundli(
         data["name"], data["date_of_birth"], data["time_of_birth"],
         data["place_of_birth"], data["latitude"], data["longitude"], data["timezone"]
-    )
+    , ayanamsa=data["ayanamsa"], custom_ayanamsa=data["custom_ayanamsa"])
     resp = {
         "person_name": result["person_name"],
         "arudha_padas": result["arudha_padas"],
@@ -321,7 +324,7 @@ def get_divisional_charts():
     result = generate_full_kundli(
         data["name"], data["date_of_birth"], data["time_of_birth"],
         data["place_of_birth"], data["latitude"], data["longitude"], data["timezone"]
-    )
+    , ayanamsa=data["ayanamsa"], custom_ayanamsa=data["custom_ayanamsa"])
     resp = {
         "person_name": result["person_name"],
         "divisional_charts": result["divisional_charts"],

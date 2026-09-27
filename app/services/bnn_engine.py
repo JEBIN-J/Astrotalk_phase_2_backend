@@ -17,7 +17,9 @@ def get_dispositor(sign_index: int, planets: List[Dict]) -> Dict:
 def generate_bnn_chart(
     name: str, dob_str: str, tob_str: str, pob_str: str,
     latitude: float, longitude: float, timezone: float,
-    target_date_str: str = None
+    target_date_str: str = None,
+    ayanamsa: str = "LAHIRI",
+    custom_ayanamsa: float = None
 ) -> Dict[str, Any]:
     """Generates the complete, deeply calculated BNN Chart."""
     

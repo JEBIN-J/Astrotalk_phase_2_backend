@@ -23,8 +23,14 @@ Strictly follows:
 - 4-Step KP Analysis
 """
 import math
+import threading
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Tuple, Optional
+
+try:
+    from app.services.vedic_engine import _SWE_AYANAMSA_LOCK
+except ImportError:
+    _SWE_AYANAMSA_LOCK = threading.Lock()
 
 try:
     import swisseph as swe
@@ -216,34 +222,41 @@ def calculate_ayanamsa(jd: float, ayanamsa_name: str, birth_dt: datetime, hour_u
         return ayan_deg, f"Khullar {format_dms(ayan_deg)}"
 
     if SWISSEPH_AVAILABLE and swe:
-        if "KP Old" in norm or "Old" in norm:
+        SWE_MODE_MAP = {
+            "KP Old":          44,
+            "Old":             44,
+            "KP New":          swe.SIDM_KRISHNAMURTI,
+            "Krishnamurti":    swe.SIDM_KRISHNAMURTI,
+            "Raman":           swe.SIDM_RAMAN,
+            "Yukteswar":       swe.SIDM_YUKTESHWAR,
+            "Lahiri":          swe.SIDM_LAHIRI,
+            "Chitapaksha":     swe.SIDM_LAHIRI,
+        }
+        matched_mode = None
+        matched_label = None
+        for key, mode in SWE_MODE_MAP.items():
+            if key in norm:
+                matched_mode = mode
+                if "Old" in key:
+                    matched_label = "KP Old"
+                elif "New" in key or "Krishnamurti" in key:
+                    matched_label = "KP New"
+                elif "Raman" in key:
+                    matched_label = "B.V. Raman"
+                elif "Yukteswar" in key:
+                    matched_label = "Sri Yukteswar"
+                else:
+                    matched_label = "Lahiri"
+                break
+
+        if matched_mode is not None:
             try:
-                swe.set_sid_mode(44)
-                ayan_deg = swe.get_ayanamsa_ut(jd)
-                return ayan_deg, f"KP Old {format_dms(ayan_deg)}"
+                with _SWE_AYANAMSA_LOCK:
+                    swe.set_sid_mode(matched_mode)
+                    ayan_deg = swe.get_ayanamsa_ut(jd)
             except Exception:
-                ayan_deg = (year_dec - 291.0) * (50.2388475 / 3600.0)
-                return ayan_deg, f"KP Old {format_dms(ayan_deg)}"
-
-        elif "KP New" in norm or "Krishnamurti" in norm:
-            swe.set_sid_mode(swe.SIDM_KRISHNAMURTI)
-            ayan_deg = swe.get_ayanamsa_ut(jd)
-            return ayan_deg, f"KP New {format_dms(ayan_deg)}"
-
-        elif "Raman" in norm:
-            swe.set_sid_mode(swe.SIDM_RAMAN)
-            ayan_deg = swe.get_ayanamsa_ut(jd)
-            return ayan_deg, f"B.V. Raman {format_dms(ayan_deg)}"
-
-        elif "Yukteswar" in norm:
-            swe.set_sid_mode(swe.SIDM_YUKTESHWAR)
-            ayan_deg = swe.get_ayanamsa_ut(jd)
-            return ayan_deg, f"Sri Yukteswar {format_dms(ayan_deg)}"
-
-        elif "Lahiri" in norm or "Chitapaksha" in norm:
-            swe.set_sid_mode(swe.SIDM_LAHIRI)
-            ayan_deg = swe.get_ayanamsa_ut(jd)
-            return ayan_deg, f"Lahiri {format_dms(ayan_deg)}"
+                ayan_deg = 23.85
+            return ayan_deg, f"{matched_label} {format_dms(ayan_deg)}"
 
     # Mathematical Fallbacks
     t = (jd - 2451545.0) / 36525.0

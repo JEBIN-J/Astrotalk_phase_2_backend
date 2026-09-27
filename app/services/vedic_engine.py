@@ -12,8 +12,12 @@ Provides accurate Janam Kundli calculations including:
 - Vedic Planetary Aspects (Drishti) & Classical Yogas (Gajakesari, Budhaditya, Neechabhanga, etc.)
 """
 import math
+import threading
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Tuple, Optional
+
+# Global lock to protect the non-thread-safe swe.set_sid_mode() / swe.get_ayanamsa_ut() sequence
+_SWE_AYANAMSA_LOCK = threading.Lock()
 from app.utils.constants import ZODIAC_SIGNS, NAKSHATRAS, PLANETS_INFO, VIMSHOTTARI_SEQUENCE, POPULAR_CITIES
 from pydantic import BaseModel
 from collections import defaultdict
@@ -62,17 +66,41 @@ def calculate_julian_day(year: int, month: int, day: int, hour_utc: float) -> fl
     return jd
 
 
-def calculate_lahiri_ayanamsa(jd: float) -> float:
-    """Calculate exact Lahiri (Chitra Paksha) Ayanamsa for the given Julian Day."""
+def calculate_lahiri_ayanamsa(jd: float, ayanamsa_key: str = "LAHIRI", custom_deg: float = None) -> float:
+    if ayanamsa_key == "TROPICAL": return 0.0
+    if ayanamsa_key == "CUSTOM" and custom_deg is not None: return float(custom_deg)
+    
     if SWISSEPH_AVAILABLE and swe:
-        swe.set_sid_mode(swe.SIDM_LAHIRI)
-        return swe.get_ayanamsa_ut(jd)
+        SWE_MAP = {
+            # Standard Vedic
+            "LAHIRI":          swe.SIDM_LAHIRI,           # Lahiri (Chitrapaksha) - Indian standard
+            "BV_RAMAN":        swe.SIDM_RAMAN,            # B.V. Raman
+            "SRI_YUKTESWAR":   swe.SIDM_YUKTESHWAR,       # Sri Yukteswar
+            "DE_LUCE":         swe.SIDM_DELUCE,           # De Luce
+            "USHA_SHASHI":     swe.SIDM_USHASHASHI,       # Usha-Shashi (Revati)
+            "DJWHAL_KHOOL":    swe.SIDM_DJWHAL_KHUL,      # Djwhal Khool
+            "JN_BHASIN":       swe.SIDM_JN_BHASIN,        # J.N. Bhasin
+            "FAGAN_BRADLEY":   swe.SIDM_FAGAN_BRADLEY,    # Fagan-Bradley (Western sidereal)
+            # KP variants
+            "KP_OLD":          swe.SIDM_KRISHNAMURTI,     # Krishnamurti KP Original (K.S. Original)
+            "KP_NEW":          swe.SIDM_KRISHNAMURTI_VP291, # Krishnamurti KP New (VP291)
+            "KP_STRAIGHT_LINE": swe.SIDM_LAHIRI,          # KP Straight Line uses Lahiri as base
+            # Additional mappings using best-match constants
+            "KHULLAR":         swe.SIDM_TRUE_CITRA,       # Khullar uses True Citra (Spica-based)
+            "CHANDRA_HARI":    swe.SIDM_TRUE_REVATI,      # Chandra Hari uses True Revati
+        }
         
-    # High-precision approximation: Lahiri Ayanamsa epoch 2000.0 = 23° 51' 11" (23.853056°)
-    # Precession rate ~ 50.29 arcseconds per year (0.01396944°/year)
-    t = (jd - 2451545.0) / 36525.0  # Julian centuries from J2000.0
-    ayanamsa = 23.853056 + (t * 1.396971) - (0.000308 * (t ** 2))
-    return ayanamsa
+        if ayanamsa_key not in SWE_MAP:
+            raise ValueError(f"Ayanamsa '{ayanamsa_key}' is not supported. Available: {list(SWE_MAP.keys())}")
+        
+        mode = SWE_MAP[ayanamsa_key]
+        with _SWE_AYANAMSA_LOCK:
+            swe.set_sid_mode(mode)
+            return swe.get_ayanamsa_ut(jd)
+        
+    # Pure Python fallback (Lahiri approximation)
+    t = (jd - 2451545.0) / 36525.0
+    return 23.853056 + (t * 1.396971) - (0.000308 * (t ** 2))
 
 
 def calculate_ascendant_and_mc(jd: float, lat: float, lon: float, ayanamsa: float) -> Tuple[float, float, float]:
@@ -383,7 +411,8 @@ def calculate_upagrahas(
     birth_dt: datetime,
     latitude: float,
     longitude: float,
-    timezone: float
+    timezone: float,
+    ayanamsa: float
 ) -> List[Dict[str, Any]]:
     """
     Calculate all classical Vedic Upagrahas & Non-luminous planets (Aprakash Grahas):
@@ -406,8 +435,6 @@ def calculate_upagrahas(
     if SWISSEPH_AVAILABLE and swe is not None:
         jd_ut_birth = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day, hour_ut)
         geopos = (longitude, latitude, 0.0)
-        swe.set_sid_mode(swe.SIDM_LAHIRI)
-        ayanamsa = swe.get_ayanamsa_ut(jd_ut_birth)
         jd_ut_start = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day, 0.0)
         res_rise = swe.rise_trans(jd_ut_start, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos)
         sunrise_jd = res_rise[1][0]
@@ -423,7 +450,6 @@ def calculate_upagrahas(
         next_sunrise_jd = res_rise_next[1][0]
     else:
         jd_ut_birth = calculate_julian_day(birth_dt.year, birth_dt.month, birth_dt.day, hour_ut)
-        ayanamsa = calculate_lahiri_ayanamsa(jd_ut_birth)
         sunrise_ut = 6.0 - timezone
         sunset_ut = 18.0 - timezone
         sunrise_jd = calculate_julian_day(birth_dt.year, birth_dt.month, birth_dt.day, sunrise_ut)
@@ -452,17 +478,22 @@ def calculate_upagrahas(
         # Night starts from 5th weekday lord
         start_lord = (w_idx + 4) % 7
 
-    def get_upagraha_fraction(planet_idx, is_end=True):
+    def get_upagraha_fraction(planet_idx, position="start"):
         part_idx = (planet_idx - start_lord) % 7
-        return (part_idx + 1) / 8.0 if is_end else part_idx / 8.0
+        if position == "end":
+            return (part_idx + 1) / 8.0
+        elif position == "mid":
+            return (part_idx + 0.5) / 8.0
+        else:
+            return part_idx / 8.0
 
     # Planet indices: Sun=0, Mars=2, Merc=3, Jup=4, Sat=6
-    frac_kaala = get_upagraha_fraction(0, True)
-    frac_mrityu = get_upagraha_fraction(2, True)
-    frac_ardha = get_upagraha_fraction(3, True)
-    frac_yama = get_upagraha_fraction(4, True)
-    frac_mandi = get_upagraha_fraction(6, True)
-    frac_gulika = get_upagraha_fraction(6, False)
+    frac_kaala = get_upagraha_fraction(0, "start")
+    frac_mrityu = get_upagraha_fraction(2, "start")
+    frac_ardha = get_upagraha_fraction(3, "start")
+    frac_yama = get_upagraha_fraction(4, "start")
+    frac_mandi = get_upagraha_fraction(6, "mid")
+    frac_gulika = get_upagraha_fraction(6, "start")
     
     # Calculate JDs of Upagrahas
     jd_mandi = jd_base + frac_mandi * duration
@@ -500,7 +531,8 @@ def calculate_upagrahas(
     vighatis_elapsed = time_from_sun * 150.0
     base_x = (vighatis_elapsed / 15.0) * 30.0
     if SWISSEPH_AVAILABLE and swe is not None:
-        sun_sunrise_deg = swe.calc_ut(sunrise_jd, swe.SUN, swe.FLG_SWIEPH | swe.FLG_SIDEREAL)[0][0]
+        sun_sunrise_trop = swe.calc_ut(sunrise_jd, swe.SUN, swe.FLG_SWIEPH)[0][0]
+        sun_sunrise_deg = (sun_sunrise_trop - ayanamsa) % 360.0
     else:
         sun_sunrise_deg = sun_deg
     sun_sign_idx = int(sun_sunrise_deg // 30) + 1
@@ -764,7 +796,8 @@ def calculate_arudhas_and_special_lagnas(
     birth_dt: datetime,
     latitude: float,
     longitude: float,
-    timezone: float
+    timezone: float,
+    ayanamsa: float
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """
     Calculate 12 Arudha Padas (AL, UL, A1-A12) with Parashara Exception Rules,
@@ -787,16 +820,16 @@ def calculate_arudhas_and_special_lagnas(
         jd_ut_birth = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day, hour_ut)
         jd_ut_start = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day, 0.0)
         geopos = (longitude, latitude, 0.0)
-        res_rise = swe.rise_trans(jd_ut_start, swe.SUN, swe.CALC_RISE, geopos)
+        flags = swe.CALC_RISE | swe.BIT_NO_REFRACTION | swe.BIT_DISC_CENTER
+        res_rise = swe.rise_trans(jd_ut_start, swe.SUN, flags, geopos)
         sunrise_jd_ut = res_rise[1][0]
         if jd_ut_birth < sunrise_jd_ut:
             jd_ut_yesterday = jd_ut_start - 1.0
-            res_rise = swe.rise_trans(jd_ut_yesterday, swe.SUN, swe.CALC_RISE, geopos)
+            res_rise = swe.rise_trans(jd_ut_yesterday, swe.SUN, flags, geopos)
             sunrise_jd_ut = res_rise[1][0]
         time_from_sun = (jd_ut_birth - sunrise_jd_ut) * 24.0
-        swe.set_sid_mode(swe.SIDM_LAHIRI)
-        flag = swe.FLG_SWIEPH | swe.FLG_SIDEREAL
-        sun_sunrise_deg = swe.calc_ut(sunrise_jd_ut, swe.SUN, flag)[0][0]
+        sun_sunrise_tropical = swe.calc_ut(sunrise_jd_ut, swe.SUN, swe.FLG_SWIEPH)[0][0]
+        sun_sunrise_deg = (sun_sunrise_tropical - ayanamsa) % 360.0
     else:
         jd_ut_birth = calculate_julian_day(birth_dt.year, birth_dt.month, birth_dt.day, hour_ut)
         sunrise_ut = 6.0 - timezone
@@ -815,22 +848,22 @@ def calculate_arudhas_and_special_lagnas(
     special_lagnas = []
 
     # 1. Bhava Lagna (BL)
-    bl_deg = (sun_deg + (time_from_sun * 15.0)) % 360.0
+    bl_deg = (sun_sunrise_deg + (time_from_sun * 15.0)) % 360.0
     bl_idx, bl_sign, bl_deg, bl_nak, bl_pada, bl_nl = get_lagna_details(bl_deg)
     special_lagnas.append({"name": "Bhava Lagna (BL)", "sanskrit": "भाव लग्न", "sign": bl_sign, "sign_index": bl_idx, "degree_formatted": format_degree_short(bl_deg), "degree_decimal": round(bl_deg, 4), "nakshatra": bl_nak, "pada": bl_pada, "nakshatra_lord": bl_nl})
 
     # 2. Hora Lagna (HL)
-    hl_deg = (sun_deg + (time_from_sun * 30.0)) % 360.0
+    hl_deg = (sun_sunrise_deg + (time_from_sun * 30.0)) % 360.0
     hl_idx, hl_sign, hl_deg, hl_nak, hl_pada, hl_nl = get_lagna_details(hl_deg)
     special_lagnas.append({"name": "Hora Lagna (HL)", "sanskrit": "होरा लग्न", "sign": hl_sign, "sign_index": hl_idx, "degree_formatted": format_degree_short(hl_deg), "degree_decimal": round(hl_deg, 4), "nakshatra": hl_nak, "pada": hl_pada, "nakshatra_lord": hl_nl})
 
     # 3. Ghati Lagna (GL)
-    gl_deg = (sun_deg + (time_from_sun * 75.0)) % 360.0
+    gl_deg = (sun_sunrise_deg + (time_from_sun * 75.0)) % 360.0
     gl_idx, gl_sign, gl_deg, gl_nak, gl_pada, gl_nl = get_lagna_details(gl_deg)
     special_lagnas.append({"name": "Ghati Lagna (GL)", "sanskrit": "घटी लग्न", "sign": gl_sign, "sign_index": gl_idx, "degree_formatted": format_degree_short(gl_deg), "degree_decimal": round(gl_deg, 4), "nakshatra": gl_nak, "pada": gl_pada, "nakshatra_lord": gl_nl})
 
     # 4. Vighati Lagna (VGL) - 4500 degrees per hour
-    vgl_deg = (sun_deg + (time_from_sun * 4500.0)) % 360.0
+    vgl_deg = (sun_sunrise_deg + (time_from_sun * 4500.0)) % 360.0
     vgl_idx, vgl_sign, vgl_deg, vgl_nak, vgl_pada, vgl_nl = get_lagna_details(vgl_deg)
     special_lagnas.append({"name": "Vighati Lagna (VGL)", "sanskrit": "विघटी लग्न", "sign": vgl_sign, "sign_index": vgl_idx, "degree_formatted": format_degree_short(vgl_deg), "degree_decimal": round(vgl_deg, 4), "nakshatra": vgl_nak, "pada": vgl_pada, "nakshatra_lord": vgl_nl})
 
@@ -855,10 +888,10 @@ def calculate_arudhas_and_special_lagnas(
     # 7. Pranapada Lagna (PL)
     vighatis_elapsed = time_from_sun * 150.0
     base_x = (vighatis_elapsed / 15.0) * 30.0
-    sun_sign_idx = int(sun_deg // 30) + 1
+    sun_sign_idx = int(sun_sunrise_deg // 30) + 1
     sun_modality = sun_sign_idx % 3
     offset = 0.0 if sun_modality == 1 else (240.0 if sun_modality == 2 else 120.0)
-    pl_deg = (sun_deg + base_x + offset) % 360.0
+    pl_deg = (sun_sunrise_deg + base_x + offset) % 360.0
     pl_idx, pl_sign, pl_deg, pl_nak, pl_pada, pl_nl = get_lagna_details(pl_deg)
     special_lagnas.append({"name": "Pranapada Lagna (PL)", "sanskrit": "प्राणपद लग्न", "sign": pl_sign, "sign_index": pl_idx, "degree_formatted": format_degree_short(pl_deg), "degree_decimal": round(pl_deg, 4), "nakshatra": pl_nak, "pada": pl_pada, "nakshatra_lord": pl_nl})
 
@@ -2812,7 +2845,9 @@ def generate_full_kundli(
     longitude: float = 77.2090,
     timezone: float = 5.5,
     days_in_year: float = 365.256364,
-    bhava_system: str = "Porphyry (Sripathi)"
+    bhava_system: str = "Porphyry (Sripathi)",
+    ayanamsa: str = "LAHIRI",
+    custom_ayanamsa: float = None
 ) -> Dict[str, Any]:
     """
     Generate complete high-precision Janam Kundli analysis using Swiss Ephemeris.
@@ -2828,7 +2863,8 @@ def generate_full_kundli(
     hour_utc = (tob_parts[0] + tob_parts[1] / 60.0 + second_part / 3600.0) - timezone
     
     jd = calculate_julian_day(dob.year, dob.month, dob.day, hour_utc)
-    ayanamsa = calculate_lahiri_ayanamsa(jd)
+    ayanamsa_key = ayanamsa  # Preserve string key before converting to decimal
+    ayanamsa = calculate_lahiri_ayanamsa(jd, ayanamsa, custom_ayanamsa)
     
     # 1. Ascendant / Lagna & MC
     asc_deg, mc_deg, ramc_deg = calculate_ascendant_and_mc(jd, latitude, longitude, ayanamsa)
@@ -3013,11 +3049,11 @@ def generate_full_kundli(
         })
 
     # 5. Upagrahas Calculation
-    upagrahas_list = calculate_upagrahas(sun_deg, asc_deg, birth_dt, latitude, longitude, timezone)
+    upagrahas_list = calculate_upagrahas(sun_deg, asc_deg, birth_dt, latitude, longitude, timezone, ayanamsa)
 
     # 6. Arudhas & Special Lagnas
     arudha_padas, special_lagnas = calculate_arudhas_and_special_lagnas(
-        asc_deg, asc_sign_idx, planets_list, sun_deg, moon_deg, birth_dt, latitude, longitude, timezone
+        asc_deg, asc_sign_idx, planets_list, sun_deg, moon_deg, birth_dt, latitude, longitude, timezone, ayanamsa
     )
 
     # 7. Bhava Chalit & All 16 Divisional Charts D1-D60
@@ -3077,12 +3113,31 @@ def generate_full_kundli(
         {"title": "Active Planetary Period", "desc": f"Currently navigating {current_dasha.get('mahadasha', current_dasha.get('active_mahadasha', '-'))} Mahadasha under {current_dasha.get('antardasha', current_dasha.get('active_antardasha', '-'))} Antardasha."}
     ]
 
+    AYANAMSA_DISPLAY_NAMES = {
+        "LAHIRI": "Lahiri (Chitrapaksha)",
+        "BV_RAMAN": "B.V. Raman",
+        "KP_OLD": "Krishnamurti (KP Old)",
+        "SRI_YUKTESWAR": "Sri Yukteswar",
+        "DE_LUCE": "De Luce",
+        "USHA_SHASHI": "Usha-Shashi (Revati)",
+        "DJWHAL_KHOOL": "Djwhal Khool",
+        "JN_BHASIN": "J.N. Bhasin",
+        "FAGAN_BRADLEY": "Fagan-Bradley",
+        "TROPICAL": "Tropical (Sayana)",
+        "CUSTOM": "Custom",
+        "KP_NEW": "Krishnamurti (KP New)",
+        "KP_STRAIGHT_LINE": "KP Straight Line",
+        "KHULLAR": "Khullar",
+        "CHANDRA_HARI": "Chandra Hari",
+    }
+    ayanamsa_display = AYANAMSA_DISPLAY_NAMES.get(ayanamsa_key, ayanamsa_key)
+
     accuracy_metadata = {
         "swisseph_used": SWISSEPH_AVAILABLE,
         "engine": "Swiss Ephemeris (pyswisseph)" if SWISSEPH_AVAILABLE else "Keplerian Approximation",
-        "ayanamsa_system": "Lahiri (Chitra Paksha)",
+        "ayanamsa_system": ayanamsa_display,
         "ayanamsa_decimal": round(ayanamsa, 6),
-        "ayanamsa_formatted": f"Lahiri {degree_to_sign_and_dms(ayanamsa)[2]}",
+        "ayanamsa_formatted": f"{ayanamsa_display} {round(ayanamsa, 4)}°",
         "coordinate_source": "Exact" if (latitude != 28.6139 or longitude != 77.2090) else "City-level Estimate",
         "base_accuracy_percent": 98 if SWISSEPH_AVAILABLE else 72,
         "note": "Accuracy improves with exact seconds in birth time. Add seconds for sub-minute Lagna precision."
@@ -3099,8 +3154,8 @@ def generate_full_kundli(
         "julian_day": jd,
         "utc_hour": hour_utc,
         "formatted_datetime_header": f"{birth_dt.strftime('%d-%b-%Y %I:%M:%S %p')}",
-        "ayanamsa_value": f"Lahiri {degree_to_sign_and_dms(ayanamsa)[2]}",
-        "ayanamsa_formatted": f"Lahiri {degree_to_sign_and_dms(ayanamsa)[2]}",
+        "ayanamsa_value": f"{ayanamsa_display} {degree_to_sign_and_dms(ayanamsa)[2]}",
+        "ayanamsa_formatted": f"{ayanamsa_display} {degree_to_sign_and_dms(ayanamsa)[2]}",
         "ascendant_lagna": f"{asc_sign_name} ({asc_dms})",
         "ascendant_sign": asc_sign_name,
         "ascendant_sign_index": asc_sign_idx,
@@ -3135,3 +3190,5 @@ def generate_full_kundli(
         "summary_insights": summary_insights,
         "accuracy_metadata": accuracy_metadata
     }
+
+

@@ -78,7 +78,9 @@ def format_degree(decimal_deg: float) -> str:
 def generate_kota_chakra(
     name: str, dob_str: str, tob_str: str, pob_str: str,
     latitude: float, longitude: float, timezone: float,
-    transit_date_str: str = None, transit_time_str: str = None
+    transit_date_str: str = None, transit_time_str: str = None,
+    ayanamsa: str = "LAHIRI",
+    custom_ayanamsa: float = None
 ) -> Dict[str, Any]:
     
     # 1. Calculate Natal Chart via Swiss Ephemeris

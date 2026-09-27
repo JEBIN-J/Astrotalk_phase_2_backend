@@ -466,12 +466,14 @@ def calculate_jaimini_transits(transit_planets: List[Dict], natal_arudhas: List[
 
 def generate_jaimini_chart(
     name: str, dob_str: str, tob_str: str, pob_str: str,
-    latitude: float, longitude: float, timezone: float
+    latitude: float, longitude: float, timezone: float,
+    ayanamsa: str = "LAHIRI",
+    custom_ayanamsa: float = None
 ) -> Dict[str, Any]:
     """Generate the complete Jaimini Chart output."""
     
     # 1. Base Swiss Ephemeris data
-    kundli = generate_full_kundli(name, dob_str, tob_str, pob_str, latitude, longitude, timezone)
+    kundli = generate_full_kundli(name, dob_str, tob_str, pob_str, latitude, longitude, timezone, ayanamsa=ayanamsa, custom_ayanamsa=custom_ayanamsa)
     planets = kundli.get("planets", [])
     
     # Find ASC
@@ -549,7 +551,7 @@ def generate_jaimini_chart(
     try:
         now_str = now_dt.strftime("%Y-%m-%d")
         time_str = now_dt.strftime("%H:%M")
-        transit_kundli = generate_full_kundli("Transit", now_str, time_str, pob_str, latitude, longitude, timezone)
+        transit_kundli = generate_full_kundli("Transit", now_str, time_str, pob_str, latitude, longitude, timezone, ayanamsa=ayanamsa, custom_ayanamsa=custom_ayanamsa)
         transit_planets = transit_kundli.get("planets", [])
         current_transits = calculate_jaimini_transits(transit_planets, arudhas, current_dasha.get("sign", ""))
     except Exception as e:
