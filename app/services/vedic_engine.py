@@ -85,9 +85,9 @@ def calculate_lahiri_ayanamsa(jd: float, ayanamsa_key: str = "LAHIRI", custom_de
             "KP_OLD":          swe.SIDM_KRISHNAMURTI,     # Krishnamurti KP Original (K.S. Original)
             "KP_NEW":          swe.SIDM_KRISHNAMURTI_VP291, # Krishnamurti KP New (VP291)
             "KP_STRAIGHT_LINE": swe.SIDM_LAHIRI,          # KP Straight Line uses Lahiri as base
-            # Additional mappings using best-match constants
-            "KHULLAR":         swe.SIDM_TRUE_CITRA,       # Khullar uses True Citra (Spica-based)
-            "CHANDRA_HARI":    swe.SIDM_TRUE_REVATI,      # Chandra Hari uses True Revati
+                        # Additional mappings using best-match constants
+            "KHULLAR":         swe.SIDM_LAHIRI,           # Khullar is mathematically Lahiri - 42"
+            "CHANDRA_HARI":    swe.SIDM_TRUE_MULA,        # Chandra Hari uses True Mula (approx)
         }
         
         if ayanamsa_key not in SWE_MAP:
@@ -96,7 +96,10 @@ def calculate_lahiri_ayanamsa(jd: float, ayanamsa_key: str = "LAHIRI", custom_de
         mode = SWE_MAP[ayanamsa_key]
         with _SWE_AYANAMSA_LOCK:
             swe.set_sid_mode(mode)
-            return swe.get_ayanamsa_ut(jd)
+            aya = swe.get_ayanamsa_ut(jd)
+            if ayanamsa_key in ("KP_STRAIGHT_LINE", "KHULLAR"):
+                aya -= (42.0 / 3600.0)
+            return aya
         
     # Pure Python fallback (Lahiri approximation)
     t = (jd - 2451545.0) / 36525.0
@@ -140,7 +143,7 @@ def calculate_ascendant_and_mc(jd: float, lat: float, lon: float, ayanamsa: floa
     return asc_sid, mc_sid, lst_deg
 
 
-def get_planet_longitudes_precise(jd: float, ayanamsa: float) -> Dict[str, Tuple[float, float, bool]]:
+def get_planet_longitudes_precise(jd: float, ayanamsa: float, lat: float = None, lon: float = None) -> Dict[str, Tuple[float, float, bool]]:
     """
     Get Sidereal Longitude, Daily Speed, and Retrograde status for 9 Vedic Grahas + Modern outer planets (Uranus, Neptune, Pluto).
     Returns: { 'PlanetName': (longitude_0_360, speed_deg_day, is_retrograde) }
@@ -2874,7 +2877,7 @@ def generate_full_kundli(
     asc_kp = calculate_kp_lords(asc_deg)
     
     # 2. Planetary Positions
-    raw_planets = get_planet_longitudes_precise(jd, ayanamsa)
+    raw_planets = get_planet_longitudes_precise(jd, ayanamsa, lat=latitude, lon=longitude)
     planets_list = []
     planet_sign_indices = {}
     planets_deg_map = {}
@@ -3190,5 +3193,11 @@ def generate_full_kundli(
         "summary_insights": summary_insights,
         "accuracy_metadata": accuracy_metadata
     }
+
+
+
+
+
+
 
 

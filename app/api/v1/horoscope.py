@@ -14,8 +14,8 @@ def parse_horoscope_data():
     data = request.json or {}
     return {
         "name": data.get("name", "Rahul Sharma"),
-        "date_of_birth": data.get("date_of_birth", "1995-08-15"),
-        "time_of_birth": data.get("time_of_birth", "06:30"),
+        "date_of_birth": data.get("date_of_birth", ""),
+        "time_of_birth": data.get("time_of_birth", ""),
         "place_of_birth": data.get("place_of_birth", "New Delhi, India"),
         "latitude": float(data.get("latitude", 28.6139)),
         "longitude": float(data.get("longitude", 77.2090)),
@@ -94,8 +94,8 @@ def get_sample_kundli():
     """Retrieve sample Kundli for instant UI testing."""
     result = generate_full_kundli(
         name="Rahul Sharma",
-        dob_str="1995-08-15",
-        tob_str="06:30",
+        dob_str="",
+        tob_str="",
         pob_str="New Delhi, India",
         latitude=28.6139,
         longitude=77.2090,
@@ -371,8 +371,8 @@ def get_kp_system():
         
         result = generate_kp_system(
             name=data.get("name", "User"),
-            dob_str=data.get("date_of_birth", "1998-12-13"),
-            tob_str=data.get("time_of_birth", "09:30"),
+            dob_str=data.get("date_of_birth", ""),
+            tob_str=data.get("time_of_birth", ""),
             pob_str=data.get("place_of_birth", "Delhi, India"),
             latitude=float(data.get("latitude", 28.6139)),
             longitude=float(data.get("longitude", 77.2090)),
@@ -385,3 +385,59 @@ def get_kp_system():
             "status": "error",
             "message": f"Unable to calculate KP chart: {str(e)}"
         }), 400
+
+
+@horoscope_bp.route("/ayanamsa_degrees", methods=["GET"])
+def get_ayanamsa_degrees():
+    """
+    Returns the live ayanamsa degree values for ALL supported ayanamsas,
+    computed by Swiss Ephemeris for the given birth date/time/location.
+    """
+    from app.services.vedic_engine import calculate_julian_day, calculate_lahiri_ayanamsa
+    from datetime import datetime
+
+    date_str = request.args.get("date")
+    time_str = request.args.get("time")
+    if not date_str or not time_str:
+        return jsonify({"error": "date and time are required"}), 400
+
+    lat = float(request.args.get("lat", 28.6139))
+    lon = float(request.args.get("lon", 77.2090))
+    tz = float(request.args.get("tz", 5.5))
+
+    try:
+        dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+    except ValueError:
+        try:
+            dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return jsonify({"error": "Invalid date or time format"}), 400
+
+    hour_utc = dt.hour + dt.minute / 60.0 + dt.second / 3600.0 - tz
+    jd = calculate_julian_day(dt.year, dt.month, dt.day, hour_utc)
+
+    all_ayanamsas = [
+        "LAHIRI", "BV_RAMAN", "KP_OLD", "SRI_YUKTESWAR", "DE_LUCE",
+        "USHA_SHASHI", "DJWHAL_KHOOL", "JN_BHASIN", "FAGAN_BRADLEY",
+        "TROPICAL", "KP_NEW", "KP_STRAIGHT_LINE", "KHULLAR", "CHANDRA_HARI",
+    ]
+
+    result = {}
+    for key in all_ayanamsas:
+        try:
+            deg = calculate_lahiri_ayanamsa(jd, ayanamsa_key=key)
+            result[key] = round(float(deg), 6)
+        except Exception as e:
+            result[key] = None
+
+    return jsonify({
+        "jd": round(jd, 6),
+        "date": date_str,
+        "time": time_str,
+        "lat": lat,
+        "lon": lon,
+        "tz": tz,
+        "ayanamsa_degrees": result
+    })
+
+

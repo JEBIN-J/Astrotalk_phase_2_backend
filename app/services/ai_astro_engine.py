@@ -25,8 +25,8 @@ def generate_ai_astrology_insights(
     if birth_details:
         kundli = generate_full_kundli(
             birth_details.get("name", "User"),
-            birth_details.get("date_of_birth", "1995-08-15"),
-            birth_details.get("time_of_birth", "06:30"),
+            birth_details.get("date_of_birth", ""),
+            birth_details.get("time_of_birth", ""),
             birth_details.get("place_of_birth", "New Delhi, India"),
             birth_details.get("latitude", 28.6139),
             birth_details.get("longitude", 77.2090),
@@ -258,3 +258,4 @@ def generate_ai_astrology_insights(
         "lucky_day": lucky_day,
         "auspicious_time": auspicious_time
     }
+

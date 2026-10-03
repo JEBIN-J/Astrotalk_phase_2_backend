@@ -35,8 +35,8 @@ class UserProfile(BaseModel):
 # --- ASTROLOGICAL INPUT SCHEMAS ---
 class BirthDetailsRequest(BaseModel):
     name: str = Field("Rahul Sharma", description="Person's Full Name", json_schema_extra={"example": "Rahul Sharma"})
-    date_of_birth: str = Field("1995-08-15", description="YYYY-MM-DD format", json_schema_extra={"example": "1995-08-15"})
-    time_of_birth: str = Field("06:30", description="HH:MM in 24-hour format", json_schema_extra={"example": "06:30"})
+    date_of_birth: str = Field("", description="YYYY-MM-DD format", json_schema_extra={"example": ""})
+    time_of_birth: str = Field("", description="HH:MM in 24-hour format", json_schema_extra={"example": ""})
     place_of_birth: str = Field("New Delhi, India", description="Birth City / Place", json_schema_extra={"example": "New Delhi, India"})
     latitude: float = Field(28.6139, description="Latitude in decimal degrees", json_schema_extra={"example": 28.6139})
     longitude: float = Field(77.2090, description="Longitude in decimal degrees", json_schema_extra={"example": 77.2090})
@@ -316,3 +316,4 @@ class AstroTarotRequest(BaseModel):
     longitude: float = Field(...)
     timezone: float = Field(...)
     seed: Optional[str] = Field(None)
+

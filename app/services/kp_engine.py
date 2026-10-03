@@ -854,8 +854,8 @@ def calculate_four_step(
 
 def generate_kp_system(
     name: str = "User",
-    dob_str: str = "1998-12-13",
-    tob_str: str = "09:30",
+    dob_str: str = "",
+    tob_str: str = "",
     pob_str: str = "Delhi, India",
     latitude: float = 28.6139,
     longitude: float = 77.2090,
@@ -1175,3 +1175,4 @@ def generate_kp_system(
         "nakshatra_nadi": nadi_data,
         "four_step": four_step_data
     }
+

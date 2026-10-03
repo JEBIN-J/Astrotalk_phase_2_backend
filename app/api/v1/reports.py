@@ -14,8 +14,8 @@ def generate_kundli_pdf():
     """Generate and stream Janam Kundli PDF."""
     data = request.json or {}
     name = data.get("name", "Rahul Sharma")
-    date_of_birth = data.get("date_of_birth", "1995-08-15")
-    time_of_birth = data.get("time_of_birth", "06:30")
+    date_of_birth = data.get("date_of_birth", "")
+    time_of_birth = data.get("time_of_birth", "")
     place_of_birth = data.get("place_of_birth", "New Delhi, India")
     latitude = float(data.get("latitude", 28.6139))
     longitude = float(data.get("longitude", 77.2090))
@@ -93,3 +93,4 @@ def generate_kundli_pdf():
         as_attachment=True,
         download_name=f"kundli_{name.replace(' ', '_')}.pdf"
     )
+
