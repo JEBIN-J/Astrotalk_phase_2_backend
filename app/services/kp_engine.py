@@ -195,86 +195,64 @@ def calculate_julian_day(year: int, month: int, day: int, hour_utc: float) -> fl
 
 def calculate_ayanamsa(jd: float, ayanamsa_name: str, birth_dt: datetime, hour_utc: float) -> Tuple[float, str]:
     """
-    Calculate exact Ayanamsa value in degrees and formatted string for the 8 requested systems:
-    1. Krishnamurti (KP New)
-    2. Krishnamurti (KP Old)
-    3. KP Straight Line
-    4. Khullar
-    5. Tropical (Sayana)
-    6. Lahiri (Chitapaksha)
-    7. B.V. Raman
-    8. Sri Yukteswar
+    Calculate exact Ayanamsa value in degrees and formatted string for 14 supported systems:
+    LAHIRI, BV_RAMAN, KP_OLD, SRI_YUKTESWAR, DE_LUCE, USHA_SHASHI, DJWHAL_KHOOL, JN_BHASIN, FAGAN_BRADLEY, TROPICAL, KP_NEW, KP_STRAIGHT_LINE, KHULLAR, CHANDRA_HARI
     """
-    norm = ayanamsa_name.strip()
-    year_dec = birth_dt.year + (birth_dt.month - 1) / 12.0 + (birth_dt.day - 1) / 365.25 + (hour_utc / 8766.0)
-
-    if "Tropical" in norm or "Sayana" in norm:
+    norm = ayanamsa_name.strip().upper()
+    
+    # Map common display names to backend keys
+    key_map = {
+        "KRISHNAMURTI (KP NEW)": "KP_NEW",
+        "KRISHNAMURTI (KP OLD)": "KP_OLD",
+        "KP STRAIGHT LINE": "KP_STRAIGHT_LINE",
+        "KHULLAR": "KHULLAR",
+        "TROPICAL (SAYANA)": "TROPICAL",
+        "LAHIRI (CHITAPAKSHA)": "LAHIRI",
+        "B.V. RAMAN": "BV_RAMAN",
+        "SRI YUKTESWAR": "SRI_YUKTESWAR"
+    }
+    
+    if norm in key_map:
+        norm = key_map[norm]
+        
+    # If not recognized, try as the exact key, fallback to KP_NEW
+    valid_keys = [
+        "LAHIRI", "BV_RAMAN", "KP_OLD", "SRI_YUKTESWAR", "DE_LUCE",
+        "USHA_SHASHI", "DJWHAL_KHOOL", "JN_BHASIN", "FAGAN_BRADLEY",
+        "TROPICAL", "KP_NEW", "KP_STRAIGHT_LINE", "KHULLAR", "CHANDRA_HARI"
+    ]
+    if norm not in valid_keys:
+        norm = "KP_NEW"
+        
+    if norm == "TROPICAL":
         return 0.0, "00° 00' 00\" (Sayana)"
 
-    if "Straight" in norm:
-        # KP Straight Line: Linear precession rate 50.2388475 arcseconds/year from zero year 291.07722 AD
-        ayan_deg = (year_dec - 291.07722) * (50.2388475 / 3600.0)
-        return ayan_deg, f"KP Straight Line {format_dms(ayan_deg)}"
-
-    if "Khullar" in norm:
-        # Khullar True KP: Zero year 291.75 AD with Newcomb rate
-        ayan_deg = (year_dec - 291.75) * (50.2388475 / 3600.0)
-        return ayan_deg, f"Khullar {format_dms(ayan_deg)}"
-
-    if SWISSEPH_AVAILABLE and swe:
-        SWE_MODE_MAP = {
-            "KP Old":          44,
-            "Old":             44,
-            "KP New":          swe.SIDM_KRISHNAMURTI,
-            "Krishnamurti":    swe.SIDM_KRISHNAMURTI,
-            "Raman":           swe.SIDM_RAMAN,
-            "Yukteswar":       swe.SIDM_YUKTESHWAR,
-            "Lahiri":          swe.SIDM_LAHIRI,
-            "Chitapaksha":     swe.SIDM_LAHIRI,
-        }
-        matched_mode = None
-        matched_label = None
-        for key, mode in SWE_MODE_MAP.items():
-            if key in norm:
-                matched_mode = mode
-                if "Old" in key:
-                    matched_label = "KP Old"
-                elif "New" in key or "Krishnamurti" in key:
-                    matched_label = "KP New"
-                elif "Raman" in key:
-                    matched_label = "B.V. Raman"
-                elif "Yukteswar" in key:
-                    matched_label = "Sri Yukteswar"
-                else:
-                    matched_label = "Lahiri"
-                break
-
-        if matched_mode is not None:
-            try:
-                with _SWE_AYANAMSA_LOCK:
-                    swe.set_sid_mode(matched_mode)
-                    ayan_deg = swe.get_ayanamsa_ut(jd)
-            except Exception:
-                ayan_deg = 23.85
-            return ayan_deg, f"{matched_label} {format_dms(ayan_deg)}"
-
-    # Mathematical Fallbacks
-    t = (jd - 2451545.0) / 36525.0
-    if "KP Old" in norm or "Old" in norm:
-        ayan_deg = (year_dec - 291.0) * (50.2388475 / 3600.0)
-        return ayan_deg, f"KP Old {format_dms(ayan_deg)}"
-    elif "KP New" in norm or "Krishnamurti" in norm:
-        ayan_deg = 23.8245 + (t * 1.396971)
-        return ayan_deg, f"KP New {format_dms(ayan_deg)}"
-    elif "Raman" in norm:
-        ayan_deg = (year_dec - 397.0) * (50.2388475 / 3600.0)
-        return ayan_deg, f"B.V. Raman {format_dms(ayan_deg)}"
-    elif "Yukteswar" in norm:
-        ayan_deg = (year_dec - 499.0) * (54.0 / 3600.0)
-        return ayan_deg, f"Sri Yukteswar {format_dms(ayan_deg)}"
-    else: # Default Lahiri
-        ayan_deg = 23.853056 + (t * 1.396971) - (0.000308 * (t ** 2))
-        return ayan_deg, f"Lahiri {format_dms(ayan_deg)}"
+    from app.services.vedic_engine import calculate_lahiri_ayanamsa
+    
+    try:
+        ayan_deg = calculate_lahiri_ayanamsa(jd, ayanamsa_key=norm)
+        return float(ayan_deg), f"{norm} {format_dms(float(ayan_deg))}"
+    except Exception:
+        # Mathematical Fallbacks if swisseph fails
+        t = (jd - 2451545.0) / 36525.0
+        year_dec = birth_dt.year + (birth_dt.month - 1) / 12.0 + (birth_dt.day - 1) / 365.25 + (hour_utc / 8766.0)
+        
+        if norm == "KP_OLD":
+            ayan_deg = (year_dec - 291.0) * (50.2388475 / 3600.0)
+        elif norm == "BV_RAMAN":
+            ayan_deg = (year_dec - 397.0) * (50.2388475 / 3600.0)
+        elif norm == "SRI_YUKTESWAR":
+            ayan_deg = (year_dec - 499.0) * (54.0 / 3600.0)
+        elif norm == "KP_NEW":
+            ayan_deg = 23.8245 + (t * 1.396971)
+        elif norm == "KP_STRAIGHT_LINE":
+            ayan_deg = (year_dec - 291.07722) * (50.2388475 / 3600.0)
+        elif norm == "KHULLAR":
+            ayan_deg = (year_dec - 291.75) * (50.2388475 / 3600.0)
+        else: # Default Lahiri
+            ayan_deg = 23.853056 + (t * 1.396971) - (0.000308 * (t ** 2))
+            
+        return ayan_deg, f"{norm} {format_dms(ayan_deg)}"
 
 def calculate_kp_sub_lords(degree: float) -> Dict[str, Any]:
     """
@@ -877,6 +855,8 @@ def generate_kp_system(
     jd = calculate_julian_day(dob.year, dob.month, dob.day, hour_utc)
 
     ayan_deg, ayan_formatted = calculate_ayanamsa(jd, ayanamsa_name, birth_dt, hour_utc)
+    
+    from app.services.vedic_engine import calculate_upagrahas
 
     cusp_degrees, asc_deg, mc_deg = get_placidus_cusps(jd, latitude, longitude, ayan_deg)
     asc_kp = calculate_kp_sub_lords(asc_deg)
@@ -1147,6 +1127,8 @@ def generate_kp_system(
         "moon_nakshatra_lord": moon_kp["nakshatra_lord"],
         "day_lord": day_lord
     }
+    
+    upagrahas_list = calculate_upagrahas(sun_lon, asc_deg, birth_dt, latitude, longitude, timezone, ayan_deg)
 
     return {
         "status": "success",
@@ -1163,6 +1145,7 @@ def generate_kp_system(
         "ayanamsa_formatted": ayan_formatted,
         "ascendant": asc_kp,
         "planets": planets_list,
+        "upagrahas": upagrahas_list,
         "bhava_cusps": cusps_info,
         "divisional_charts": {
             "D-1": d1_chart,

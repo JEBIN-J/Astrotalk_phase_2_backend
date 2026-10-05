@@ -13,7 +13,6 @@ mediapipe
 scikit-image
 numpy
 pytz
-google-generativeai
 flask-swagger-ui
 jwt
 pydantic
