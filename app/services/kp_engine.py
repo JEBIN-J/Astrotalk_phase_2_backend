@@ -846,7 +846,9 @@ def generate_kp_system(
     latitude: float = 28.6139,
     longitude: float = 77.2090,
     timezone: float = 5.5,
-    ayanamsa_name: str = "Krishnamurti (KP New)"
+    ayanamsa_name: str = "Krishnamurti (KP New)",
+    transit_datetime_str: str = None,
+    transit_timezone: float = None
 ) -> Dict[str, Any]:
     """
     Master Entry Point for the Real-Time KP Astrology System.
@@ -1109,7 +1111,135 @@ def generate_kp_system(
         cusps_info
     )
 
+
+    # Calculate Transit Planets for Current Time
+    try:
+        if transit_datetime_str:
+            try:
+                now_dt = datetime.strptime(transit_datetime_str, "%Y-%m-%d %H:%M:%S")
+            except:
+                now_dt = datetime.now()
+        else:
+            now_dt = datetime.now()
+            
+        tz = transit_timezone if transit_timezone is not None else timezone
+        now_hour_ut = now_dt.hour + now_dt.minute / 60.0 + now_dt.second / 3600.0 - tz
+        if now_hour_ut < 0:
+            now_hour_ut += 24.0
+            now_dt = now_dt - timedelta(days=1)
+        elif now_hour_ut >= 24.0:
+            now_hour_ut -= 24.0
+            now_dt = now_dt + timedelta(days=1)
+            
+        jd_ut_now = swe.julday(now_dt.year, now_dt.month, now_dt.day, now_hour_ut)
+        transit_ayan_deg = swe.get_ayanamsa_ut(jd_ut_now)
+        transit_planets = []
+        
+        swe_ids = {
+            "Sun": swe.SUN, "Moon": swe.MOON, "Mars": swe.MARS,
+            "Mercury": swe.MERCURY, "Jupiter": swe.JUPITER, "Venus": swe.VENUS,
+            "Saturn": swe.SATURN, "Rahu": swe.MEAN_NODE, "Ketu": swe.MEAN_NODE,
+            "Uranus": swe.URANUS, "Neptune": swe.NEPTUNE, "Pluto": swe.PLUTO
+        }
+        
+        for name, pid in swe_ids.items():
+            if name == "Ascendant": continue
+            flags = swe.FLG_SWIEPH | swe.FLG_SPEED
+            res, ret_flags = swe.calc_ut(jd_ut_now, pid, flags)
+            trop_lon = res[0]
+            speed = res[3]
+            sid_lon = (trop_lon - transit_ayan_deg) % 360.0
+            if name == "Ketu":
+                sid_lon = (sid_lon + 180.0) % 360.0
+            is_retro = bool(speed < 0)
+            
+            transit_planets.append({
+                "name": name,
+                "longitude": sid_lon,
+                "is_retrograde": is_retro,
+                "speed": speed
+            })
+            
+        # Custom transit aspects
+        ASPECT_DEFINITIONS = [
+            {"name": "Conjunction", "short_name": "Conj", "angle": 0.0, "orb": 15.0, "nature": "Yellow"},
+            {"name": "Vigintile", "short_name": "Vigi", "angle": 18.0, "orb": 2.0, "nature": "Green"},
+            {"name": "Quin-decile", "short_name": "Qdec", "angle": 24.0, "orb": 2.0, "nature": "Green"},
+            {"name": "Semi-Sextile", "short_name": "Semi", "angle": 30.0, "orb": 2.0, "nature": "Green"},
+            {"name": "Semi-quintile", "short_name": "Squi", "angle": 36.0, "orb": 2.0, "nature": "Green"},
+            {"name": "Semi-Square", "short_name": "Ssqu", "angle": 45.0, "orb": 4.0, "nature": "LightRed"},
+            {"name": "Degrees 54", "short_name": "D54", "angle": 54.0, "orb": 2.0, "nature": "LightRed"},
+            {"name": "Sextile", "short_name": "Sext", "angle": 60.0, "orb": 6.0, "nature": "Green"},
+            {"name": "Quintile", "short_name": "Quin", "angle": 72.0, "orb": 4.0, "nature": "Green"},
+            {"name": "Square", "short_name": "Squr", "angle": 90.0, "orb": 9.0, "nature": "Red"},
+            {"name": "Tredecile", "short_name": "Tred", "angle": 108.0, "orb": 3.0, "nature": "Green"},
+            {"name": "Trine", "short_name": "Trin", "angle": 120.0, "orb": 9.0, "nature": "DarkGreen"},
+            {"name": "Degrees 126", "short_name": "D126", "angle": 126.0, "orb": 2.0, "nature": "DarkGreen"},
+            {"name": "Sesquiquadrate", "short_name": "Ssqu", "angle": 135.0, "orb": 3.0, "nature": "LightRed"},
+            {"name": "Bi-quintile", "short_name": "Bqui", "angle": 144.0, "orb": 3.0, "nature": "DarkGreen"},
+            {"name": "Quincunx", "short_name": "Quin", "angle": 150.0, "orb": 3.0, "nature": "Red"},
+            {"name": "Degree 162", "short_name": "D162", "angle": 162.0, "orb": 2.0, "nature": "Green"},
+            {"name": "Opposition", "short_name": "Oppn", "angle": 180.0, "orb": 15.0, "nature": "Red"}
+        ]
+        
+        transit_planet_aspects = []
+        for tp in transit_planets:
+            for np in planets_list:
+                diff = abs(tp["longitude"] - np["longitude"]) % 360.0
+                if diff > 180.0: diff = 360.0 - diff
+                for asp in ASPECT_DEFINITIONS:
+                    orb = abs(diff - asp["angle"])
+                    if orb <= asp["orb"]:
+                        is_applying = True
+                        p1_speed = tp.get("speed", 1.0)
+                        p2_speed = np.get("speed", 1.0)
+                        if p1_speed > p2_speed and tp["longitude"] > np["longitude"]:
+                            is_applying = False
+                            
+                        transit_planet_aspects.append({
+                            "transit_planet": tp["name"],
+                            "natal_planet": np["name"],
+                            "aspect_name": asp["name"],
+                            "short_name": asp.get("short_name", asp["name"][:4]),
+                            "aspect_angle": asp["angle"],
+                            "actual_angle": round(diff, 2),
+                            "orb": round(orb, 2),
+                            "strength": round(asp["orb"] - orb, 2),
+                            "nature": asp["nature"],
+                            "is_applying": is_applying,
+                            "description": asp.get("desc", "")
+                        })
+                        break
+
+        transit_cusp_aspects = []
+        for tp in transit_planets:
+            for c in cusps_info:
+                diff = abs(tp["longitude"] - c["longitude"]) % 360.0
+                if diff > 180.0: diff = 360.0 - diff
+                for asp in ASPECT_DEFINITIONS:
+                    orb = abs(diff - asp["angle"])
+                    if orb <= asp["orb"]:
+                        transit_cusp_aspects.append({
+                            "transit_planet": tp["name"],
+                            "natal_cusp": c["house"],
+                            "aspect_name": asp["name"],
+                            "aspect_angle": asp["angle"],
+                            "actual_angle": round(diff, 2),
+                            "orb": round(orb, 2),
+                            "nature": asp["nature"]
+                        })
+                        break
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print("TRANSIT ERROR:", e)
+        transit_planets = []
+        transit_planet_aspects = []
+        transit_cusp_aspects = []
+
     nadi_data = calculate_nakshatra_nadi(
+
         [p for p in planets_list if p["name"] != "Ascendant"],
         significators_data
     )
@@ -1153,6 +1283,9 @@ def generate_kp_system(
         "ayanamsa_formatted": ayan_formatted,
         "ascendant": asc_kp,
         "planets": planets_list,
+        "transit_planets": transit_planets,
+        "transit_planet_aspects": transit_planet_aspects,
+        "transit_cusp_aspects": transit_cusp_aspects,
         "upagrahas": upagrahas_list,
         "bhava_cusps": cusps_info,
         "divisional_charts": {

@@ -377,7 +377,9 @@ def get_kp_system():
             latitude=float(data.get("latitude", 28.6139)),
             longitude=float(data.get("longitude", 77.2090)),
             timezone=float(data.get("timezone", 5.5)),
-            ayanamsa_name=ayanamsa
+            ayanamsa_name=ayanamsa,
+            transit_datetime_str=data.get("transit_datetime"),
+            transit_timezone=float(data.get("transit_timezone", data.get("timezone", 5.5))) if "transit_timezone" in data else None
         )
         return jsonify(remove_hindi_text(result))
     except Exception as e:
