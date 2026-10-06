@@ -70,18 +70,10 @@ def calculate_lahiri_ayanamsa(jd: float, ayanamsa_key: str = "LAHIRI", custom_de
     if ayanamsa_key == "TROPICAL": return 0.0
     if ayanamsa_key == "CUSTOM" and custom_deg is not None: return float(custom_deg)
     
-    # Static degrees requested by user
-    if ayanamsa_key == "KP_OLD":
-        return 23.0 + 32.0/60.0 + 10.6196903/3600.0
-    if ayanamsa_key == "KP_NEW":
-        return 23.0 + 32.0/60.0 + 39.36170725/3600.0
-    if ayanamsa_key == "LAHIRI":
-        return 23.0 + 38.0/60.0 + 3.75912472/3600.0
-    
     if SWISSEPH_AVAILABLE and swe:
         SWE_MAP = {
             # Standard Vedic
-            "BV_RAMAN":        swe.SIDM_RAMAN,            # B.V. Raman
+            "LAHIRI": swe.SIDM_LAHIRI, "BV_RAMAN":        swe.SIDM_RAMAN,            # B.V. Raman
             "SRI_YUKTESWAR":   swe.SIDM_YUKTESHWAR,       # Sri Yukteswar
             "DE_LUCE":         swe.SIDM_DELUCE,           # De Luce
             "USHA_SHASHI":     swe.SIDM_USHASHASHI,       # Usha-Shashi (Revati)
@@ -3125,7 +3117,7 @@ def generate_full_kundli(
 
     AYANAMSA_DISPLAY_NAMES = {
         "LAHIRI": "Lahiri (Chitrapaksha)",
-        "BV_RAMAN": "B.V. Raman",
+        "LAHIRI": swe.SIDM_LAHIRI, "BV_RAMAN": "B.V. Raman",
         "KP_OLD": "Krishnamurti (KP Old)",
         "SRI_YUKTESWAR": "Sri Yukteswar",
         "DE_LUCE": "De Luce",
@@ -3200,6 +3192,8 @@ def generate_full_kundli(
         "summary_insights": summary_insights,
         "accuracy_metadata": accuracy_metadata
     }
+
+
 
 
 
