@@ -1171,6 +1171,9 @@ def calculate_all_divisional_charts(planets_list: List[Dict[str, Any]], asc_deg:
         ("D-40", "Khavedamsha", "Auspicious & Inauspicious Effects, Ancestral Legacy", 40),
         ("D-45", "Akshavedamsha", "General Character, Conduct & Overall Life", 45),
         ("D-60", "Shashtiamsha", "Past Life Samskaras, Root Karma & Ultimate Destiny", 60),
+        ("D-81", "Nava Navamsa", "Nava Navamsa Chart", 81),
+        ("D-108", "Ashtottaramsa", "Ashtottaramsa Chart", 108),
+        ("D-144", "Dwadasamsa Dwadasamsa", "Dwadasamsa Dwadasamsa Chart", 144),
     ]
 
     divisional_charts = {}

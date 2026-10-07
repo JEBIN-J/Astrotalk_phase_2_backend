@@ -28,7 +28,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Any, Tuple, Optional
 
 try:
-    from app.services.vedic_engine import _SWE_AYANAMSA_LOCK
+    from app.services.vedic_engine import _SWE_AYANAMSA_LOCK, calculate_all_divisional_charts, calculate_parashara_ashtakvarga
 except ImportError:
     _SWE_AYANAMSA_LOCK = threading.Lock()
 
@@ -1268,6 +1268,9 @@ def generate_kp_system(
     
     upagrahas_list = calculate_upagrahas(sun_lon, asc_deg, birth_dt, latitude, longitude, timezone, ayan_deg)
 
+    planet_sign_indices = { p["name"]: p["sign_index"] for p in planets_list if p["name"] not in ["Rahu", "Ketu", "Uranus", "Neptune", "Pluto", "Ascendant", "Fortuna"] }
+    ashtakavarga_data = calculate_parashara_ashtakvarga(asc_kp["sign_index"], planet_sign_indices)
+
     return {
         "status": "success",
         "ruling_planets": ruling_planets,
@@ -1288,15 +1291,13 @@ def generate_kp_system(
         "transit_cusp_aspects": transit_cusp_aspects,
         "upagrahas": upagrahas_list,
         "bhava_cusps": cusps_info,
-        "divisional_charts": {
-            "D-1": d1_chart,
-            "D-9": d9_chart
-        },
+        "divisional_charts": calculate_all_divisional_charts(planets_list, asc_deg, upagrahas_list, [], None),
         "bhava_chalit": bhava_chart,
         "dashas": dasha_data,
         "significators": significators_data,
         "aspects": aspects_data,
         "nakshatra_nadi": nadi_data,
-        "four_step": four_step_data
+        "four_step": four_step_data,
+        "ashtakavarga": ashtakavarga_data
     }
 
