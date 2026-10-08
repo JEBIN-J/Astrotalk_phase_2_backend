@@ -443,3 +443,47 @@ def get_ayanamsa_degrees():
     })
 
 
+
+
+@horoscope_bp.route("/cue_cards", methods=["GET"])
+def get_cue_cards():
+    """
+    Returns data for KP System Cue Cards such as Parts of Body and Rasi Properties
+    """
+    rasi_properties = {
+        "ARIES": "Fiery, Movable, Masculine, East, Short Stature, Barren",
+        "TAURUS": "Earthy, Fixed, Feminine, South, Short Stature, Semi-Fruitful",
+        "GEMINI": "Windy, Common, Masculine, West, Medium Stature, Barren",
+        "CANCER": "Watery, Movable, Feminine Mute, North, Medium Stature, Fruitful",
+        "LEO": "Fiery, Fixed, Masculine, East, Tall Stature, Barren",
+        "VIRGO": "Earthy, Common, Feminine, South, Tall Stature, Barren",
+        "LIBRA": "Windy, Movable, Masculine, West, Tall Stature, Semi-Fruitful",
+        "SCORPIO": "Watery, Fixed, Feminine Mute, North, Tall Stature, Fruitful",
+        "SAGITTARIUS": "Fiery, Common, Masculine, East, Medium Stature, Semi-Fruitful",
+        "CAPRICORN": "Earthy, Movable, Feminine, South, Medium Stature, Semi-Fruitful",
+        "AQUARIUS": "Windy, Fixed, Masculine, West, Short Stature, Barren",
+        "PISCES": "Watery, Common, Feminine Mute, North, Short Stature, Fruitful"
+    }
+
+    parts_of_body = {
+        "ARIES": "Head, Bones of Face, Skull, Brain",
+        "TAURUS": "Neck, Throat, Eye, Nose, Ears, Tongue, Teeth",
+        "GEMINI": "Respiratory System & Lungs, Shoulders, Arms, Hands, Collar Bones",
+        "CANCER": "Breast, Chest, Heart, Stomach, Digestive Organs",
+        "LEO": "Heart, Vertebrae, Spinal column, Back, upper Abdomen, Liver & Pancreas, Aorta, Coronary Arteries",
+        "VIRGO": "Nervous System, Bowels, Abdominal & Umbilical Region",
+        "LIBRA": "Lumbar Region, Skin, Kidneys, Bones of the Lumbar Region (Spine), Uterus",
+        "SCORPIO": "Anus, Urinary tract (Bladder), Sexual Organs, Pelvic Bones",
+        "SAGITTARIUS": "Hips, Thighs, Femur, Buttocks",
+        "CAPRICORN": "Knees & Patella, Bones, Joints, Spleen",
+        "AQUARIUS": "Legs & Ankles, Blood Circulation",
+        "PISCES": "Feet & Toes, Lymphatic System, Blood"
+    }
+
+    return jsonify({
+        "status": "success",
+        "data": {
+            "rasi_properties": rasi_properties,
+            "parts_of_body": parts_of_body
+        }
+    })
