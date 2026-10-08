@@ -74,6 +74,8 @@ def create_app(config_class=config) -> Flask:
     app.register_blueprint(content_bp, url_prefix='/api/v1/content')
     app.register_blueprint(tarot_bp, url_prefix='/api/v1/tarot')
     app.register_blueprint(prashna_bp, url_prefix='/api/v1/prashna')
+    from app.api.v1.horary import horary_bp
+    app.register_blueprint(horary_bp, url_prefix='/api/v1/horary')
     # Swagger UI Setup
     SWAGGER_URL = '/apidocs'
     API_URL = '/static/swagger.yaml'
