@@ -774,6 +774,33 @@ def get_cue_cards():
         {"planet": "Saturn", "friends": "Mercury, Venus", "neutrals": "Jupiter", "enemies": "Sun, Moon, Mars"}
     ]
 
+    planet_exalted_debilitated = [
+        {"planet": "Sun", "exalted": "10 Degrees Aries", "debilitated": "10 Degrees Libra"},
+        {"planet": "Moon", "exalted": "03 Degrees Taurus", "debilitated": "03 Degrees Scorpio"},
+        {"planet": "Mars", "exalted": "28 Degrees Capricorn", "debilitated": "28 Degrees Cancer"},
+        {"planet": "Mercury", "exalted": "15 Degrees Virgo", "debilitated": "15 Degrees Pisces"},
+        {"planet": "Jupiter", "exalted": "05 Degrees Cancer", "debilitated": "05 Degrees Capricorn"},
+        {"planet": "Venus", "exalted": "27 Degrees Pisces", "debilitated": "27 Degrees Virgo"},
+        {"planet": "Saturn", "exalted": "20 Degrees Libra", "debilitated": "20 Degrees Aries"},
+        {"planet": "Rahu", "exalted": "20 Degrees Taurus", "debilitated": "20 Degrees Scorpio"},
+        {"planet": "Ketu", "exalted": "20 Degrees Scorpio", "debilitated": "20 Degrees Taurus"}
+    ]
+
+    diseases_by_zodiac = {
+        "ARIES": "Head Injuries, Neuralgia, Cerebral hemorrhage",
+        "TAURUS": "Thyroid diseases, Diphtheria, Diseases of Cervical Spine, Irregular Menses, V.D., Piles & Constipation",
+        "GEMINI": "Diseases of Lung, Asthma, T.B., Dry Cough, Disease of Pericardium, Affection of Shoulders & Hands",
+        "CANCER": "Diseases of Stomach, Indigestion, Gas trouble, Jaundice & Gallstones, Hysteria",
+        "LEO": "Angina pectoris, Palpitation, Aneurysm, Giddiness, Anemia, Curved Spine, Regurgitation of Blood, Spinal",
+        "VIRGO": "Appendicitis, Peritonitis, Worm infestation, Loose Motions, Cholera, Typhoid",
+        "LIBRA": "Diseases of Uterus, Rheumatic pain, Skin diseases, Hernias, Kidney diseases, Appendicitis",
+        "SCORPIO": "V.D. Disease of Prostate gland, Ovary & Uterus, Diseases of Urethra, Bladder & Rectum, Renal stones, Irregular",
+        "SAGITTARIUS": "Diseases of Hip & Femur, Sciatica, Varicose Veins, Lung Diseases, Fracture of Collar Bones",
+        "CAPRICORN": "Diseases of Knee, Skin diseases, Leprosy, Piles, Gout, Neuralgia, Heart Disorders",
+        "AQUARIUS": "Varicose veins, Diseases of Ankle, Heart Diseases, Skin diseases, Eye diseases",
+        "PISCES": "Diseases of feet & Toes, Diseases of Bowels, Complication due to Drugs, Alcoholism"
+    }
+
     return jsonify({
         "status": "success",
         "data": {
@@ -781,6 +808,8 @@ def get_cue_cards():
             "parts_of_body": parts_of_body,
             "houses_events": houses_events,
             "nakshatra_padas": nakshatra_padas,
-            "planet_properties": planet_properties
+            "planet_properties": planet_properties,
+            "planet_exalted_debilitated": planet_exalted_debilitated,
+            "diseases_by_zodiac": diseases_by_zodiac
         }
     })
