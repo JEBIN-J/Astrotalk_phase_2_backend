@@ -763,12 +763,24 @@ def get_cue_cards():
         {"rasi": "PISCES", "nakshatra": "Revati", "pada": "4", "degrees": "26°40' - 30°00'", "syllable": "Chee / Chi"},
     ]
 
+    
+    planet_properties = [
+        {"planet": "Sun", "friends": "Moon, Mars, Jupiter", "neutrals": "Mercury", "enemies": "Venus, Saturn"},
+        {"planet": "Moon", "friends": "Sun, Mercury", "neutrals": "Venus, Mars, Jupiter, Saturn", "enemies": "None"},
+        {"planet": "Mars", "friends": "Sun, Moon, Jupiter", "neutrals": "Venus, Saturn", "enemies": "Mercury"},
+        {"planet": "Mercury", "friends": "Sun, Venus", "neutrals": "Mars, Jupiter, Saturn", "enemies": "Moon"},
+        {"planet": "Jupiter", "friends": "Sun, Moon, Mars", "neutrals": "Saturn", "enemies": "Mercury, Venus"},
+        {"planet": "Venus", "friends": "Mercury, Saturn", "neutrals": "Mars, Jupiter", "enemies": "Sun, Moon"},
+        {"planet": "Saturn", "friends": "Mercury, Venus", "neutrals": "Jupiter", "enemies": "Sun, Moon, Mars"}
+    ]
+
     return jsonify({
         "status": "success",
         "data": {
             "rasi_properties": rasi_properties,
             "parts_of_body": parts_of_body,
             "houses_events": houses_events,
-            "nakshatra_padas": nakshatra_padas
+            "nakshatra_padas": nakshatra_padas,
+            "planet_properties": planet_properties
         }
     })
