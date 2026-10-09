@@ -209,6 +209,42 @@ paths:
       responses:
         '200':
           description: Successful response
+  /api/v1/horoscope/kp:
+    post:
+      tags:
+      - KP System
+      summary: KP System
+      description: Returns KP System details.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HoroscopeRequest'
+      responses:
+        '200':
+          description: Successful response
+  /api/v1/horary/chart:
+    post:
+      tags:
+      - Horary
+      summary: Horary Chart
+      description: Returns Horary Chart for a given Horary Number.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: '#/components/schemas/HoroscopeRequest'
+              - type: object
+                properties:
+                  horary_number:
+                    type: integer
+                    example: 108
+      responses:
+        '200':
+          description: Successful response
   /api/v1/places/search:
     get:
       tags:
@@ -231,3 +267,19 @@ paths:
       responses:
         '200':
           description: List of quotes
+  /api/v1/horary/questions:
+    get:
+      tags:
+      - Horary
+      summary: Get Horary Questions
+      responses:
+        '200':
+          description: List of horary questions
+  /api/v1/horary/generate_number:
+    get:
+      tags:
+      - Horary
+      summary: Generate a random Horary Number
+      responses:
+        '200':
+          description: A random number between 1 and 249

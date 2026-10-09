@@ -95,6 +95,16 @@ endpoints = {
         "tag": "Kota Chakra",
         "summary": "Kota Chakra",
         "desc": "Returns Kota Chakra details."
+    },
+    "/api/v1/horoscope/kp": {
+        "tag": "KP System",
+        "summary": "KP System",
+        "desc": "Returns KP System details."
+    },
+    "/api/v1/horary/chart": {
+        "tag": "Horary",
+        "summary": "Horary Chart",
+        "desc": "Returns Horary Chart for a given Horary Number."
     }
 }
 
@@ -109,18 +119,31 @@ for path, info in endpoints.items():
                 "content": {
                     "application/json": {
                         "schema": {"$ref": "#/components/schemas/HoroscopeRequest"}
-                        if path != "/api/v1/horoscope/dasha"
-                        else {
-                            "allOf": [
-                                {"$ref": "#/components/schemas/HoroscopeRequest"},
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "dasha_type": {"type": "string", "example": "Vimshottari Dasha"}
+                        if path not in ["/api/v1/horoscope/dasha", "/api/v1/horary/chart"]
+                        else (
+                            {
+                                "allOf": [
+                                    {"$ref": "#/components/schemas/HoroscopeRequest"},
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "dasha_type": {"type": "string", "example": "Vimshottari Dasha"}
+                                        }
                                     }
-                                }
-                            ]
-                        }
+                                ]
+                            } if path == "/api/v1/horoscope/dasha" else
+                            {
+                                "allOf": [
+                                    {"$ref": "#/components/schemas/HoroscopeRequest"},
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "horary_number": {"type": "integer", "example": 108}
+                                        }
+                                    }
+                                ]
+                            }
+                        )
                     }
                 }
             },
@@ -142,6 +165,20 @@ swagger["paths"]["/api/v1/content/quotes"] = {
         "tags": ["Content"],
         "summary": "Get astrology quotes",
         "responses": {"200": {"description": "List of quotes"}}
+    }
+}
+swagger["paths"]["/api/v1/horary/questions"] = {
+    "get": {
+        "tags": ["Horary"],
+        "summary": "Get Horary Questions",
+        "responses": {"200": {"description": "List of horary questions"}}
+    }
+}
+swagger["paths"]["/api/v1/horary/generate_number"] = {
+    "get": {
+        "tags": ["Horary"],
+        "summary": "Generate a random Horary Number",
+        "responses": {"200": {"description": "A random number between 1 and 249"}}
     }
 }
 

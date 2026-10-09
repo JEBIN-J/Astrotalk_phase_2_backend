@@ -75,6 +75,7 @@ Astrotalk_phase_2_backend/
 | `POST` | `/api/v1/horoscope/planets` | Isolated planetary positions, nakshatras, and dignities |
 | `POST` | `/api/v1/horoscope/dasha` | 120-year Vimshottari Mahadasha timeline |
 | `POST` | `/api/v1/horoscope/ashtakvarga` | Sarvashtakvarga (SAV) points for all 12 houses |
+| `POST` | `/api/v1/horoscope/kp` | Real-Time Calculation-Based KP (Krishnamurti Paddhati) System |
 
 ### 2. 📅 Panchanga & Muhurta (`/api/v1/panchang`)
 | Method | Endpoint | Description |
@@ -123,6 +124,13 @@ Astrotalk_phase_2_backend/
 | `POST` | `/api/v1/auth/register` | Register new user account |
 | `POST` | `/api/v1/auth/login` | Login and obtain JWT token |
 | `GET` | `/api/v1/auth/me` | Retrieve authenticated profile |
+
+### 10. 🎲 Horary Astrology (`/api/v1/horary`)
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/v1/horary/chart` | Generate Horary chart based on Horary number |
+| `GET` | `/api/v1/horary/questions` | List standard Horary questions |
+| `GET` | `/api/v1/horary/generate_number` | Generate a random Horary number (1-249) |
 
 ---
 
