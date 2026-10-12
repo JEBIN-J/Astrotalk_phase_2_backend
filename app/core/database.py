@@ -56,6 +56,55 @@ def init_db():
             )
         ''')
         
+        
+        # Numerology tables
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_systems (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                system_code TEXT UNIQUE NOT NULL,
+                system_name TEXT NOT NULL,
+                calculation_method TEXT NOT NULL,
+                master_number_policy TEXT NOT NULL,
+                version TEXT NOT NULL,
+                is_active INTEGER NOT NULL DEFAULT 1
+            )
+        ''')
+        
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS life_path_interpretations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                numerology_system_id INTEGER NOT NULL,
+                life_path_number INTEGER NOT NULL,
+                number_title TEXT NOT NULL,
+                core_theme TEXT NOT NULL,
+                overview TEXT NOT NULL,
+                strengths TEXT NOT NULL,
+                challenges TEXT NOT NULL,
+                relationship_interpretation TEXT NOT NULL,
+                career_interpretation TEXT NOT NULL,
+                personal_growth_guidance TEXT NOT NULL,
+                content_version TEXT NOT NULL DEFAULT '1.0.0',
+                publication_status TEXT NOT NULL DEFAULT 'published',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (numerology_system_id) REFERENCES numerology_systems(id),
+                UNIQUE(numerology_system_id, life_path_number, content_version)
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS life_path_interpretation_sections (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                interpretation_id INTEGER NOT NULL,
+                section_type TEXT NOT NULL,
+                heading TEXT NOT NULL,
+                content TEXT NOT NULL,
+                display_order INTEGER NOT NULL,
+                publication_status TEXT NOT NULL DEFAULT 'published',
+                FOREIGN KEY (interpretation_id) REFERENCES life_path_interpretations(id)
+            )
+        ''')
+
         conn.commit()
     finally:
         conn.close()

@@ -1,12 +1,21 @@
+"""
+Authoritative Numerology Blueprint and Life Path Controller.
+Supports deterministic calculation, database-driven interpretations,
+caching, strict validation, and authentication awareness.
+"""
+from datetime import datetime
 from flask import Blueprint, request, jsonify
 from app.services.numerology_service import NumerologyService
+from app.services.life_path_calculator import LifePathCalculator
+from app.services.numerology_repository import NumerologyRepository
+from app.api.v1.auth import get_current_user
 
 numerology_bp = Blueprint('numerology', __name__)
 
 @numerology_bp.route("/profile", methods=["POST"])
 def calculate_full_profile():
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
         name = data.get("name", "")
         dob = data.get("dob", "")
         system = data.get("system", "pythagorean").lower()
@@ -22,3 +31,125 @@ def calculate_full_profile():
         return jsonify({"status": "success", "data": result}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
+
+
+@numerology_bp.route("/life-path", methods=["GET", "POST"])
+def get_life_path_report():
+    """
+    Production-ready Life Path calculation and interpretation endpoint.
+    Retrieves DOB from authenticated user profile or validated input parameter.
+    Authoritatively calculates Life Path using Pythagorean method.
+    Retrieves reviewed, published interpretations from database.
+    """
+    try:
+        # Check authentication optionally
+        current_user, _ = get_current_user()
+        user_id = current_user.get("id") if current_user else None
+
+        # Extract parameters from query or JSON payload
+        dob = None
+        system = "pythagorean"
+        name = "Seeker"
+
+        if request.method == "POST":
+            payload = request.get_json(silent=True) or {}
+            dob = payload.get("dob") or payload.get("date_of_birth")
+            system = payload.get("system", "pythagorean")
+            name = payload.get("name") or name
+        else:
+            dob = request.args.get("dob") or request.args.get("date_of_birth")
+            system = request.args.get("system", "pythagorean")
+            name = request.args.get("name") or name
+
+        # If DOB not provided directly, try user's profile if authenticated
+        if not dob and current_user:
+            dob = current_user.get("dob") or current_user.get("date_of_birth")
+
+        if not dob:
+            return jsonify({
+                "status": "error",
+                "error_code": "MISSING_DATE_OF_BIRTH",
+                "message": "Date of birth is required to calculate Life Path number. Please provide a valid date or complete your profile."
+            }), 400
+
+        dob = str(dob).strip()
+
+        # Check cache
+        cache_key = NumerologyRepository.get_cache_key(user_id, dob, system)
+        cached = NumerologyRepository.get_cached_result(cache_key)
+        if cached:
+            return jsonify(cached), 200
+
+        # Calculate authoritative Life Path & trace
+        try:
+            calc_result = LifePathCalculator.calculate(dob, system=system)
+        except ValueError as ve:
+            return jsonify({
+                "status": "error",
+                "error_code": "INVALID_DATE_FORMAT",
+                "message": str(ve)
+            }), 400
+
+        lp_number = calc_result["life_path_number"]
+
+        # Retrieve published interpretation from database
+        interpretation = NumerologyRepository.get_published_interpretation(system, lp_number)
+        if not interpretation:
+            return jsonify({
+                "status": "error",
+                "error_code": "CONTENT_UNAVAILABLE",
+                "message": f"Published interpretation for Life Path {lp_number} is currently unavailable.",
+                "life_path_number": lp_number,
+                "calculation_trace": calc_result["calculation_trace"]
+            }), 404
+
+        response_data = {
+            "status": "success",
+            "calculation_status": "completed",
+            "user_name": name,
+            "life_path_number": lp_number,
+            "number_title": interpretation["number_title"],
+            "core_theme": interpretation["core_theme"],
+            "is_master_number": calc_result["is_master_number"],
+            "date_of_birth_used": dob,
+            "calculation_system": interpretation["system_code"],
+            "method_version": "1.0.0",
+            "content_version": interpretation["content_version"],
+            "calculation_trace": calc_result["calculation_trace"],
+            "interpretation": {
+                "overview": interpretation["overview"],
+                "strengths": interpretation["strengths"],
+                "challenges": interpretation["challenges"],
+                "relationships": interpretation["relationship_interpretation"],
+                "career": interpretation["career_interpretation"],
+                "personal_growth": interpretation["personal_growth_guidance"],
+                "sections": interpretation["sections"]
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+
+        # Store in cache
+        NumerologyRepository.set_cached_result(cache_key, response_data)
+
+        return jsonify(response_data), 200
+
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "error_code": "SERVER_ERROR",
+            "message": "An unexpected error occurred while calculating Life Path number."
+        }), 500
+
+
+@numerology_bp.route("/content-status", methods=["GET"])
+def get_content_status():
+    """
+    Returns content completeness report for administrative verification.
+    """
+    system = request.args.get("system", "pythagorean")
+    report = NumerologyRepository.check_content_completeness(system)
+    return jsonify({
+        "status": "success",
+        "system": system,
+        "completeness_report": report
+    }), 200
