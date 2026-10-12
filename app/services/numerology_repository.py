@@ -248,3 +248,115 @@ class NumerologyRepository:
             }
         finally:
             conn.close()
+
+    @staticmethod
+    def get_personal_year_interpretation(system_code: str, personal_year: int) -> Optional[Dict[str, Any]]:
+        """
+        Retrieves published Personal Year interpretation and its ordered sections.
+        """
+        conn = get_db_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT 
+                    pyi.id,
+                    pyi.personal_year_number,
+                    pyi.title,
+                    pyi.core_theme,
+                    pyi.overview,
+                    pyi.opportunities,
+                    pyi.challenges,
+                    pyi.career_and_work,
+                    pyi.relationships,
+                    pyi.personal_growth,
+                    pyi.practical_guidance,
+                    pyi.reflection_questions,
+                    pyi.content_version,
+                    pyi.publication_status,
+                    ns.system_code,
+                    ns.system_name,
+                    ns.version as system_version
+                FROM personal_year_interpretations pyi
+                JOIN numerology_systems ns ON pyi.numerology_system_id = ns.id
+                WHERE ns.system_code = ? 
+                  AND pyi.personal_year_number = ? 
+                  AND pyi.publication_status = 'published'
+                  AND ns.is_active = 1
+                LIMIT 1
+            """, (system_code, personal_year))
+            row = cursor.fetchone()
+            if not row:
+                return None
+
+            interp_id = row["id"]
+            cursor.execute("""
+                SELECT section_type, heading, content, display_order
+                FROM personal_year_interpretation_sections
+                WHERE interpretation_id = ? AND publication_status = 'published'
+                ORDER BY display_order ASC
+            """, (interp_id,))
+            section_rows = cursor.fetchall()
+
+            sections = [
+                {
+                    "section_type": s["section_type"],
+                    "heading": s["heading"],
+                    "content": s["content"],
+                    "display_order": s["display_order"]
+                }
+                for s in section_rows
+            ]
+
+            opportunities = json.loads(row["opportunities"]) if row["opportunities"] else []
+            challenges = json.loads(row["challenges"]) if row["challenges"] else []
+            reflection_questions = json.loads(row["reflection_questions"]) if row["reflection_questions"] else []
+
+            return {
+                "id": row["id"],
+                "personal_year_number": row["personal_year_number"],
+                "title": row["title"],
+                "core_theme": row["core_theme"],
+                "overview": row["overview"],
+                "opportunities": opportunities,
+                "challenges": challenges,
+                "career_and_work": row["career_and_work"],
+                "relationships": row["relationships"],
+                "personal_growth": row["personal_growth"],
+                "practical_guidance": row["practical_guidance"],
+                "reflection_questions": reflection_questions,
+                "content_version": row["content_version"],
+                "system_code": row["system_code"],
+                "system_name": row["system_name"],
+                "system_version": row["system_version"],
+                "sections": sections
+            }
+        finally:
+            conn.close()
+
+    @staticmethod
+    def check_personal_year_completeness(system_code: str = "pythagorean") -> Dict[str, Any]:
+        """
+        Verifies that all 9 Personal Year numbers have published records.
+        """
+        required_years = list(range(1, 10))
+        conn = get_db_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT pyi.personal_year_number
+                FROM personal_year_interpretations pyi
+                JOIN numerology_systems ns ON pyi.numerology_system_id = ns.id
+                WHERE ns.system_code = ? AND pyi.publication_status = 'published'
+            """, (system_code,))
+            rows = cursor.fetchall()
+            found = {r["personal_year_number"] for r in rows}
+            missing = [y for y in required_years if y not in found]
+            return {
+                "is_complete": len(missing) == 0,
+                "total_required": len(required_years),
+                "total_available": len(found),
+                "available_years": sorted(list(found)),
+                "missing_years": missing
+            }
+        finally:
+            conn.close()
