@@ -134,3 +134,117 @@ class NumerologyRepository:
             }
         finally:
             conn.close()
+
+    @staticmethod
+    def get_birth_day_interpretation(system_code: str, day: int) -> Optional[Dict[str, Any]]:
+        """
+        Retrieves published interpretation and its structured sections for a Birth Day Number (1-31).
+        """
+        conn = get_db_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT 
+                    bdi.id,
+                    bdi.birth_day_number,
+                    bdi.number_title,
+                    bdi.core_theme,
+                    bdi.overview,
+                    bdi.strengths,
+                    bdi.challenges,
+                    bdi.personality_interpretation,
+                    bdi.relationship_interpretation,
+                    bdi.career_interpretation,
+                    bdi.personal_growth_guidance,
+                    bdi.quick_summary,
+                    bdi.reduced_root,
+                    bdi.content_version,
+                    bdi.publication_status,
+                    ns.system_code,
+                    ns.system_name,
+                    ns.version as system_version
+                FROM birth_day_interpretations bdi
+                JOIN numerology_systems ns ON bdi.numerology_system_id = ns.id
+                WHERE ns.system_code = ? 
+                  AND bdi.birth_day_number = ? 
+                  AND bdi.publication_status = 'published'
+                  AND ns.is_active = 1
+                LIMIT 1
+            """, (system_code, day))
+            row = cursor.fetchone()
+            if not row:
+                return None
+
+            interp_id = row["id"]
+            cursor.execute("""
+                SELECT section_type, heading, content, display_order
+                FROM birth_day_interpretation_sections
+                WHERE interpretation_id = ? AND publication_status = 'published'
+                ORDER BY display_order ASC
+            """, (interp_id,))
+            section_rows = cursor.fetchall()
+
+            sections = [
+                {
+                    "section_type": s["section_type"],
+                    "heading": s["heading"],
+                    "content": s["content"],
+                    "display_order": s["display_order"]
+                }
+                for s in section_rows
+            ]
+
+            strengths = json.loads(row["strengths"]) if row["strengths"] else []
+            challenges = json.loads(row["challenges"]) if row["challenges"] else []
+            quick_summary = json.loads(row["quick_summary"]) if row["quick_summary"] else {}
+
+            return {
+                "id": row["id"],
+                "birth_day_number": row["birth_day_number"],
+                "number_title": row["number_title"],
+                "core_theme": row["core_theme"],
+                "overview": row["overview"],
+                "strengths": strengths,
+                "challenges": challenges,
+                "personality_interpretation": row["personality_interpretation"],
+                "relationship_interpretation": row["relationship_interpretation"],
+                "career_interpretation": row["career_interpretation"],
+                "personal_growth_guidance": row["personal_growth_guidance"],
+                "quick_summary": quick_summary,
+                "reduced_root": row["reduced_root"],
+                "content_version": row["content_version"],
+                "system_code": row["system_code"],
+                "system_name": row["system_name"],
+                "system_version": row["system_version"],
+                "sections": sections
+            }
+        finally:
+            conn.close()
+
+    @staticmethod
+    def check_birth_day_completeness(system_code: str = "pythagorean") -> Dict[str, Any]:
+        """
+        Verifies that all 31 days have published records.
+        """
+        required_days = list(range(1, 32))
+        conn = get_db_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT bdi.birth_day_number
+                FROM birth_day_interpretations bdi
+                JOIN numerology_systems ns ON bdi.numerology_system_id = ns.id
+                WHERE ns.system_code = ? AND bdi.publication_status = 'published'
+            """, (system_code,))
+            rows = cursor.fetchall()
+            found = {r["birth_day_number"] for r in rows}
+            missing = [d for d in required_days if d not in found]
+            return {
+                "is_complete": len(missing) == 0,
+                "total_required": len(required_days),
+                "total_available": len(found),
+                "available_days": sorted(list(found)),
+                "missing_days": missing
+            }
+        finally:
+            conn.close()

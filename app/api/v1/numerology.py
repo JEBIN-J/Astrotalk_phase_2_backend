@@ -7,6 +7,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify
 from app.services.numerology_service import NumerologyService
 from app.services.life_path_calculator import LifePathCalculator
+from app.services.birth_day_calculator import BirthDayNumberCalculator
 from app.services.numerology_repository import NumerologyRepository
 from app.api.v1.auth import get_current_user
 
@@ -148,6 +149,121 @@ def get_content_status():
     """
     system = request.args.get("system", "pythagorean")
     report = NumerologyRepository.check_content_completeness(system)
+    return jsonify({
+        "status": "success",
+        "system": system,
+        "completeness_report": report
+    }), 200
+
+@numerology_bp.route("/birth-day", methods=["GET", "POST"])
+def get_birth_day_report():
+    """
+    Authoritative Birth Day Number calculation and interpretation endpoint.
+    Primary convention: Preserves the exact calendar day from 1 to 31.
+    Calculates optional secondary reduced root.
+    Retrieves reviewed, published interpretation from database.
+    """
+    try:
+        current_user, _ = get_current_user()
+        user_id = current_user.get("id") if current_user else None
+
+        dob = None
+        system = "pythagorean"
+        name = "Seeker"
+
+        if request.method == "POST":
+            payload = request.get_json(silent=True) or {}
+            dob = payload.get("dob") or payload.get("date_of_birth")
+            system = payload.get("system", "pythagorean")
+            name = payload.get("name") or name
+        else:
+            dob = request.args.get("dob") or request.args.get("date_of_birth")
+            system = request.args.get("system", "pythagorean")
+            name = request.args.get("name") or name
+
+        if not dob and current_user:
+            dob = current_user.get("dob") or current_user.get("date_of_birth")
+
+        if not dob:
+            return jsonify({
+                "status": "error",
+                "error_code": "MISSING_DATE_OF_BIRTH",
+                "message": "Date of birth is required to calculate Birth Day number."
+            }), 400
+
+        dob = str(dob).strip()
+        cache_key = f"birthday_{user_id or 'guest'}_{dob}_{system}"
+        cached = NumerologyRepository.get_cached_result(cache_key)
+        if cached:
+            return jsonify(cached), 200
+
+        try:
+            calc_result = BirthDayNumberCalculator.calculate(dob, system=system)
+        except ValueError as ve:
+            return jsonify({
+                "status": "error",
+                "error_code": "INVALID_DATE_FORMAT",
+                "message": str(ve)
+            }), 400
+
+        day_num = calc_result["birth_day_number"]
+        reduced_root = calc_result["reduced_root"]
+
+        interpretation = NumerologyRepository.get_birth_day_interpretation(system, day_num)
+        if not interpretation:
+            return jsonify({
+                "status": "error",
+                "error_code": "CONTENT_UNAVAILABLE",
+                "message": f"Published interpretation for Birth Day {day_num} is currently unavailable.",
+                "birth_day_number": day_num,
+                "reduced_root": reduced_root,
+                "calculation_trace": calc_result["calculation_trace"]
+            }), 404
+
+        response_data = {
+            "status": "success",
+            "calculation_status": "completed",
+            "user_name": name,
+            "birth_day_number": day_num,
+            "reduced_root": reduced_root,
+            "number_title": interpretation["number_title"],
+            "core_theme": interpretation["core_theme"],
+            "is_master_day": calc_result["is_master_day"],
+            "date_of_birth_used": dob,
+            "calculation_system": interpretation["system_code"],
+            "method_version": calc_result["method_version"],
+            "content_version": interpretation["content_version"],
+            "calculation_trace": calc_result["calculation_trace"],
+            "interpretation": {
+                "overview": interpretation["overview"],
+                "strengths": interpretation["strengths"],
+                "challenges": interpretation["challenges"],
+                "personality": interpretation["personality_interpretation"],
+                "relationships": interpretation["relationship_interpretation"],
+                "career": interpretation["career_interpretation"],
+                "personal_growth": interpretation["personal_growth_guidance"],
+                "quick_summary": interpretation["quick_summary"],
+                "sections": interpretation["sections"]
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+
+        NumerologyRepository.set_cached_result(cache_key, response_data)
+        return jsonify(response_data), 200
+
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "error_code": "SERVER_ERROR",
+            "message": "An unexpected error occurred while calculating Birth Day number."
+        }), 500
+
+
+@numerology_bp.route("/birth-day-status", methods=["GET"])
+def get_birth_day_content_status():
+    """Returns content completeness for all 31 days."""
+    system = request.args.get("system", "pythagorean")
+    report = NumerologyRepository.check_birth_day_completeness(system)
     return jsonify({
         "status": "success",
         "system": system,
