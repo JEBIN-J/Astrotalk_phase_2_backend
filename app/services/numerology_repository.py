@@ -477,3 +477,75 @@ class NumerologyRepository:
                 results[num] = interp
         return results
 
+    @staticmethod
+    def get_remedy_by_code(remedy_code: str):
+        conn = get_db_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT id, remedy_code, title, category, focus_area, traditional_association,
+                       explanation, instructions, precautions, affirmation, symbolic_color,
+                       symbolic_day, estimated_cost_category, is_optional, content_version,
+                       publication_status
+                FROM numerology_remedies
+                WHERE remedy_code = ? AND publication_status = 'published'
+                LIMIT 1
+            ''', (remedy_code,))
+            row = cursor.fetchone()
+            if not row:
+                return None
+            instructions = []
+            try:
+                instructions = json.loads(row['instructions'])
+            except Exception:
+                instructions = [row['instructions']]
+            return {
+                'id': row['id'],
+                'remedy_code': row['remedy_code'],
+                'title': row['title'],
+                'category': row['category'],
+                'focus_area': row['focus_area'],
+                'traditional_association': row['traditional_association'],
+                'explanation': row['explanation'],
+                'instructions': instructions,
+                'precautions': row['precautions'],
+                'affirmation': row['affirmation'],
+                'symbolic_color': row['symbolic_color'],
+                'symbolic_day': row['symbolic_day'],
+                'estimated_cost_category': row['estimated_cost_category'],
+                'is_optional': bool(row['is_optional']),
+                'content_version': row['content_version']
+            }
+        finally:
+            conn.close()
+
+    @staticmethod
+    def check_remedies_completeness(system_code: str = "pythagorean"):
+        conn = get_db_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT COUNT(*) as remedy_count
+                FROM numerology_remedies rem
+                JOIN numerology_remedy_systems s ON rem.system_id = s.id
+                WHERE s.system_code = ? AND rem.publication_status = 'published'
+            ''', (system_code,))
+            rem_count = cursor.fetchone()['remedy_count']
+
+            cursor.execute('''
+                SELECT COUNT(*) as rule_count
+                FROM numerology_remedy_rules r
+                JOIN numerology_remedy_systems s ON r.system_id = s.id
+                WHERE s.system_code = ? AND r.publication_status = 'published'
+            ''', (system_code,))
+            rule_count = cursor.fetchone()['rule_count']
+
+            return {
+                'system': system_code,
+                'published_remedies': rem_count,
+                'published_rules': rule_count,
+                'is_complete': rem_count >= 18 and rule_count >= 15
+            }
+        finally:
+            conn.close()
+

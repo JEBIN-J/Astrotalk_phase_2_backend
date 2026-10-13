@@ -1,4 +1,5 @@
-﻿"""
+from app.services.remedy_rule_engine import RemedyRuleEngine
+"""
 Authoritative Numerology Blueprint and Life Path Controller.
 Supports deterministic calculation, database-driven interpretations,
 caching, strict validation, and authentication awareness.
@@ -846,5 +847,131 @@ def get_missing_numbers_analysis():
             "status": "error",
             "error_code": "SERVER_ERROR",
             "message": f"An unexpected error occurred during Missing Numbers calculation: {str(e)}"
+        }), 500
+
+@numerology_bp.route("/remedies", methods=["GET", "POST"])
+def get_numerology_remedies():
+    """
+    Production-ready Remedies & Fixes endpoint.
+    - Evaluates authenticated user's actual validated numerology profile (Life Path, Birth Day, Missing Numbers, Personal Year).
+    - Determines applicable remedies via documented backend rule engine.
+    - Retrieves reviewed, published database content with zero random values.
+    - Provides explicit explanations for why each remedy matched.
+    - Transparent, non-material, accessible daily habits, reflection practices, symbolic alignments, and acts of kindness.
+    """
+    try:
+        current_user, _ = get_current_user()
+        user_id = current_user.get("id") if current_user else None
+
+        dob = ""
+        birth_name = ""
+        system = "pythagorean"
+        category = "all"
+        focus_area = "all"
+        target_year = None
+
+        if request.method == "POST":
+            payload = request.get_json(silent=True) or {}
+            dob = payload.get("dob") or payload.get("date_of_birth") or ""
+            birth_name = payload.get("birth_name") or payload.get("name") or ""
+            system = payload.get("system", "pythagorean").lower()
+            category = payload.get("category", "all").lower()
+            focus_area = payload.get("focus_area", "all").lower()
+            target_year = payload.get("year") or payload.get("target_year")
+        else:
+            dob = request.args.get("dob") or request.args.get("date_of_birth") or ""
+            birth_name = request.args.get("birth_name") or request.args.get("name") or ""
+            system = request.args.get("system", "pythagorean").lower()
+            category = request.args.get("category", "all").lower()
+            focus_area = request.args.get("focus_area", "all").lower()
+            target_year = request.args.get("year") or request.args.get("target_year")
+
+        # Fallback to authenticated user profile if data is omitted
+        if not dob and current_user:
+            dob = current_user.get("date_of_birth") or current_user.get("dob") or ""
+        if not birth_name and current_user:
+            birth_name = current_user.get("full_name") or current_user.get("name") or ""
+
+        dob = str(dob).strip()
+        birth_name = str(birth_name).strip()
+
+        if not dob:
+            return jsonify({
+                "status": "error",
+                "error_code": "MISSING_DOB",
+                "message": "Date of birth (YYYY-MM-DD) is required to evaluate your personalized numerology remedies."
+            }), 400
+
+        # Validate DOB format
+        try:
+            parsed_dob = datetime.strptime(dob, "%Y-%m-%d")
+            if parsed_dob.year < 1900 or parsed_dob > datetime.now():
+                return jsonify({
+                    "status": "error",
+                    "error_code": "INVALID_DOB_RANGE",
+                    "message": "Date of birth must be between 1900 and the present year."
+                }), 400
+        except ValueError:
+            return jsonify({
+                "status": "error",
+                "error_code": "INVALID_DOB_FORMAT",
+                "message": "Date of birth must strictly follow the format YYYY-MM-DD (e.g. 1998-12-13)."
+            }), 400
+
+        if target_year:
+            try:
+                target_year = int(target_year)
+            except ValueError:
+                target_year = datetime.now().year
+
+        cache_key = f"remedies:{user_id or 'guest'}:{dob}:{birth_name.upper()}:{system}:{category}:{focus_area}:{target_year or ''}:v1.0.0"
+        cached = NumerologyRepository.get_cached_result(cache_key)
+        if cached:
+            return jsonify(cached), 200
+
+        engine = RemedyRuleEngine()
+        result = engine.evaluate(
+            dob=dob,
+            birth_name=birth_name if birth_name else None,
+            system_code=system,
+            category_filter=category,
+            focus_area_filter=focus_area,
+            target_year=target_year
+        )
+
+        result["is_authenticated"] = current_user is not None
+        result["user_id"] = user_id
+        result["timestamp"] = datetime.now().isoformat()
+
+        NumerologyRepository.set_cached_result(cache_key, result)
+        return jsonify(result), 200
+
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "error_code": "SERVER_ERROR",
+            "message": f"An unexpected error occurred during Remedies & Fixes evaluation: {str(e)}"
+        }), 500
+
+
+@numerology_bp.route("/remedies-status", methods=["GET"])
+def get_remedies_status():
+    """
+    Inspection endpoint reporting publication status and rule engine completeness.
+    """
+    try:
+        system = request.args.get("system", "pythagorean").lower()
+        completeness = NumerologyRepository.check_remedies_completeness(system)
+        return jsonify({
+            "status": "success",
+            "system": system,
+            "completeness": completeness,
+            "version": "1.0.0",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
         }), 500
 

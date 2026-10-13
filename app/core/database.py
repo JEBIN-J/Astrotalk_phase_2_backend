@@ -147,6 +147,89 @@ def init_db():
             )
         ''')
 
+
+        # Remedies & Fixes Tables
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_remedy_systems (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                system_code TEXT UNIQUE NOT NULL,
+                system_name TEXT NOT NULL,
+                methodology_version TEXT NOT NULL DEFAULT '1.0.0',
+                description TEXT,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_remedies (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                system_id INTEGER NOT NULL,
+                remedy_code TEXT UNIQUE NOT NULL,
+                title TEXT NOT NULL,
+                category TEXT NOT NULL,
+                traditional_association TEXT NOT NULL,
+                explanation TEXT NOT NULL,
+                instructions TEXT NOT NULL,
+                precautions TEXT NOT NULL,
+                affirmation TEXT,
+                symbolic_color TEXT,
+                symbolic_day TEXT,
+                focus_area TEXT NOT NULL DEFAULT 'general',
+                estimated_cost_category TEXT NOT NULL DEFAULT 'Zero Cost',
+                is_optional INTEGER NOT NULL DEFAULT 1,
+                content_version TEXT NOT NULL DEFAULT '1.0.0',
+                publication_status TEXT NOT NULL DEFAULT 'published',
+                reviewed_at TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (system_id) REFERENCES numerology_remedy_systems(id)
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_remedy_rules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                system_id INTEGER NOT NULL,
+                rule_code TEXT UNIQUE NOT NULL,
+                rule_description TEXT NOT NULL,
+                input_number_type TEXT NOT NULL,
+                condition_type TEXT NOT NULL,
+                condition_value TEXT NOT NULL,
+                priority INTEGER NOT NULL DEFAULT 10,
+                publication_status TEXT NOT NULL DEFAULT 'published',
+                rule_version TEXT NOT NULL DEFAULT '1.0.0',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (system_id) REFERENCES numerology_remedy_systems(id)
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_remedy_rule_actions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                rule_id INTEGER NOT NULL,
+                remedy_id INTEGER NOT NULL,
+                applicability_reason_template TEXT NOT NULL,
+                display_order INTEGER NOT NULL DEFAULT 1,
+                FOREIGN KEY (rule_id) REFERENCES numerology_remedy_rules(id),
+                FOREIGN KEY (remedy_id) REFERENCES numerology_remedies(id)
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS user_remedy_preferences (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                preferred_categories TEXT,
+                excluded_categories TEXT,
+                focus_area TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ''')
+
         conn.commit()
     finally:
         conn.close()
@@ -161,6 +244,89 @@ def save_palm_annotation(record_id: str, data: dict, created_at: str, original_i
             'INSERT INTO palm_annotations (id, data, created_at, original_image, annotated_image) VALUES (?, ?, ?, ?, ?)',
             (record_id, json.dumps(data), created_at, original_image, annotated_image)
         )
+
+        # Remedies & Fixes Tables
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_remedy_systems (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                system_code TEXT UNIQUE NOT NULL,
+                system_name TEXT NOT NULL,
+                methodology_version TEXT NOT NULL DEFAULT '1.0.0',
+                description TEXT,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_remedies (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                system_id INTEGER NOT NULL,
+                remedy_code TEXT UNIQUE NOT NULL,
+                title TEXT NOT NULL,
+                category TEXT NOT NULL,
+                traditional_association TEXT NOT NULL,
+                explanation TEXT NOT NULL,
+                instructions TEXT NOT NULL,
+                precautions TEXT NOT NULL,
+                affirmation TEXT,
+                symbolic_color TEXT,
+                symbolic_day TEXT,
+                focus_area TEXT NOT NULL DEFAULT 'general',
+                estimated_cost_category TEXT NOT NULL DEFAULT 'Zero Cost',
+                is_optional INTEGER NOT NULL DEFAULT 1,
+                content_version TEXT NOT NULL DEFAULT '1.0.0',
+                publication_status TEXT NOT NULL DEFAULT 'published',
+                reviewed_at TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (system_id) REFERENCES numerology_remedy_systems(id)
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_remedy_rules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                system_id INTEGER NOT NULL,
+                rule_code TEXT UNIQUE NOT NULL,
+                rule_description TEXT NOT NULL,
+                input_number_type TEXT NOT NULL,
+                condition_type TEXT NOT NULL,
+                condition_value TEXT NOT NULL,
+                priority INTEGER NOT NULL DEFAULT 10,
+                publication_status TEXT NOT NULL DEFAULT 'published',
+                rule_version TEXT NOT NULL DEFAULT '1.0.0',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (system_id) REFERENCES numerology_remedy_systems(id)
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_remedy_rule_actions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                rule_id INTEGER NOT NULL,
+                remedy_id INTEGER NOT NULL,
+                applicability_reason_template TEXT NOT NULL,
+                display_order INTEGER NOT NULL DEFAULT 1,
+                FOREIGN KEY (rule_id) REFERENCES numerology_remedy_rules(id),
+                FOREIGN KEY (remedy_id) REFERENCES numerology_remedies(id)
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS user_remedy_preferences (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                preferred_categories TEXT,
+                excluded_categories TEXT,
+                focus_area TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ''')
+
         conn.commit()
     finally:
         conn.close()
