@@ -401,3 +401,79 @@ class NumerologyRepository:
             }
         finally:
             conn.close()
+
+    @staticmethod
+    def get_missing_number_interpretation(missing_number: int, system_code: str = "pythagorean"):
+        """
+        Retrieves published Missing Number (Karmic Lesson) interpretation for a specific number.
+        """
+        conn = get_db_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT 
+                    m.id, m.missing_number, m.number_title, m.core_theme, m.overview,
+                    m.potential_challenges, m.learning_themes, m.practical_guidance,
+                    m.relationships_communication, m.work_daily_life, m.reflection_questions,
+                    m.content_version, m.publication_status, s.system_code, s.system_name
+                FROM missing_number_interpretations m
+                JOIN numerology_systems s ON m.numerology_system_id = s.id
+                WHERE s.system_code = ? AND m.missing_number = ? AND m.publication_status = 'published'
+                LIMIT 1
+            """, (system_code, missing_number))
+            row = cursor.fetchone()
+            if not row:
+                return None
+
+            challenges = json.loads(row["potential_challenges"]) if row["potential_challenges"] else []
+            learning_themes = json.loads(row["learning_themes"]) if row["learning_themes"] else []
+            reflection_questions = json.loads(row["reflection_questions"]) if row["reflection_questions"] else []
+
+            # Retrieve associated sections
+            cursor.execute("""
+                SELECT section_type, heading, content, display_order
+                FROM missing_number_interpretation_sections
+                WHERE interpretation_id = ? AND publication_status = 'published'
+                ORDER BY display_order ASC
+            """, (row["id"],))
+            sections = [
+                {
+                    "section_type": sec["section_type"],
+                    "heading": sec["heading"],
+                    "content": sec["content"],
+                    "display_order": sec["display_order"]
+                }
+                for sec in cursor.fetchall()
+            ]
+
+            return {
+                "id": row["id"],
+                "missing_number": row["missing_number"],
+                "number_title": row["number_title"],
+                "core_theme": row["core_theme"],
+                "overview": row["overview"],
+                "potential_challenges": challenges,
+                "learning_themes": learning_themes,
+                "practical_guidance": row["practical_guidance"],
+                "relationships_communication": row["relationships_communication"],
+                "work_daily_life": row["work_daily_life"],
+                "reflection_questions": reflection_questions,
+                "sections": sections,
+                "content_version": row["content_version"],
+                "publication_status": row["publication_status"]
+            }
+        finally:
+            conn.close()
+
+    @staticmethod
+    def get_all_missing_number_interpretations(system_code: str = "pythagorean"):
+        """
+        Retrieves all published Missing Number interpretations for the system.
+        """
+        results = {}
+        for num in range(1, 10):
+            interp = NumerologyRepository.get_missing_number_interpretation(num, system_code)
+            if interp:
+                results[num] = interp
+        return results
+

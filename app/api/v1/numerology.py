@@ -11,6 +11,7 @@ from app.services.birth_day_calculator import BirthDayNumberCalculator
 from app.services.personal_year_calculator import PersonalYearCalculator
 from app.services.name_analysis_calculator import NameAnalysisCalculator
 from app.services.personality_soul_calculator import PersonalitySoulAnalyzer
+from app.services.missing_numbers_calculator import MissingNumbersCalculator
 from app.services.numerology_repository import NumerologyRepository
 from app.api.v1.auth import get_current_user
 
@@ -742,3 +743,108 @@ def get_personality_soul_analysis():
             "error_code": "SERVER_ERROR",
             "message": f"An unexpected error occurred during Personality & Soul calculation: {str(e)}"
         }), 500
+
+
+@numerology_bp.route("/missing-numbers", methods=["GET", "POST"])
+def get_missing_numbers_analysis():
+    """
+    Authoritative Missing Numbers (Karmic Lessons) endpoint.
+    - Full birth name frequency analysis under Pythagorean Name Numerology (1-9 Mapping).
+    - Counts occurrences of each number 1 to 9.
+    - A number is marked missing IF AND ONLY IF its count is strictly zero.
+    - Preserves user name, tracks letter-by-letter mappings, word subtotals, and transparent calculation traces.
+    - Retrieves database-driven interpretations for all missing numbers.
+    - Rate-limiting and caching aware.
+    """
+    try:
+        current_user, _ = get_current_user()
+        user_id = current_user.get("id") if current_user else None
+
+        birth_name = ""
+        if request.method == "POST":
+            payload = request.get_json(silent=True) or {}
+            birth_name = payload.get("birth_name") or payload.get("name") or ""
+        else:
+            birth_name = request.args.get("birth_name") or request.args.get("name") or ""
+
+        # Fallback to authenticated user profile if birth_name is not provided
+        if not birth_name and current_user:
+            birth_name = current_user.get("full_name") or current_user.get("name") or ""
+
+        birth_name = str(birth_name).strip()
+        if not birth_name:
+            return jsonify({
+                "status": "error",
+                "error_code": "MISSING_BIRTH_NAME",
+                "message": "Full birth name is required for Missing Numbers calculation. Please complete your profile or enter your birth name."
+            }), 400
+
+        if len(birth_name) > 100:
+            return jsonify({
+                "status": "error",
+                "error_code": "NAME_TOO_LONG",
+                "message": "Name exceeds maximum length of 100 characters. Please provide a standard birth name."
+            }), 400
+
+        cache_key = f"missing_numbers:{user_id or 'guest'}:{birth_name.upper()}:v1.0.0"
+        cached = NumerologyRepository.get_cached_result(cache_key)
+        if cached:
+            return jsonify(cached), 200
+
+        try:
+            analysis = MissingNumbersCalculator.analyze(birth_name)
+        except ValueError as ve:
+            err_msg = str(ve)
+            code = "UNSUPPORTED_SCRIPT" if "unsupported non-Latin" in err_msg else "INVALID_NAME"
+            return jsonify({
+                "status": "error",
+                "error_code": code,
+                "message": err_msg
+            }), 400
+
+        missing_nums = analysis["missing_numbers"]
+
+        # Retrieve published interpretations from SQLite database for each missing number
+        interpretations = {}
+        for num in missing_nums:
+            interp = NumerologyRepository.get_missing_number_interpretation(num, "pythagorean")
+            if interp:
+                interpretations[str(num)] = interp
+
+        response_data = {
+            "status": "success",
+            "calculation_status": "completed",
+            "system": "pythagorean",
+            "system_name": "Pythagorean Name Numerology",
+            "algorithm_version": "1.0.0",
+            "birth_name": birth_name,
+            "normalized_name": analysis["normalized_name"],
+            "is_authenticated": current_user is not None,
+            "user_id": user_id,
+            "total_letters_evaluated": analysis["total_letters_evaluated"],
+            "frequency_table": {str(k): v for k, v in analysis["frequency_table"].items()},
+            "missing_numbers": missing_nums,
+            "missing_count": len(missing_nums),
+            "present_numbers": analysis["present_numbers"],
+            "present_count": len(analysis["present_numbers"]),
+            "has_no_missing_numbers": analysis["has_no_missing_numbers"],
+            "hidden_passion": analysis["hidden_passion"],
+            "planes_of_expression": analysis["planes_of_expression"],
+            "interpretations": interpretations,
+            "audit_trace": analysis["audit_trace"],
+            "calculation_version": "1.0.0",
+            "content_version": "1.0.0",
+            "disclaimer": "Missing Numbers (Karmic Lessons) reflect traditional Pythagorean frequency analysis of full birth names. Interpretations are intended for self-reflection and personal inquiry, not deterministic limitations.",
+            "timestamp": datetime.now().isoformat()
+        }
+
+        NumerologyRepository.set_cached_result(cache_key, response_data)
+        return jsonify(response_data), 200
+
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "error_code": "SERVER_ERROR",
+            "message": f"An unexpected error occurred during Missing Numbers calculation: {str(e)}"
+        }), 500
+
