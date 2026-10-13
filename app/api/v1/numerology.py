@@ -1,4 +1,4 @@
-"""
+﻿"""
 Authoritative Numerology Blueprint and Life Path Controller.
 Supports deterministic calculation, database-driven interpretations,
 caching, strict validation, and authentication awareness.
@@ -10,6 +10,7 @@ from app.services.life_path_calculator import LifePathCalculator
 from app.services.birth_day_calculator import BirthDayNumberCalculator
 from app.services.personal_year_calculator import PersonalYearCalculator
 from app.services.name_analysis_calculator import NameAnalysisCalculator
+from app.services.personality_soul_calculator import PersonalitySoulAnalyzer
 from app.services.numerology_repository import NumerologyRepository
 from app.api.v1.auth import get_current_user
 
@@ -577,4 +578,167 @@ def get_name_analysis():
             "status": "error",
             "error_code": "SERVER_ERROR",
             "message": "An unexpected error occurred while analyzing name."
+        }), 500
+
+
+
+@numerology_bp.route("/personality-soul", methods=["GET", "POST"])
+def get_personality_soul_analysis():
+    """
+    Authoritative Personality Number & Soul Urge Number endpoint.
+    - Consonants strictly for Personality Number (The Outer Persona)
+    - Vowels strictly for Soul Urge Number (The Inner Heart's Desire)
+    - Configurable Y Policy ('always_consonant' or 'always_vowel')
+    - Preserves Master Numbers (11, 22, 33)
+    - Database-driven interpretations from published records
+    - Full auditable calculation trace
+    """
+    try:
+        current_user, _ = get_current_user()
+        user_id = current_user.get("id") if current_user else None
+
+        birth_name = ""
+        y_policy = "always_consonant"
+
+        if request.method == "POST":
+            payload = request.get_json(silent=True) or {}
+            birth_name = payload.get("birth_name") or payload.get("name") or ""
+            y_policy = payload.get("y_policy", "always_consonant")
+        else:
+            birth_name = request.args.get("birth_name") or request.args.get("name") or ""
+            y_policy = request.args.get("y_policy", "always_consonant")
+
+        # Fallback to authenticated user profile if birth_name is not provided
+        if not birth_name and current_user:
+            birth_name = current_user.get("full_name") or current_user.get("name") or ""
+
+        birth_name = str(birth_name).strip()
+        if not birth_name:
+            return jsonify({
+                "status": "error",
+                "error_code": "MISSING_BIRTH_NAME",
+                "message": "Full birth name is required for Personality & Soul Urge calculation. Please complete your profile or enter your birth name."
+            }), 400
+
+        if len(birth_name) > 100:
+            return jsonify({
+                "status": "error",
+                "error_code": "NAME_TOO_LONG",
+                "message": "Name exceeds maximum length of 100 characters. Please provide a standard birth name."
+            }), 400
+
+        y_policy = str(y_policy).strip().lower()
+        if y_policy not in ("always_consonant", "always_vowel", "manual"):
+            y_policy = "always_consonant"
+
+        cache_key = f"personality_soul:{user_id or 'guest'}:{birth_name.upper()}:{y_policy}:v1.0.0"
+        cached = NumerologyRepository.get_cached_result(cache_key)
+        if cached:
+            return jsonify(cached), 200
+
+        try:
+            analysis = PersonalitySoulAnalyzer.analyze(birth_name, y_policy=y_policy)
+        except ValueError as ve:
+            err_msg = str(ve)
+            code = "UNSUPPORTED_SCRIPT" if "non-Latin" in err_msg else "INVALID_NAME"
+            return jsonify({
+                "status": "error",
+                "error_code": code,
+                "message": err_msg
+            }), 400
+
+        pers_num = analysis["personality"]["number"]
+        soul_num = analysis["soul_urge"]["number"]
+
+        # Retrieve published interpretations from SQLite database
+        pers_interp = NumerologyRepository.get_name_interpretation("pythagorean", "personality", pers_num)
+        soul_interp = NumerologyRepository.get_name_interpretation("pythagorean", "soul_urge", soul_num)
+
+        if not pers_interp:
+            return jsonify({
+                "status": "error",
+                "error_code": "INTERPRETATION_UNAVAILABLE",
+                "message": f"Personality Number {pers_num} interpretation record is unpublished or unavailable in the database."
+            }), 404
+
+        if not soul_interp:
+            return jsonify({
+                "status": "error",
+                "error_code": "INTERPRETATION_UNAVAILABLE",
+                "message": f"Soul Urge Number {soul_num} interpretation record is unpublished or unavailable in the database."
+            }), 404
+
+        # Dynamic Harmony & Resonance Evaluation
+        is_direct_match = (pers_num == soul_num)
+        if is_direct_match:
+            harmony_summary = (
+                f"Complete Inner-Outer Congruence: Both your Personality and Soul Urge resonate with Number {pers_num}. "
+                "The face you show the world perfectly reflects your authentic inner heart's desire. What people see is genuinely who you are."
+            )
+            harmony_tag = "Perfect Resonance"
+        else:
+            harmony_summary = (
+                f"Dynamic Complementary Synergy: Your outer demeanor radiates Personality {pers_num}, while your secret heart's desire vibrates to Soul Urge {soul_num}. "
+                f"Your outward social presence provides the exact practical skills and energetic buffer needed to safely manifest your {soul_num} soul calling."
+            )
+            harmony_tag = "Complementary Synergy"
+
+        harmony_analysis = {
+            "personality_number": pers_num,
+            "soul_urge_number": soul_num,
+            "is_direct_resonance": is_direct_match,
+            "harmony_tag": harmony_tag,
+            "harmony_summary": harmony_summary
+        }
+
+        response_data = {
+            "status": "success",
+            "calculation_status": "completed",
+            "system": "pythagorean",
+            "system_name": "Pythagorean Name Numerology",
+            "y_policy": y_policy,
+            "birth_name": birth_name,
+            "normalized_name": analysis["normalized_name"],
+            "is_authenticated": current_user is not None,
+            "user_id": user_id,
+            "personality": {
+                "number": pers_num,
+                "root_number": analysis["personality"]["root_number"],
+                "is_master_number": analysis["personality"]["is_master_number"],
+                "unreduced_sum": analysis["personality"]["unreduced_sum"],
+                "included_letters_count": analysis["personality"]["included_letters_count"],
+                "included_letters": analysis["personality"]["included_letters"],
+                "reduction_steps": analysis["personality"]["reduction_steps"],
+                "formula_summary": analysis["personality"]["formula_summary"],
+                "words_breakdown": analysis["personality"]["words_breakdown"],
+                "interpretation": pers_interp
+            },
+            "soul_urge": {
+                "number": soul_num,
+                "root_number": analysis["soul_urge"]["root_number"],
+                "is_master_number": analysis["soul_urge"]["is_master_number"],
+                "unreduced_sum": analysis["soul_urge"]["unreduced_sum"],
+                "included_letters_count": analysis["soul_urge"]["included_letters_count"],
+                "included_letters": analysis["soul_urge"]["included_letters"],
+                "reduction_steps": analysis["soul_urge"]["reduction_steps"],
+                "formula_summary": analysis["soul_urge"]["formula_summary"],
+                "words_breakdown": analysis["soul_urge"]["words_breakdown"],
+                "interpretation": soul_interp
+            },
+            "harmony_analysis": harmony_analysis,
+            "audit_trace": analysis["audit_trace"],
+            "calculation_version": "1.0.0",
+            "content_version": pers_interp.get("content_version", "1.0.0"),
+            "disclaimer": "Personality and Soul Urge calculations are rooted in authoritative Pythagorean name numerology traditions. Interpretations are intended for self-reflection and personal inquiry, not scientifically validated psychological assessment.",
+            "timestamp": datetime.now().isoformat()
+        }
+
+        NumerologyRepository.set_cached_result(cache_key, response_data)
+        return jsonify(response_data), 200
+
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "error_code": "SERVER_ERROR",
+            "message": f"An unexpected error occurred during Personality & Soul calculation: {str(e)}"
         }), 500
