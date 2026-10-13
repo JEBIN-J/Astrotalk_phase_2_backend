@@ -360,3 +360,44 @@ class NumerologyRepository:
             }
         finally:
             conn.close()
+
+    @staticmethod
+    def get_name_interpretation(system_code: str, number_type: str, number_value: int) -> Optional[Dict[str, Any]]:
+        """
+        Retrieves published Name Analysis interpretation for specific system, number type and value.
+        """
+        conn = get_db_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT 
+                    id, system_code, number_type, number_value, title, core_theme, overview,
+                    strengths, challenges, relationships, career, guidance, content_version
+                FROM name_number_interpretations
+                WHERE system_code = ? AND number_type = ? AND number_value = ? AND publication_status = 'published'
+                LIMIT 1
+            """, (system_code, number_type, number_value))
+            row = cursor.fetchone()
+            if not row:
+                return None
+
+            strengths = json.loads(row["strengths"]) if row["strengths"] else []
+            challenges = json.loads(row["challenges"]) if row["challenges"] else []
+
+            return {
+                "id": row["id"],
+                "system_code": row["system_code"],
+                "number_type": row["number_type"],
+                "number_value": row["number_value"],
+                "title": row["title"],
+                "core_theme": row["core_theme"],
+                "overview": row["overview"],
+                "strengths": strengths,
+                "challenges": challenges,
+                "relationships": row["relationships"],
+                "career": row["career"],
+                "guidance": row["guidance"],
+                "content_version": row["content_version"]
+            }
+        finally:
+            conn.close()

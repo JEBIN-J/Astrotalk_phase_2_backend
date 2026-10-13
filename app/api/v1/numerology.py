@@ -9,6 +9,7 @@ from app.services.numerology_service import NumerologyService
 from app.services.life_path_calculator import LifePathCalculator
 from app.services.birth_day_calculator import BirthDayNumberCalculator
 from app.services.personal_year_calculator import PersonalYearCalculator
+from app.services.name_analysis_calculator import NameAnalysisCalculator
 from app.services.numerology_repository import NumerologyRepository
 from app.api.v1.auth import get_current_user
 
@@ -414,3 +415,166 @@ def get_personal_year_content_status():
         "system": system,
         "completeness_report": report
     }), 200
+
+
+@numerology_bp.route("/name-analysis", methods=["POST", "GET"])
+def get_name_analysis():
+    """
+    Authoritative Name Analysis endpoint.
+    Supports both Pythagorean and Chaldean systems.
+    Accepts:
+      - birth_name (required)
+      - current_name (optional)
+      - system ('pythagorean' or 'chaldean')
+      - date_of_birth (optional, for cosmic comparison)
+    """
+    try:
+        current_user, _ = get_current_user()
+        user_id = current_user.get("id") if current_user else None
+
+        birth_name = ""
+        current_name = None
+        system = "pythagorean"
+        dob = None
+
+        if request.method == "POST":
+            payload = request.get_json(silent=True) or {}
+            birth_name = payload.get("birth_name") or payload.get("name") or ""
+            current_name = payload.get("current_name")
+            system = payload.get("system", "pythagorean")
+            dob = payload.get("dob") or payload.get("date_of_birth")
+        else:
+            birth_name = request.args.get("birth_name") or request.args.get("name") or ""
+            current_name = request.args.get("current_name")
+            system = request.args.get("system", "pythagorean")
+            dob = request.args.get("dob") or request.args.get("date_of_birth")
+
+        if not birth_name and current_user:
+            birth_name = current_user.get("name") or ""
+
+        birth_name = str(birth_name).strip()
+        if not birth_name:
+            return jsonify({
+                "status": "error",
+                "error_code": "MISSING_BIRTH_NAME",
+                "message": "Full birth name is required for Name Analysis."
+            }), 400
+
+        system_clean = system.lower().strip()
+        if system_clean not in ["pythagorean", "chaldean"]:
+            system_clean = "pythagorean"
+
+        cache_key = f"name_analysis_{user_id or 'guest'}_{birth_name}_{current_name or 'none'}_{system_clean}_{dob or 'nodob'}"
+        cached = NumerologyRepository.get_cached_result(cache_key)
+        if cached:
+            return jsonify(cached), 200
+
+        try:
+            analysis = NameAnalysisCalculator.calculate(
+                birth_name=birth_name,
+                current_name=current_name,
+                system=system_clean
+            )
+        except ValueError as ve:
+            return jsonify({
+                "status": "error",
+                "error_code": "INVALID_NAME_INPUT",
+                "message": str(ve)
+            }), 400
+
+        # Attach database interpretations
+        birth_analysis = analysis["birth_name_analysis"]
+        interpretations = {}
+
+        if system_clean == "pythagorean":
+            core = birth_analysis["core_numbers"]
+            exp_val = core["expression"]["final_number"]
+            soul_val = core["soul_urge"]["final_number"]
+            pers_val = core["personality"]["final_number"]
+
+            interpretations["expression"] = NumerologyRepository.get_name_interpretation("pythagorean", "expression", exp_val)
+            interpretations["soul_urge"] = NumerologyRepository.get_name_interpretation("pythagorean", "soul_urge", soul_val)
+            interpretations["personality"] = NumerologyRepository.get_name_interpretation("pythagorean", "personality", pers_val)
+
+            if analysis.get("current_name_analysis"):
+                c_core = analysis["current_name_analysis"]["core_numbers"]
+                c_exp = c_core["expression"]["final_number"]
+                if c_exp != exp_val:
+                    interpretations["current_expression"] = NumerologyRepository.get_name_interpretation("pythagorean", "expression", c_exp)
+        else:
+            root_val = birth_analysis["chaldean_root_number"]
+            comp_val = birth_analysis["chaldean_compound_number"]
+            interpretations["chaldean_root"] = NumerologyRepository.get_name_interpretation("chaldean", "chaldean_root", root_val)
+            interpretations["chaldean_compound"] = NumerologyRepository.get_name_interpretation("chaldean", "chaldean_compound", comp_val)
+
+            if analysis.get("current_name_analysis"):
+                c_root = analysis["current_name_analysis"]["chaldean_root_number"]
+                c_comp = analysis["current_name_analysis"]["chaldean_compound_number"]
+                if c_root != root_val:
+                    interpretations["current_chaldean_root"] = NumerologyRepository.get_name_interpretation("chaldean", "chaldean_root", c_root)
+                if c_comp != comp_val:
+                    interpretations["current_chaldean_compound"] = NumerologyRepository.get_name_interpretation("chaldean", "chaldean_compound", c_comp)
+
+        # Optional Date of Birth compatibility analysis
+        dob_harmony = None
+        if dob and str(dob).strip():
+            try:
+                dob_clean = str(dob).strip()
+                digits = [int(ch) for ch in dob_clean if ch.isdigit()]
+                if digits:
+                    dob_sum = sum(digits)
+                    while dob_sum > 9 and dob_sum not in [11, 22, 33]:
+                        dob_sum = sum(int(c) for c in str(dob_sum))
+                    
+                    if system_clean == "pythagorean":
+                        exp_num = birth_analysis["core_numbers"]["expression"]["final_number"]
+                        is_aligned = exp_num == dob_sum
+                        dob_harmony = {
+                            "life_path_number": dob_sum,
+                            "expression_number": exp_num,
+                            "is_aligned": is_aligned,
+                            "summary": f"Your Life Path is {dob_sum} and your Name Expression is {exp_num}." + (
+                                " Perfect resonance! Your name directly mirrors your life's foundational path." if is_aligned else
+                                " Complementary energies: your name supplies distinct skills that assist your Life Path mission."
+                            )
+                        }
+                    else:
+                        root_num = birth_analysis["chaldean_root_number"]
+                        is_aligned = root_num == (dob_sum if dob_sum <= 9 else sum(int(c) for c in str(dob_sum)))
+                        dob_harmony = {
+                            "birth_vibration": dob_sum,
+                            "chaldean_root": root_num,
+                            "is_aligned": is_aligned,
+                            "summary": f"Your birth vibration is {dob_sum} and your Chaldean root is {root_num}." + (
+                                " Direct harmonic alignment between your birth moment and name vibration!" if is_aligned else
+                                " Interplay of planetary archetypes between your birth date and name frequency."
+                            )
+                        }
+            except Exception:
+                pass
+
+        response_data = {
+            "status": "success",
+            "calculation_status": "completed",
+            "system": system_clean,
+            "birth_name": birth_name,
+            "current_name": current_name,
+            "analysis": birth_analysis,
+            "current_name_analysis": analysis.get("current_name_analysis"),
+            "name_comparison": analysis.get("name_comparison"),
+            "dob_harmony": dob_harmony,
+            "interpretations": interpretations,
+            "calculation_version": "1.0.0",
+            "disclaimer": "Name Analysis calculations are rooted in traditional Pythagorean and Chaldean numerology traditions. Interpretations are intended for self-reflection and personal inquiry, not deterministic scientific predictions.",
+            "timestamp": datetime.now().isoformat()
+        }
+
+        NumerologyRepository.set_cached_result(cache_key, response_data)
+        return jsonify(response_data), 200
+
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "error_code": "SERVER_ERROR",
+            "message": "An unexpected error occurred while analyzing name."
+        }), 500
