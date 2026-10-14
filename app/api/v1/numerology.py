@@ -1053,3 +1053,144 @@ def get_crystal_intentions():
             "status": "error",
             "message": f"Error fetching crystal intentions: {str(e)}"
         }), 500
+
+
+# =========================================================================
+# PHONE NUMBER / MOBILE NUMEROLOGY ENDPOINT
+# =========================================================================
+
+@numerology_bp.route("/phone-analysis", methods=["POST"])
+def analyze_phone_number():
+    """
+    Authoritative, deterministic mobile number numerology analysis.
+    Evaluates 10-digit subscriber digits, compound total, reduction trace,
+    digit frequency, missing/repeated digits, database interpretation,
+    and optional personal compatibility with user's Life Path & Birth Day.
+    """
+    import json
+    import logging
+    logger = logging.getLogger(__name__)
+    from app.services.phone_number_calculator import PhoneNumberCalculator
+    from app.core.database import get_db_connection
+
+    try:
+        data = request.get_json() or {}
+        raw_phone = data.get("phone_number") or data.get("mobile_number") or ""
+        if not str(raw_phone).strip():
+            return jsonify({
+                "status": "error",
+                "message": "Phone number is required for analysis."
+            }), 400
+
+        country_code = data.get("country_code", "IN")
+        dob = data.get("dob") or data.get("date_of_birth")
+        system = data.get("system", "pythagorean")
+
+        # 1. Authoritative calculation service
+        calc_result = PhoneNumberCalculator.calculate_full(
+            phone_number=raw_phone,
+            country_code=country_code,
+            dob=dob,
+            system=system
+        )
+
+        root_num = calc_result["root_number"]
+
+        # 2. Retrieve reviewed database interpretation
+        conn = get_db_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT 
+                    root_number, title, core_theme, planetary_ruler, element,
+                    overview, traditional_strengths, potential_challenges,
+                    communication_themes, work_and_daily_life, practical_guidance,
+                    reflection_questions, content_version
+                FROM phone_number_interpretations
+                WHERE root_number = ? AND publication_status = 'published'
+            """, (root_num,))
+            row = cursor.fetchone()
+
+            interp = None
+            if row:
+                interp = {
+                    "root_number": row["root_number"],
+                    "title": row["title"],
+                    "core_theme": row["core_theme"],
+                    "planetary_ruler": row["planetary_ruler"],
+                    "element": row["element"],
+                    "overview": row["overview"],
+                    "traditional_strengths": json.loads(row["traditional_strengths"]) if row["traditional_strengths"] else [],
+                    "potential_challenges": json.loads(row["potential_challenges"]) if row["potential_challenges"] else [],
+                    "communication_themes": row["communication_themes"],
+                    "work_and_daily_life": row["work_and_daily_life"],
+                    "practical_guidance": row["practical_guidance"],
+                    "reflection_questions": row["reflection_questions"],
+                    "content_version": row["content_version"],
+                }
+
+            # Retrieve pattern interpretations for repeated digits
+            cursor.execute("SELECT pattern_type, pattern_value, title, explanation, recommendation FROM phone_digit_pattern_interpretations WHERE publication_status = 'published'")
+            pattern_rows = cursor.fetchall()
+            patterns_map = {f"{r['pattern_type']}_{r['pattern_value']}": {
+                "title": r["title"], "explanation": r["explanation"], "recommendation": r["recommendation"]
+            } for r in pattern_rows}
+        finally:
+            conn.close()
+
+        # Enhance repeated digits with DB insights
+        enhanced_repeated = []
+        for rep in calc_result["digit_patterns"]["repeated_digits"]:
+            d_str = str(rep["digit"])
+            info = patterns_map.get(f"repeated_digit_{d_str}")
+            enhanced_repeated.append({
+                "digit": rep["digit"],
+                "count": rep["count"],
+                "intensity": rep["intensity"],
+                "insight": info["explanation"] if info else f"Amplified frequency of number {rep['digit']}.",
+                "recommendation": info["recommendation"] if info else "Cultivate conscious balance with this vibration."
+            })
+
+        response_payload = {
+            "status": "success",
+            "calculation_status": "completed",
+            "algorithm_version": calc_result["algorithm_version"],
+            "methodology": calc_result["methodology"],
+            "masked_number": calc_result["masked_number"],
+            "country_code": calc_result["country_code"],
+            "subscriber_digits": calc_result["subscriber_digits"],
+            "subscriber_digits_str": calc_result["subscriber_digits_str"],
+            "total_digits_count": calc_result["total_digits_count"],
+            "compound_total": calc_result["compound_total"],
+            "reduction_trace": calc_result["reduction_trace"],
+            "root_number": calc_result["root_number"],
+            "planetary_ruler": calc_result["planetary_ruler"],
+            "digit_patterns": {
+                "frequency_table": calc_result["digit_patterns"]["frequency_table"],
+                "present_digits": calc_result["digit_patterns"]["present_digits"],
+                "missing_digits": calc_result["digit_patterns"]["missing_digits"],
+                "repeated_digits": enhanced_repeated,
+                "first_digit": calc_result["digit_patterns"]["first_digit"],
+                "last_digit": calc_result["digit_patterns"]["last_digit"],
+                "last_two_digits": calc_result["digit_patterns"]["last_two_digits"],
+                "last_two_compound": calc_result["digit_patterns"]["last_two_compound"],
+                "zero_count": calc_result["digit_patterns"]["zero_count"],
+            },
+            "interpretation": interp,
+            "personal_compatibility": calc_result["personal_compatibility"],
+            "privacy_notice": "Phone numbers are evaluated in temporary memory and are not permanently logged or shared with third parties."
+        }
+
+        return jsonify(response_payload), 200
+
+    except ValueError as ve:
+        return jsonify({
+            "status": "error",
+            "message": str(ve)
+        }), 400
+    except Exception as e:
+        logger.error(f"Error evaluating phone numerology: {e}", exc_info=True)
+        return jsonify({
+            "status": "error",
+            "message": f"Error analyzing phone number: {str(e)}"
+        }), 500
