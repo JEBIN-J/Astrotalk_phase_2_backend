@@ -1194,3 +1194,99 @@ def analyze_phone_number():
             "status": "error",
             "message": f"Error analyzing phone number: {str(e)}"
         }), 500
+
+
+# ============================================================================
+# CHILD NUMEROLOGY & BABY NAME MODULE
+# ============================================================================
+from app.services.child_numerology_calculator import ChildNumerologyCalculator
+
+@numerology_bp.route('/child-analysis', methods=['POST'])
+def analyze_child_numerology():
+    """
+    Evaluates complete child numerology profile:
+      - Mulank (Birth Number from calendar day 1-31)
+      - Bhagyank (Destiny Number from full date YYYY-MM-DD)
+      - Name Number (Expression Number via Pythagorean or Chaldean sound chart)
+      - Soul Urge (vowels sum) & Personality Number (consonants sum)
+      - Name-to-Birth Auspicious Compatibility
+      - Optional Parent-Child Planetary Harmony
+      - Database-backed parenting and learning guidance
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"status": "error", "message": "Missing request payload."}), 400
+
+        child_name = data.get("child_name") or data.get("name")
+        if not child_name or not str(child_name).strip():
+            return jsonify({"status": "error", "message": "Child's name is required."}), 400
+
+        dob = data.get("dob") or data.get("date_of_birth")
+        if not dob or not str(dob).strip():
+            return jsonify({"status": "error", "message": "Child's date of birth (YYYY-MM-DD) is required."}), 400
+
+        system = data.get("system", "pythagorean")
+        parent_name = data.get("parent_name")
+        parent_dob = data.get("parent_dob")
+
+        report = ChildNumerologyCalculator.analyze_child(
+            child_name=str(child_name).strip(),
+            dob_str=str(dob).strip(),
+            system=str(system).strip(),
+            parent_name=str(parent_name).strip() if parent_name else None,
+            parent_dob_str=str(parent_dob).strip() if parent_dob else None
+        )
+
+        return jsonify({
+            "status": "success",
+            "calculation_status": "completed",
+            "data": report
+        }), 200
+
+    except ValueError as ve:
+        return jsonify({"status": "error", "message": str(ve)}), 400
+    except Exception as e:
+        logger.error(f"Error evaluating child numerology: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Error evaluating child numerology: {str(e)}"}), 500
+
+
+@numerology_bp.route('/child-name-comparison', methods=['POST'])
+def compare_child_candidate_names():
+    """
+    Compares multiple candidate baby names against the child's birth date.
+    Calculates compound totals, root numbers, planetary harmony with Mulank & Bhagyank,
+    and returns deterministic ranking with transparent explanations.
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"status": "error", "message": "Missing request payload."}), 400
+
+        candidate_names = data.get("candidate_names") or data.get("names")
+        if not candidate_names or not isinstance(candidate_names, list) or len(candidate_names) == 0:
+            return jsonify({"status": "error", "message": "At least one candidate name is required in 'candidate_names' list."}), 400
+
+        dob = data.get("dob") or data.get("date_of_birth")
+        if not dob or not str(dob).strip():
+            return jsonify({"status": "error", "message": "Child's date of birth (YYYY-MM-DD) is required for comparison."}), 400
+
+        system = data.get("system", "pythagorean")
+
+        comparison_report = ChildNumerologyCalculator.compare_candidate_names(
+            candidate_names=[str(n).strip() for n in candidate_names if str(n).strip()],
+            dob_str=str(dob).strip(),
+            system=str(system).strip()
+        )
+
+        return jsonify({
+            "status": "success",
+            "calculation_status": "completed",
+            "data": comparison_report
+        }), 200
+
+    except ValueError as ve:
+        return jsonify({"status": "error", "message": str(ve)}), 400
+    except Exception as e:
+        logger.error(f"Error comparing candidate names: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Error comparing candidate names: {str(e)}"}), 500
