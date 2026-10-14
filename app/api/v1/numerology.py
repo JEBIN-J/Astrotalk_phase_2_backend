@@ -1,3 +1,4 @@
+from app.services.crystal_match_engine import CrystalMatchEngine
 from app.services.remedy_rule_engine import RemedyRuleEngine
 """
 Authoritative Numerology Blueprint and Life Path Controller.
@@ -975,3 +976,80 @@ def get_remedies_status():
             "message": str(e)
         }), 500
 
+
+
+# =========================================================================
+# CRYSTAL MATCH & MINERALOGY ENDPOINTS
+# =========================================================================
+
+@numerology_bp.route("/crystal-match", methods=["POST"])
+def evaluate_crystal_match():
+    """
+    Evaluates personalized crystal match recommendations based on
+    authoritative numerology calculations and reviewed database records.
+    """
+    try:
+        data = request.get_json() or {}
+        dob = (data.get("dob") or data.get("date_of_birth") or "").strip()
+        if not dob:
+            return jsonify({
+                "status": "error",
+                "message": "Date of birth (dob) is required."
+            }), 400
+
+        birth_name = data.get("birth_name") or data.get("name")
+        system = data.get("system", "pythagorean")
+        intention = data.get("intention", "all")
+        target_year = data.get("target_year")
+
+        result = CrystalMatchEngine.evaluate(
+            dob=dob,
+            birth_name=birth_name,
+            system=system,
+            intention=intention,
+            target_year=target_year
+        )
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": f"Error evaluating crystal match: {str(e)}"
+        }), 500
+
+
+@numerology_bp.route("/crystal-catalog", methods=["GET"])
+def get_crystal_catalog():
+    """
+    Returns all published crystal records directly from the SQLite database.
+    """
+    try:
+        catalog = CrystalMatchEngine.get_catalog()
+        return jsonify({
+            "status": "success",
+            "total": len(catalog),
+            "catalog": catalog
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": f"Error fetching crystal catalog: {str(e)}"
+        }), 500
+
+
+@numerology_bp.route("/crystal-intentions", methods=["GET"])
+def get_crystal_intentions():
+    """
+    Returns all supported intention filters directly from the SQLite database.
+    """
+    try:
+        intentions = CrystalMatchEngine.get_intentions()
+        return jsonify({
+            "status": "success",
+            "total": len(intentions),
+            "intentions": intentions
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": f"Error fetching crystal intentions: {str(e)}"
+        }), 500
