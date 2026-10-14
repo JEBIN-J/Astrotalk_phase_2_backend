@@ -79,6 +79,8 @@ def create_app(config_class=config) -> Flask:
     app.register_blueprint(horary_bp, url_prefix='/api/v1/horary')
     from app.api.v1.numerology import numerology_bp
     app.register_blueprint(numerology_bp, url_prefix='/api/v1/numerology')
+    from app.api.v1.angel_numbers import angel_numbers_bp
+    app.register_blueprint(angel_numbers_bp, url_prefix='/api/v1/numerology/angel-numbers')
 
     # Swagger UI Setup
     SWAGGER_URL = '/apidocs'

@@ -218,6 +218,211 @@ def init_db():
             )
         ''')
 
+        # Learn Numerology Educational System Tables
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_learning_modules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                module_code TEXT UNIQUE NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                difficulty_level TEXT NOT NULL,
+                display_order INTEGER NOT NULL,
+                estimated_duration TEXT NOT NULL,
+                language TEXT NOT NULL DEFAULT 'en',
+                publication_status TEXT NOT NULL DEFAULT 'published',
+                content_version TEXT NOT NULL DEFAULT '1.0.0',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_learning_lessons (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                module_id INTEGER NOT NULL,
+                lesson_code TEXT UNIQUE NOT NULL,
+                title TEXT NOT NULL,
+                introduction TEXT NOT NULL,
+                learning_objectives TEXT NOT NULL,
+                concept_content TEXT NOT NULL,
+                formula_explanation TEXT,
+                worked_examples TEXT,
+                common_mistakes TEXT,
+                practice_instructions TEXT,
+                calculator_type TEXT,
+                next_lesson_reference TEXT,
+                language TEXT NOT NULL DEFAULT 'en',
+                content_version TEXT NOT NULL DEFAULT '1.0.0',
+                review_status TEXT NOT NULL DEFAULT 'approved',
+                publication_status TEXT NOT NULL DEFAULT 'published',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (module_id) REFERENCES numerology_learning_modules(id)
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_learning_quizzes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                lesson_id INTEGER NOT NULL,
+                quiz_title TEXT NOT NULL,
+                instructions TEXT NOT NULL,
+                pass_threshold INTEGER NOT NULL DEFAULT 70,
+                question_order TEXT NOT NULL DEFAULT 'sequential',
+                publication_status TEXT NOT NULL DEFAULT 'published',
+                FOREIGN KEY (lesson_id) REFERENCES numerology_learning_lessons(id)
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_learning_questions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                quiz_id INTEGER NOT NULL,
+                question_text TEXT NOT NULL,
+                question_type TEXT NOT NULL DEFAULT 'multiple_choice',
+                explanation TEXT NOT NULL,
+                difficulty_level TEXT NOT NULL DEFAULT 'beginner',
+                display_order INTEGER NOT NULL,
+                review_status TEXT NOT NULL DEFAULT 'approved',
+                is_active INTEGER NOT NULL DEFAULT 1,
+                FOREIGN KEY (quiz_id) REFERENCES numerology_learning_quizzes(id)
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_learning_answers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                question_id INTEGER NOT NULL,
+                answer_text TEXT NOT NULL,
+                is_correct INTEGER NOT NULL DEFAULT 0,
+                explanation TEXT,
+                display_order INTEGER NOT NULL,
+                FOREIGN KEY (question_id) REFERENCES numerology_learning_questions(id)
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_learning_progress (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                lesson_id INTEGER NOT NULL,
+                progress_status TEXT NOT NULL DEFAULT 'not_started',
+                last_position INTEGER NOT NULL DEFAULT 0,
+                completed_at TEXT,
+                updated_at TEXT NOT NULL,
+                UNIQUE(user_id, lesson_id),
+                FOREIGN KEY (lesson_id) REFERENCES numerology_learning_lessons(id)
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_learning_quiz_attempts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                quiz_id INTEGER NOT NULL,
+                attempt_number INTEGER NOT NULL DEFAULT 1,
+                answers_data TEXT NOT NULL,
+                score REAL NOT NULL,
+                submitted_at TEXT NOT NULL,
+                result_status TEXT NOT NULL,
+                FOREIGN KEY (quiz_id) REFERENCES numerology_learning_quizzes(id)
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_learning_sources (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                lesson_id INTEGER NOT NULL,
+                source_title TEXT NOT NULL,
+                source_url TEXT,
+                source_type TEXT NOT NULL,
+                attribution TEXT NOT NULL,
+                licensing_notes TEXT NOT NULL,
+                review_status TEXT NOT NULL DEFAULT 'approved',
+                reviewed_at TEXT NOT NULL,
+                FOREIGN KEY (lesson_id) REFERENCES numerology_learning_lessons(id)
+            )
+        ''')
+
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_num_lessons_module ON numerology_learning_lessons(module_id)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_num_progress_user ON numerology_learning_progress(user_id)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_num_quiz_lesson ON numerology_learning_quizzes(lesson_id)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_num_questions_quiz ON numerology_learning_questions(quiz_id)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_num_answers_question ON numerology_learning_answers(question_id)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_num_attempts_user ON numerology_learning_quiz_attempts(user_id)')
+
+        # Angel Numbers Module Tables
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS angel_number_interpretations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sequence TEXT UNIQUE NOT NULL,
+                canonical_sequence TEXT NOT NULL,
+                title TEXT NOT NULL,
+                short_meaning TEXT NOT NULL,
+                detailed_meaning TEXT NOT NULL,
+                traditional_symbolic_themes TEXT NOT NULL,
+                reflection_questions TEXT NOT NULL,
+                practical_guidance TEXT NOT NULL,
+                love_and_relationships TEXT,
+                career_and_work TEXT,
+                personal_growth TEXT,
+                spiritual_reflection TEXT,
+                root_number INTEGER NOT NULL,
+                primary_pattern TEXT NOT NULL,
+                source_reference TEXT,
+                content_version TEXT NOT NULL DEFAULT '1.0.0',
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS angel_number_patterns (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                pattern_code TEXT UNIQUE NOT NULL,
+                pattern_name TEXT NOT NULL,
+                pattern_description TEXT NOT NULL,
+                display_priority INTEGER NOT NULL,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS angel_number_sightings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                observed_sequence TEXT NOT NULL,
+                observed_at TEXT NOT NULL,
+                timezone TEXT NOT NULL DEFAULT 'UTC',
+                context_category TEXT,
+                personal_note TEXT,
+                mood TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS angel_number_daily_content (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sequence TEXT NOT NULL,
+                title TEXT NOT NULL,
+                reflection TEXT NOT NULL,
+                day_of_year_index INTEGER NOT NULL,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ''')
+
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_angel_seq ON angel_number_interpretations(sequence)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_angel_root ON angel_number_interpretations(root_number)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_angel_sightings_user ON angel_number_sightings(user_id)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_angel_daily_day ON angel_number_daily_content(day_of_year_index)')
+
         conn.execute('''
             CREATE TABLE IF NOT EXISTS user_remedy_preferences (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -314,6 +519,211 @@ def save_palm_annotation(record_id: str, data: dict, created_at: str, original_i
                 FOREIGN KEY (remedy_id) REFERENCES numerology_remedies(id)
             )
         ''')
+
+        # Learn Numerology Educational System Tables
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_learning_modules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                module_code TEXT UNIQUE NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                difficulty_level TEXT NOT NULL,
+                display_order INTEGER NOT NULL,
+                estimated_duration TEXT NOT NULL,
+                language TEXT NOT NULL DEFAULT 'en',
+                publication_status TEXT NOT NULL DEFAULT 'published',
+                content_version TEXT NOT NULL DEFAULT '1.0.0',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_learning_lessons (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                module_id INTEGER NOT NULL,
+                lesson_code TEXT UNIQUE NOT NULL,
+                title TEXT NOT NULL,
+                introduction TEXT NOT NULL,
+                learning_objectives TEXT NOT NULL,
+                concept_content TEXT NOT NULL,
+                formula_explanation TEXT,
+                worked_examples TEXT,
+                common_mistakes TEXT,
+                practice_instructions TEXT,
+                calculator_type TEXT,
+                next_lesson_reference TEXT,
+                language TEXT NOT NULL DEFAULT 'en',
+                content_version TEXT NOT NULL DEFAULT '1.0.0',
+                review_status TEXT NOT NULL DEFAULT 'approved',
+                publication_status TEXT NOT NULL DEFAULT 'published',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (module_id) REFERENCES numerology_learning_modules(id)
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_learning_quizzes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                lesson_id INTEGER NOT NULL,
+                quiz_title TEXT NOT NULL,
+                instructions TEXT NOT NULL,
+                pass_threshold INTEGER NOT NULL DEFAULT 70,
+                question_order TEXT NOT NULL DEFAULT 'sequential',
+                publication_status TEXT NOT NULL DEFAULT 'published',
+                FOREIGN KEY (lesson_id) REFERENCES numerology_learning_lessons(id)
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_learning_questions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                quiz_id INTEGER NOT NULL,
+                question_text TEXT NOT NULL,
+                question_type TEXT NOT NULL DEFAULT 'multiple_choice',
+                explanation TEXT NOT NULL,
+                difficulty_level TEXT NOT NULL DEFAULT 'beginner',
+                display_order INTEGER NOT NULL,
+                review_status TEXT NOT NULL DEFAULT 'approved',
+                is_active INTEGER NOT NULL DEFAULT 1,
+                FOREIGN KEY (quiz_id) REFERENCES numerology_learning_quizzes(id)
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_learning_answers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                question_id INTEGER NOT NULL,
+                answer_text TEXT NOT NULL,
+                is_correct INTEGER NOT NULL DEFAULT 0,
+                explanation TEXT,
+                display_order INTEGER NOT NULL,
+                FOREIGN KEY (question_id) REFERENCES numerology_learning_questions(id)
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_learning_progress (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                lesson_id INTEGER NOT NULL,
+                progress_status TEXT NOT NULL DEFAULT 'not_started',
+                last_position INTEGER NOT NULL DEFAULT 0,
+                completed_at TEXT,
+                updated_at TEXT NOT NULL,
+                UNIQUE(user_id, lesson_id),
+                FOREIGN KEY (lesson_id) REFERENCES numerology_learning_lessons(id)
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_learning_quiz_attempts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                quiz_id INTEGER NOT NULL,
+                attempt_number INTEGER NOT NULL DEFAULT 1,
+                answers_data TEXT NOT NULL,
+                score REAL NOT NULL,
+                submitted_at TEXT NOT NULL,
+                result_status TEXT NOT NULL,
+                FOREIGN KEY (quiz_id) REFERENCES numerology_learning_quizzes(id)
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS numerology_learning_sources (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                lesson_id INTEGER NOT NULL,
+                source_title TEXT NOT NULL,
+                source_url TEXT,
+                source_type TEXT NOT NULL,
+                attribution TEXT NOT NULL,
+                licensing_notes TEXT NOT NULL,
+                review_status TEXT NOT NULL DEFAULT 'approved',
+                reviewed_at TEXT NOT NULL,
+                FOREIGN KEY (lesson_id) REFERENCES numerology_learning_lessons(id)
+            )
+        ''')
+
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_num_lessons_module ON numerology_learning_lessons(module_id)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_num_progress_user ON numerology_learning_progress(user_id)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_num_quiz_lesson ON numerology_learning_quizzes(lesson_id)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_num_questions_quiz ON numerology_learning_questions(quiz_id)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_num_answers_question ON numerology_learning_answers(question_id)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_num_attempts_user ON numerology_learning_quiz_attempts(user_id)')
+
+        # Angel Numbers Module Tables
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS angel_number_interpretations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sequence TEXT UNIQUE NOT NULL,
+                canonical_sequence TEXT NOT NULL,
+                title TEXT NOT NULL,
+                short_meaning TEXT NOT NULL,
+                detailed_meaning TEXT NOT NULL,
+                traditional_symbolic_themes TEXT NOT NULL,
+                reflection_questions TEXT NOT NULL,
+                practical_guidance TEXT NOT NULL,
+                love_and_relationships TEXT,
+                career_and_work TEXT,
+                personal_growth TEXT,
+                spiritual_reflection TEXT,
+                root_number INTEGER NOT NULL,
+                primary_pattern TEXT NOT NULL,
+                source_reference TEXT,
+                content_version TEXT NOT NULL DEFAULT '1.0.0',
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS angel_number_patterns (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                pattern_code TEXT UNIQUE NOT NULL,
+                pattern_name TEXT NOT NULL,
+                pattern_description TEXT NOT NULL,
+                display_priority INTEGER NOT NULL,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS angel_number_sightings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                observed_sequence TEXT NOT NULL,
+                observed_at TEXT NOT NULL,
+                timezone TEXT NOT NULL DEFAULT 'UTC',
+                context_category TEXT,
+                personal_note TEXT,
+                mood TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS angel_number_daily_content (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sequence TEXT NOT NULL,
+                title TEXT NOT NULL,
+                reflection TEXT NOT NULL,
+                day_of_year_index INTEGER NOT NULL,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ''')
+
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_angel_seq ON angel_number_interpretations(sequence)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_angel_root ON angel_number_interpretations(root_number)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_angel_sightings_user ON angel_number_sightings(user_id)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_angel_daily_day ON angel_number_daily_content(day_of_year_index)')
 
         conn.execute('''
             CREATE TABLE IF NOT EXISTS user_remedy_preferences (

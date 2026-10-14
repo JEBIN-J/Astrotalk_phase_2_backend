@@ -1290,3 +1290,158 @@ def compare_child_candidate_names():
     except Exception as e:
         logger.error(f"Error comparing candidate names: {e}", exc_info=True)
         return jsonify({"status": "error", "message": f"Error comparing candidate names: {str(e)}"}), 500
+
+
+# =========================================================================
+# ADVANCED NUMEROLOGY COMPATIBILITY MODULE ENDPOINTS
+# =========================================================================
+
+from app.services.advanced_compatibility_calculator import AdvancedCompatibilityCalculator
+
+
+@numerology_bp.route('/advanced-compatibility', methods=['POST'])
+def calculate_advanced_compatibility():
+    """
+    Calculates comprehensive, multi-factor Advanced Compatibility between two individuals.
+    Profiles are calculated independently, matched against reviewed database rules,
+    and returned with transparent scoring, strengths, growth areas, and practical guidance.
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"status": "error", "message": "Missing request payload."}), 400
+
+        person_a_name = data.get("person_a_name") or data.get("name_a")
+        person_b_name = data.get("person_b_name") or data.get("name_b")
+
+        if not person_a_name or not str(person_a_name).strip():
+            return jsonify({"status": "error", "message": "Person A name is required."}), 400
+        if not person_b_name or not str(person_b_name).strip():
+            return jsonify({"status": "error", "message": "Person B name is required."}), 400
+
+        person_a_dob = data.get("person_a_dob") or data.get("dob_a")
+        person_b_dob = data.get("person_b_dob") or data.get("dob_b")
+        relationship_type = data.get("relationship_type", "romantic")
+        system = data.get("system", "pythagorean")
+
+        report = AdvancedCompatibilityCalculator.calculate_advanced_compatibility(
+            person_a_name=str(person_a_name).strip(),
+            person_b_name=str(person_b_name).strip(),
+            person_a_dob=str(person_a_dob).strip() if person_a_dob else None,
+            person_b_dob=str(person_b_dob).strip() if person_b_dob else None,
+            relationship_type=str(relationship_type).strip().lower(),
+            system=str(system).strip().lower()
+        )
+
+        return jsonify({
+            "status": "success",
+            "calculation_status": "completed",
+            "data": report
+        }), 200
+
+    except ValueError as ve:
+        return jsonify({"status": "error", "message": str(ve)}), 400
+    except Exception as e:
+        logger.error(f"Error calculating advanced compatibility: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Error calculating compatibility: {str(e)}"}), 500
+
+
+@numerology_bp.route('/compatibility/methods', methods=['GET'])
+def get_compatibility_methods():
+    """
+    Returns supported numerology calculation methods from database.
+    """
+    try:
+        conn = AdvancedCompatibilityCalculator._get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT method_code, method_name, methodology_version, reduction_policy FROM numerology_compatibility_methods WHERE is_active = 1")
+        methods = [dict(r) for r in cur.fetchall()]
+        conn.close()
+        return jsonify({"status": "success", "data": methods}), 200
+    except Exception as e:
+        logger.error(f"Error fetching compatibility methods: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@numerology_bp.route('/compatibility/factors', methods=['GET'])
+def get_compatibility_factors():
+    """
+    Returns available compatibility factors and their supported relationship types.
+    """
+    try:
+        conn = AdvancedCompatibilityCalculator._get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT factor_code, factor_name, description, supported_relationship_types FROM compatibility_factor_definitions WHERE is_active = 1")
+        factors = [dict(r) for r in cur.fetchall()]
+        conn.close()
+        return jsonify({"status": "success", "data": factors}), 200
+    except Exception as e:
+        logger.error(f"Error fetching compatibility factors: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@numerology_bp.route('/compatibility/content-status', methods=['GET'])
+def get_compatibility_content_status():
+    """
+    Administrative check reporting active rules and interpretations count in database.
+    """
+    try:
+        conn = AdvancedCompatibilityCalculator._get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM numerology_compatibility_rules WHERE is_active = 1")
+        rule_count = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM numerology_compatibility_interpretations WHERE is_active = 1")
+        interp_count = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM compatibility_scoring_config WHERE is_active = 1")
+        scoring_count = cur.fetchone()[0]
+        conn.close()
+        return jsonify({
+            "status": "success",
+            "data": {
+                "active_rules_count": rule_count,
+                "active_interpretations_count": interp_count,
+                "active_scoring_configs_count": scoring_count,
+                "review_status": "approved",
+                "version": "2.0"
+            }
+        }), 200
+    except Exception as e:
+        logger.error(f"Error fetching content status: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@numerology_bp.route('/compatibility/save-report', methods=['POST'])
+def save_compatibility_report():
+    """
+    Saves an authorized compatibility report to database.
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"status": "error", "message": "Missing request payload."}), 400
+
+        user_id = data.get("user_id", "guest")
+        rel_type = data.get("relationship_type", "romantic")
+        system = data.get("system", "pythagorean")
+        person_a_label = data.get("person_a_label", "Person A")
+        person_b_label = data.get("person_b_label", "Person B")
+        calculated_data = data.get("calculated_data", {})
+
+        report_id = AdvancedCompatibilityCalculator.save_report(
+            user_id=user_id,
+            relationship_type=rel_type,
+            system=system,
+            person_a_label=person_a_label,
+            person_b_label=person_b_label,
+            calculated_data=calculated_data
+        )
+
+        return jsonify({
+            "status": "success",
+            "message": "Report saved successfully.",
+            "data": {"report_id": report_id}
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error saving compatibility report: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": str(e)}), 500
