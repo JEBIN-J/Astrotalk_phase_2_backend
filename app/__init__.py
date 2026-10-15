@@ -81,6 +81,9 @@ def create_app(config_class=config) -> Flask:
     app.register_blueprint(numerology_bp, url_prefix='/api/v1/numerology')
     from app.api.v1.angel_numbers import angel_numbers_bp
     app.register_blueprint(angel_numbers_bp, url_prefix='/api/v1/numerology/angel-numbers')
+    from app.api.v1.match_making import match_making_bp
+    app.register_blueprint(match_making_bp, url_prefix='/api/v1/horoscope/match-making')
+    app.register_blueprint(match_making_bp, url_prefix='/api/v1/match-making', name='match_making_direct')
 
     # Swagger UI Setup
     SWAGGER_URL = '/apidocs'

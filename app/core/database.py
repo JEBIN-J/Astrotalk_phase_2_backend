@@ -423,6 +423,94 @@ def init_db():
         conn.execute('CREATE INDEX IF NOT EXISTS idx_angel_sightings_user ON angel_number_sightings(user_id)')
         conn.execute('CREATE INDEX IF NOT EXISTS idx_angel_daily_day ON angel_number_daily_content(day_of_year_index)')
 
+        
+        # Match Making Module Tables
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS astrology_calculation_methods (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                method_code TEXT UNIQUE NOT NULL,
+                method_name TEXT NOT NULL,
+                engine_version TEXT NOT NULL,
+                ayanamsha_code TEXT NOT NULL DEFAULT 'LAHIRI',
+                zodiac_convention TEXT NOT NULL DEFAULT 'SIDEREAL',
+                configuration_json TEXT,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS matching_rule_sets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                method_code TEXT NOT NULL,
+                regional_tradition TEXT NOT NULL,
+                rule_set_version TEXT NOT NULL DEFAULT '1.0.0',
+                effective_date TEXT NOT NULL,
+                source_reference TEXT,
+                review_status TEXT NOT NULL DEFAULT 'approved',
+                is_active INTEGER NOT NULL DEFAULT 1
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS matching_factor_definitions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                rule_set_id INTEGER NOT NULL,
+                factor_code TEXT NOT NULL,
+                factor_name TEXT NOT NULL,
+                maximum_score REAL,
+                calculation_type TEXT NOT NULL,
+                display_order INTEGER NOT NULL,
+                rule_configuration TEXT,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                FOREIGN KEY (rule_set_id) REFERENCES matching_rule_sets(id)
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS matching_interpretations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                rule_set_id INTEGER NOT NULL,
+                factor_code TEXT NOT NULL,
+                result_category TEXT NOT NULL,
+                title TEXT NOT NULL,
+                short_explanation TEXT NOT NULL,
+                detailed_explanation TEXT NOT NULL,
+                practical_guidance TEXT NOT NULL,
+                language TEXT NOT NULL DEFAULT 'en',
+                content_version TEXT NOT NULL DEFAULT '1.0.0',
+                review_status TEXT NOT NULL DEFAULT 'approved',
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS saved_matching_reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                authorized_owner_user_id TEXT,
+                boy_name TEXT NOT NULL,
+                girl_name TEXT NOT NULL,
+                method_code TEXT NOT NULL,
+                rule_set_version TEXT NOT NULL,
+                engine_version TEXT NOT NULL,
+                total_score REAL NOT NULL,
+                max_score REAL NOT NULL,
+                status TEXT NOT NULL,
+                report_result_data TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ''')
+
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_matching_methods_code ON astrology_calculation_methods(method_code)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_matching_rulesets_trad ON matching_rule_sets(regional_tradition)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_matching_factors_code ON matching_factor_definitions(factor_code)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_matching_interp_factor ON matching_interpretations(factor_code, result_category)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_matching_saved_user ON saved_matching_reports(authorized_owner_user_id)')
+
         conn.execute('''
             CREATE TABLE IF NOT EXISTS user_remedy_preferences (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
