@@ -379,7 +379,9 @@ def get_kp_system():
             timezone=float(data.get("timezone", 5.5)),
             ayanamsa_name=ayanamsa,
             transit_datetime_str=data.get("transit_datetime"),
-            transit_timezone=float(data.get("transit_timezone", data.get("timezone", 5.5))) if "transit_timezone" in data else None
+            transit_timezone=float(data.get("transit_timezone", data.get("timezone", 5.5))) if "transit_timezone" in data else None,
+            transit_latitude=float(data.get("transit_latitude")) if data.get("transit_latitude") is not None else None,
+            transit_longitude=float(data.get("transit_longitude")) if data.get("transit_longitude") is not None else None
         )
         return jsonify(remove_hindi_text(result))
     except Exception as e:

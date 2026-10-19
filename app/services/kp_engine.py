@@ -848,7 +848,9 @@ def generate_kp_system(
     timezone: float = 5.5,
     ayanamsa_name: str = "Krishnamurti (KP New)",
     transit_datetime_str: str = None,
-    transit_timezone: float = None
+    transit_timezone: float = None,
+    transit_latitude: float = None,
+    transit_longitude: float = None
 ) -> Dict[str, Any]:
     """
     Master Entry Point for the Real-Time KP Astrology System.
@@ -1298,7 +1300,88 @@ def generate_kp_system(
 
     moon_kp = next((p for p in planets_list if p["name"] == "Moon"), planets_list[0])
 
+    # -------------------------------------------------------------
+    # Exact Real-Time / Current Ruling Planets (Swiss Ephemeris)
+    # -------------------------------------------------------------
+    t_lat = transit_latitude if transit_latitude is not None else latitude
+    t_lon = transit_longitude if transit_longitude is not None else longitude
+    t_tz = transit_timezone if transit_timezone is not None else timezone
+
+    try:
+        if SWISSEPH_AVAILABLE and swe is not None:
+            # Current Ascendant
+            curr_cusps, curr_asc_deg, curr_mc_deg = get_placidus_cusps(jd_ut_now, t_lat, t_lon, transit_ayan_deg)
+            curr_asc_kp = calculate_kp_sub_lords(curr_asc_deg)
+            
+            # Current Moon
+            curr_moon_p = next((p for p in transit_planets if p["name"] == "Moon"), None)
+            if curr_moon_p:
+                curr_moon_kp = calculate_kp_sub_lords(curr_moon_p["longitude"])
+            else:
+                curr_flags = swe.FLG_SWIEPH | swe.FLG_SPEED
+                res_m, _ = swe.calc_ut(jd_ut_now, swe.MOON, curr_flags)
+                curr_moon_sid = (res_m[0] - transit_ayan_deg) % 360.0
+                curr_moon_kp = calculate_kp_sub_lords(curr_moon_sid)
+
+            # Current Day Lord & Hora Lord
+            geopos_curr = (t_lon, t_lat, 0.0)
+            jd_ut_start_curr = swe.julday(now_dt.year, now_dt.month, now_dt.day, 0.0)
+            res_rise_curr = swe.rise_trans(jd_ut_start_curr, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos_curr)
+            curr_sunrise_jd = res_rise_curr[1][0]
+            if jd_ut_now < curr_sunrise_jd:
+                res_prev = swe.rise_trans(jd_ut_start_curr - 1.0, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos_curr)
+                curr_sunrise_jd = res_prev[1][0]
+                adjusted_curr_dt = now_dt - timedelta(days=1)
+            else:
+                adjusted_curr_dt = now_dt
+            curr_day_lord = WEEKDAY_LORDS[adjusted_curr_dt.weekday()]
+            start_idx_curr = HORA_ORDER.index(curr_day_lord)
+            res_set_curr = swe.rise_trans(curr_sunrise_jd, swe.SUN, swe.CALC_SET | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos_curr)
+            curr_sunset_jd = res_set_curr[1][0]
+            if curr_sunrise_jd <= jd_ut_now < curr_sunset_jd:
+                day_hora_len = (curr_sunset_jd - curr_sunrise_jd) / 12.0
+                h_idx = int((jd_ut_now - curr_sunrise_jd) / day_hora_len) % 12
+                curr_hora_lord = HORA_ORDER[(start_idx_curr + h_idx) % 7]
+            else:
+                res_rise_next = swe.rise_trans(curr_sunset_jd, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos_curr)
+                next_sunrise_jd = res_rise_next[1][0]
+                night_hora_len = (next_sunrise_jd - curr_sunset_jd) / 12.0
+                h_idx = int((jd_ut_now - curr_sunset_jd) / night_hora_len) % 12
+                curr_hora_lord = HORA_ORDER[((start_idx_curr + 12) + h_idx) % 7]
+        else:
+            raise Exception("Swiss Ephemeris not available")
+    except Exception:
+        curr_asc_kp = asc_kp
+        curr_moon_kp = moon_kp
+        curr_day_lord = day_lord
+        curr_hora_lord = hora_lord
+
+    chart_ruling_planets = {
+        "day_lord": day_lord,
+        "hora_lord": hora_lord,
+        "asc_sign_lord": asc_kp["rashi_lord"],
+        "asc_star_lord": asc_kp["nakshatra_lord"],
+        "asc_sub_lord": asc_kp["sub_lord"],
+        "moon_sign_lord": moon_kp["rashi_lord"],
+        "moon_star_lord": moon_kp["nakshatra_lord"],
+        "moon_sub_lord": moon_kp.get("sub_lord") or moon_kp.get("sl") or "-"
+    }
+
+    current_ruling_planets = {
+        "day_lord": curr_day_lord,
+        "hora_lord": curr_hora_lord,
+        "asc_sign_lord": curr_asc_kp["rashi_lord"],
+        "asc_star_lord": curr_asc_kp["nakshatra_lord"],
+        "asc_sub_lord": curr_asc_kp["sub_lord"],
+        "moon_sign_lord": curr_moon_kp["rashi_lord"],
+        "moon_star_lord": curr_moon_kp["nakshatra_lord"],
+        "moon_sub_lord": curr_moon_kp["sub_lord"],
+        "timestamp": now_dt.strftime("%Y-%m-%d %H:%M:%S")
+    }
+
     ruling_planets = {
+        "chart": chart_ruling_planets,
+        "current": current_ruling_planets,
         "lagna_rashi_lord": asc_kp["rashi_lord"],
         "lagna_nakshatra_lord": asc_kp["nakshatra_lord"],
         "lagna_sub_lord": asc_kp["sub_lord"],
@@ -1324,6 +1407,8 @@ def generate_kp_system(
     return {
         "status": "success",
         "ruling_planets": ruling_planets,
+        "chart_ruling_planets": chart_ruling_planets,
+        "current_ruling_planets": current_ruling_planets,
         "person_name": name,
         "date_of_birth": dob_str,
         "time_of_birth": tob_str,
