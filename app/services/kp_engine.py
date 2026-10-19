@@ -1250,20 +1250,70 @@ def generate_kp_system(
         significators_data
     )
 
-    # Vedic Day Lord
+    # Exact Vedic Day Lord & Astronomical Hora Lord (Swiss Ephemeris & Chaldean cycle)
     WEEKDAY_LORDS = ["Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Sun"]
-    offset = 0 if (tob_parts[0] + tob_parts[1] / 60.0) >= 6.0 else -1
-    day_idx = (birth_dt + timedelta(days=offset)).weekday()
-    day_lord = WEEKDAY_LORDS[day_idx]
-    
+    HORA_ORDER = ["Sun", "Venus", "Mercury", "Moon", "Saturn", "Jupiter", "Mars"]
+    hour_ut = (tob_parts[0] + tob_parts[1] / 60.0 + (tob_parts[2] if len(tob_parts) > 2 else 0) / 3600.0) - timezone
+    try:
+        if SWISSEPH_AVAILABLE and swe is not None:
+            jd_ut_birth = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day, hour_ut)
+            geopos = (longitude, latitude, 0.0)
+            jd_ut_start = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day, 0.0)
+            res_rise = swe.rise_trans(jd_ut_start, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos)
+            sunrise_jd = res_rise[1][0]
+            if jd_ut_birth < sunrise_jd:
+                res_rise_prev = swe.rise_trans(jd_ut_start - 1.0, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos)
+                sunrise_jd = res_rise_prev[1][0]
+                adjusted_dt = birth_dt - timedelta(days=1)
+            else:
+                adjusted_dt = birth_dt
+            day_lord = WEEKDAY_LORDS[adjusted_dt.weekday()]
+            start_idx = HORA_ORDER.index(day_lord)
+            res_set = swe.rise_trans(sunrise_jd, swe.SUN, swe.CALC_SET | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos)
+            sunset_jd = res_set[1][0]
+            if sunrise_jd <= jd_ut_birth < sunset_jd:
+                day_hora_len = (sunset_jd - sunrise_jd) / 12.0
+                hora_idx = int((jd_ut_birth - sunrise_jd) / day_hora_len) % 12
+                hora_lord = HORA_ORDER[(start_idx + hora_idx) % 7]
+            else:
+                res_rise_next = swe.rise_trans(sunset_jd, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos)
+                next_sunrise_jd = res_rise_next[1][0]
+                night_hora_len = (next_sunrise_jd - sunset_jd) / 12.0
+                hora_idx = int((jd_ut_birth - sunset_jd) / night_hora_len) % 12
+                start_idx_night = (start_idx + 12) % 7
+                hora_lord = HORA_ORDER[(start_idx_night + hora_idx) % 7]
+        else:
+            raise Exception("Swiss Ephemeris not available")
+    except Exception:
+        tob_hours = tob_parts[0] + tob_parts[1] / 60.0 + (tob_parts[2] if len(tob_parts) > 2 else 0) / 3600.0
+        offset = 0 if tob_hours >= 6.0 else -1
+        day_idx = (birth_dt + timedelta(days=offset)).weekday()
+        day_lord = WEEKDAY_LORDS[day_idx]
+        hours_from_sunrise = tob_hours - 6.0
+        if hours_from_sunrise < 0:
+            hours_from_sunrise += 24.0
+        hora_idx_in_day = int(hours_from_sunrise) % 24
+        start_hora_idx = HORA_ORDER.index(day_lord) if day_lord in HORA_ORDER else 0
+        hora_lord = HORA_ORDER[(start_hora_idx + hora_idx_in_day) % 7]
+
     moon_kp = next((p for p in planets_list if p["name"] == "Moon"), planets_list[0])
 
     ruling_planets = {
-        "lagna_rashi_lord": planets_list[0]["rashi_lord"],
-        "lagna_nakshatra_lord": planets_list[0]["nakshatra_lord"],
+        "lagna_rashi_lord": asc_kp["rashi_lord"],
+        "lagna_nakshatra_lord": asc_kp["nakshatra_lord"],
+        "lagna_sub_lord": asc_kp["sub_lord"],
+        "asc_sub_lord": asc_kp["sub_lord"],
+        "asc_sign": asc_kp["sign_name"],
+        "asc_nakshatra": asc_kp["nakshatra_name"],
+        "asc_rl": asc_kp["rl"],
+        "asc_nl": asc_kp["nl"],
+        "asc_sl": asc_kp["sl"],
+        "asc_ssl": asc_kp["ssl"],
         "moon_rashi_lord": moon_kp["rashi_lord"],
         "moon_nakshatra_lord": moon_kp["nakshatra_lord"],
-        "day_lord": day_lord
+        "moon_sub_lord": moon_kp.get("sub_lord") or moon_kp.get("sl") or "-",
+        "day_lord": day_lord,
+        "hora_lord": hora_lord
     }
     
     upagrahas_list = calculate_upagrahas(sun_lon, asc_deg, birth_dt, latitude, longitude, timezone, ayan_deg)
