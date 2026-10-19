@@ -66,11 +66,19 @@ def get_bnn():
 
 @horoscope_bp.route("/lal-kitab", methods=["POST"])
 def get_lal_kitab():
-    """Calculate exact Lal Kitab planetary placements and remedies."""
+    """Calculate exact Lal Kitab planetary placements, Varshphal, and 35-Year Dasha."""
     data = parse_horoscope_data()
+    req_json = request.json or {}
+    target_year = req_json.get("target_year") or req_json.get("varshphal_year")
+    if target_year is not None:
+        try:
+            target_year = int(target_year)
+        except Exception:
+            target_year = None
     result = generate_lal_kitab_chart(
         data["name"], data["date_of_birth"], data["time_of_birth"],
-        data["place_of_birth"], data["latitude"], data["longitude"], data["timezone"]
+        data["place_of_birth"], data["latitude"], data["longitude"], data["timezone"],
+        target_year=target_year
     )
     result = remove_hindi_text(result)
     return jsonify(result)
