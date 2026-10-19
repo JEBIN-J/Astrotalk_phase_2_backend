@@ -261,7 +261,8 @@ def calculate_argala(reference_idx: int, planets: List[Dict]) -> List[Dict]:
     return results
 
 # ==========================================
-# 5. CHARA DASHA ENGINE
+# 5. CHARA DASHA ENGINE (FULL 5-LEVEL HIERARCHY)
+# Mahadasha -> Antardasha -> Pratyantardasha -> Sukshma Dasha -> Prana Dasha
 # ==========================================
 
 def get_chara_dasha_duration(sign_idx: int, planets: List[Dict]) -> int:
@@ -271,85 +272,262 @@ def get_chara_dasha_duration(sign_idx: int, planets: List[Dict]) -> int:
     if not lord_p: return 0
     lord_sign = lord_p["sign_index"]
     
-    # 1=Aries (forward), 2=Taurus (backward), 3=Gemini (forward), etc.
-    # Exception: Scorpio and Aquarius might have dual lordship.
-    # Count distance:
+    # K.N. Rao direct counting for Savya signs, backward for Apasavya
     if sign_idx in [1, 2, 3, 7, 8, 9]:
-        # Count Forward
         dist = (lord_sign - sign_idx) % 12
     else:
-        # Count Backward
         dist = (sign_idx - lord_sign) % 12
         
     duration = dist
     if duration == 0:
         duration = 12
-    
-    # Exalted planet gives +1, Debilitated gives -1 (often applied)
-    # Keeping it simple based on distance for now.
     return duration
 
-def calculate_chara_dasha(asc_sign_idx: int, planets: List[Dict], birth_dt: datetime) -> List[Dict]:
-    """Generate Mahadasha sequence and durations."""
-    # Sequence depends on Ascendant (Odd = forward, Even = backward)
+def get_chara_sub_sequence(sign_idx: int) -> List[int]:
+    """
+    Sub-period sequence starts with the sign itself.
+    Savya (Direct): Aries (1), Taurus (2), Gemini (3), Libra (7), Scorpio (8), Sagittarius (9) -> Forward
+    Apasavya (Indirect): Cancer (4), Leo (5), Virgo (6), Capricorn (10), Aquarius (11), Pisces (12) -> Backward
+    """
+    if sign_idx in [1, 2, 3, 7, 8, 9]:
+        return [(sign_idx - 1 + i) % 12 + 1 for i in range(12)]
+    else:
+        seq = [(sign_idx - 1 - i) % 12 + 1 for i in range(12)]
+        return [s if s != 0 else 12 for s in seq]
+
+def format_chara_duration(seconds: float) -> str:
+    """Formats duration seconds into human-readable astrological format."""
+    if seconds >= 86400 * 365:
+        yrs = round(seconds / (86400 * 365.25), 1)
+        return f"{int(yrs) if yrs == int(yrs) else yrs} Yrs"
+    elif seconds >= 86400 * 30:
+        months = round(seconds / (86400 * 30.4375), 1)
+        return f"{int(months) if months == int(months) else months} Mo"
+    elif seconds >= 86400:
+        days = round(seconds / 86400, 1)
+        return f"{int(days) if days == int(days) else days} Days"
+    elif seconds >= 3600:
+        hrs = round(seconds / 3600, 1)
+        return f"{int(hrs) if hrs == int(hrs) else hrs} Hrs"
+    else:
+        mins = round(seconds / 60, 1)
+        return f"{int(mins) if mins == int(mins) else mins} Min"
+
+def calculate_chara_sub_periods(
+    parent_sign_idx: int,
+    start_dt: datetime,
+    end_dt: datetime,
+    level_name: str,
+    planets: List[Dict],
+    now_dt: datetime
+) -> List[Dict]:
+    """Calculates 12 sub-periods with exact datetime boundaries."""
+    sub_seq = get_chara_sub_sequence(parent_sign_idx)
+    total_delta = end_dt - start_dt
+    step = total_delta / 12
+    items = []
+    curr = start_dt
+
+    for i, s_idx in enumerate(sub_seq):
+        sub_end = curr + step if i < 11 else end_dt
+        is_active = (curr <= now_dt < sub_end)
+        is_completed = (sub_end <= now_dt)
+        secs = (sub_end - curr).total_seconds()
+
+        item = {
+            "sign_index": s_idx,
+            "sign": get_sign_name(s_idx),
+            "level": level_name,
+            "lord": get_jaimini_lord(s_idx, planets) if planets else "",
+            "start_date": curr.strftime("%Y-%m-%d %H:%M:%S"),
+            "end_date": sub_end.strftime("%Y-%m-%d %H:%M:%S"),
+            "start_formatted": curr.strftime("%d %b %Y %H:%M") if level_name in ["sukshma", "prana"] else curr.strftime("%d %b %Y"),
+            "end_formatted": sub_end.strftime("%d %b %Y %H:%M") if level_name in ["sukshma", "prana"] else sub_end.strftime("%d %b %Y"),
+            "duration": format_chara_duration(secs),
+            "duration_seconds": secs,
+            "is_active": is_active,
+            "is_completed": is_completed
+        }
+        items.append(item)
+        curr = sub_end
+    return items
+
+def calculate_chara_dasha(
+    asc_sign_idx: int,
+    planets: List[Dict],
+    birth_dt: datetime,
+    now_dt: Optional[datetime] = None
+) -> Dict[str, Any]:
+    """
+    Generate authentic 5-level Jaimini Chara Dasha hierarchy:
+    Mahadasha (Level 1) -> Antardasha (Level 2) -> Pratyantardasha (Level 3) -> Sukshma Dasha (Level 4) -> Prana Dasha (Level 5).
+    """
+    if now_dt is None:
+        now_dt = datetime.now()
+
     is_odd = asc_sign_idx % 2 != 0
-    
-    # Certain signs reverse the sequence: Aries forward, Taurus backward...
-    # But usually sequence is:
-    # Aries, Taurus, Gemini... for Aries Asc
-    # Taurus, Aries, Pisces... for Taurus Asc
-    # Let's use standard Padmanath sequence:
-    if asc_sign_idx in [1, 2, 3, 7, 8, 9]:
-        # Actually standard Chara Dasha: 
-        # Odd Lagna -> Forward 1..12
-        # Even Lagna -> Backward 1..12 (e.g. 2, 1, 12, 11...)
-        pass
-        
     if is_odd:
         sequence = [(asc_sign_idx - 1 + i) % 12 + 1 for i in range(12)]
     else:
         sequence = [(asc_sign_idx - 1 - i) % 12 + 1 for i in range(12)]
-        if 0 in sequence:
-            sequence = [s if s != 0 else 12 for s in sequence]
-            
+        sequence = [s if s != 0 else 12 for s in sequence]
+
     dashas = []
     current_dt = birth_dt
+
+    active_md = None
+    active_ad = None
+    active_pd = None
+    active_sd = None
+    active_pran = None
+
     for s_idx in sequence:
-        dur = get_chara_dasha_duration(s_idx, planets)
-        end_dt = current_dt + timedelta(days=dur * 365.25)
-        
-        # Antardashas
-        is_ad_odd = s_idx % 2 != 0
-        if is_ad_odd:
-            ad_seq = [(s_idx - 1 + i) % 12 + 1 for i in range(12)]
-        else:
-            ad_seq = [(s_idx - 1 - i) % 12 + 1 for i in range(12)]
-            ad_seq = [s if s != 0 else 12 for s in ad_seq]
-            
-        ad_list = []
-        ad_dt = current_dt
-        for ad_idx in ad_seq:
-            ad_end_dt = ad_dt + timedelta(days=dur * 30.4375)
-            ad_list.append({
-                "sign": get_sign_name(ad_idx),
-                "duration": round(dur / 12.0, 2),
-                "start_date": ad_dt.strftime("%Y-%m-%d"),
-                "end_date": ad_end_dt.strftime("%Y-%m-%d")
-            })
-            ad_dt = ad_end_dt
-        
-        dashas.append({
+        dur_years = get_chara_dasha_duration(s_idx, planets)
+        end_dt = current_dt + timedelta(days=dur_years * 365.25)
+        md_is_active = (current_dt <= now_dt < end_dt)
+        md_is_completed = (end_dt <= now_dt)
+
+        # 1. Antardashas (Level 2)
+        ads = calculate_chara_sub_periods(s_idx, current_dt, end_dt, "antardasha", planets, now_dt)
+
+        # 2. Pratyantardashas (Level 3) for each Antardasha
+        for ad in ads:
+            ad_start = datetime.strptime(ad["start_date"], "%Y-%m-%d %H:%M:%S")
+            ad_end = datetime.strptime(ad["end_date"], "%Y-%m-%d %H:%M:%S")
+            pds = calculate_chara_sub_periods(ad["sign_index"], ad_start, ad_end, "pratyantardasha", planets, now_dt)
+
+            # If this is the active Antardasha, or within active MD, build Sukshma Dashas
+            if ad["is_active"] or md_is_active:
+                for pd in pds:
+                    pd_start = datetime.strptime(pd["start_date"], "%Y-%m-%d %H:%M:%S")
+                    pd_end = datetime.strptime(pd["end_date"], "%Y-%m-%d %H:%M:%S")
+                    sds = calculate_chara_sub_periods(pd["sign_index"], pd_start, pd_end, "sukshma", planets, now_dt)
+
+                    # Build Prana Dashas for active Sukshmas
+                    if pd["is_active"]:
+                        for sd in sds:
+                            sd_start = datetime.strptime(sd["start_date"], "%Y-%m-%d %H:%M:%S")
+                            sd_end = datetime.strptime(sd["end_date"], "%Y-%m-%d %H:%M:%S")
+                            prans = calculate_chara_sub_periods(sd["sign_index"], sd_start, sd_end, "prana", planets, now_dt)
+                            sd["prana_dashas"] = prans
+
+                            if sd["is_active"]:
+                                active_sd = sd
+                                for pr in prans:
+                                    if pr["is_active"]:
+                                        active_pran = pr
+                                        break
+                        active_pd = pd
+                    pd["sukshma_dashas"] = sds
+
+            ad["pratyantardashas"] = pds
+            if ad["is_active"]:
+                active_ad = ad
+
+        md_item = {
             "sign_index": s_idx,
             "sign": get_sign_name(s_idx),
-            "duration": dur,
-            "start_date": current_dt.strftime("%Y-%m-%d"),
-            "end_date": end_dt.strftime("%Y-%m-%d"),
+            "level": "mahadasha",
+            "duration": dur_years,
+            "duration_formatted": f"{dur_years} Yrs",
+            "start_date": current_dt.strftime("%Y-%m-%d %H:%M:%S"),
+            "end_date": end_dt.strftime("%Y-%m-%d %H:%M:%S"),
+            "start_formatted": current_dt.strftime("%d %b %Y"),
+            "end_formatted": end_dt.strftime("%d %b %Y"),
             "lord": get_jaimini_lord(s_idx, planets),
-            "antardashas": ad_list
-        })
+            "is_active": md_is_active,
+            "is_completed": md_is_completed,
+            "antardashas": ads
+        }
+        if md_is_active:
+            active_md = md_item
+
+        dashas.append(md_item)
         current_dt = end_dt
-        
-    return dashas
+
+    # Fallback to last period if person exceeds total chart lifespan
+    if not active_md and dashas:
+        active_md = dashas[-1]
+    if active_md and not active_ad and active_md.get("antardashas"):
+        active_ad = active_md["antardashas"][-1]
+    if active_ad and not active_pd and active_ad.get("pratyantardashas"):
+        active_pd = active_ad["pratyantardashas"][-1]
+    if active_pd and not active_sd and active_pd.get("sukshma_dashas"):
+        active_sd = active_pd["sukshma_dashas"][-1]
+    if active_sd and not active_pran and active_sd.get("prana_dashas"):
+        active_pran = active_sd["prana_dashas"][-1]
+
+    current_period = {
+        "current_date": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
+        "mahadasha": {
+            "sign": active_md.get("sign") if active_md else "Unknown",
+            "lord": active_md.get("lord") if active_md else "",
+            "start_date": active_md.get("start_date") if active_md else "",
+            "end_date": active_md.get("end_date") if active_md else "",
+            "duration": active_md.get("duration_formatted") if active_md else "",
+        },
+        "antardasha": {
+            "sign": active_ad.get("sign") if active_ad else "Unknown",
+            "lord": active_ad.get("lord") if active_ad else "",
+            "start_date": active_ad.get("start_date") if active_ad else "",
+            "end_date": active_ad.get("end_date") if active_ad else "",
+            "duration": active_ad.get("duration") if active_ad else "",
+        },
+        "pratyantardasha": {
+            "sign": active_pd.get("sign") if active_pd else "Unknown",
+            "lord": active_pd.get("lord") if active_pd else "",
+            "start_date": active_pd.get("start_date") if active_pd else "",
+            "end_date": active_pd.get("end_date") if active_pd else "",
+            "duration": active_pd.get("duration") if active_pd else "",
+        },
+        "sukshma_dasha": {
+            "sign": active_sd.get("sign") if active_sd else "Unknown",
+            "lord": active_sd.get("lord") if active_sd else "",
+            "start_date": active_sd.get("start_date") if active_sd else "",
+            "end_date": active_sd.get("end_date") if active_sd else "",
+            "duration": active_sd.get("duration") if active_sd else "",
+        },
+        "prana_dasha": {
+            "sign": active_pran.get("sign") if active_pran else "Unknown",
+            "lord": active_pran.get("lord") if active_pran else "",
+            "start_date": active_pran.get("start_date") if active_pran else "",
+            "end_date": active_pran.get("end_date") if active_pran else "",
+            "duration": active_pran.get("duration") if active_pran else "",
+        }
+    }
+
+    return {
+        "timeline": dashas,
+        "current_period": current_period
+    }
+
+def calculate_jaimini_sub_dasha_on_demand(
+    parent_sign: str,
+    start_date_str: str,
+    end_date_str: str,
+    target_level: str,
+    planets: List[Dict] = None
+) -> List[Dict]:
+    """Calculate 12 sub-periods dynamically on demand for any clicked level."""
+    for i, s in enumerate(ZODIAC_SIGNS):
+        if s["name"].lower() == parent_sign.lower():
+            parent_sign_idx = i + 1
+            break
+    else:
+        parent_sign_idx = 1
+
+    try:
+        start_dt = datetime.strptime(start_date_str, "%Y-%m-%d %H:%M:%S")
+    except Exception:
+        start_dt = datetime.strptime(start_date_str, "%Y-%m-%d")
+
+    try:
+        end_dt = datetime.strptime(end_date_str, "%Y-%m-%d %H:%M:%S")
+    except Exception:
+        end_dt = datetime.strptime(end_date_str, "%Y-%m-%d")
+
+    now_dt = datetime.now()
+    return calculate_chara_sub_periods(parent_sign_idx, start_dt, end_dt, target_level, planets or [], now_dt)
 
 # ==========================================
 # 6. MISSING JAIMINI SUB-ENGINES (YOGAS, LAGNAS, TRANSITS)
@@ -527,20 +705,11 @@ def generate_jaimini_chart(
     except:
         birth_dt = datetime.now()
         
-    dasha_timeline = calculate_chara_dasha(asc_sign_idx, planets, birth_dt)
-    
-    # 8. Current Period logic
     now_dt = datetime.now()
-    current_dasha = None
-    for d in dasha_timeline:
-        start = datetime.strptime(d["start_date"], "%Y-%m-%d")
-        end = datetime.strptime(d["end_date"], "%Y-%m-%d")
-        if start <= now_dt < end:
-            current_dasha = d
-            break
-            
-    if not current_dasha:
-        current_dasha = dasha_timeline[-1] if dasha_timeline else {}
+    chara_dasha_result = calculate_chara_dasha(asc_sign_idx, planets, birth_dt, now_dt)
+    dasha_timeline = chara_dasha_result["timeline"]
+    current_period = chara_dasha_result["current_period"]
+    current_dasha = current_period.get("mahadasha", {})
 
     # 9. Missing Sub-engines
     jaimini_yogas = calculate_jaimini_yogas(planets, chara_karakas)
@@ -587,8 +756,5 @@ def generate_jaimini_chart(
         "special_lagnas": special_lagnas,
         "karakamsha_analysis": karakamsha_analysis,
         "current_transits": current_transits,
-        "current_period": {
-            "current_date": now_dt.strftime("%Y-%m-%d"),
-            "mahadasha": current_dasha
-        }
+        "current_period": current_period
     }

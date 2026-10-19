@@ -50,6 +50,19 @@ def get_jaimini():
     result = remove_hindi_text(result)
     return jsonify(result)
 
+@horoscope_bp.route("/jaimini-sub-dasha", methods=["POST"])
+def get_jaimini_sub_dasha():
+    """Calculate 12 sub-periods dynamically on demand for any clicked level."""
+    from app.services.jaimini_engine import calculate_jaimini_sub_dasha_on_demand
+    data = request.json or {}
+    parent_sign = data.get("parent_sign", "Aries")
+    start_date = data.get("start_date", "")
+    end_date = data.get("end_date", "")
+    target_level = data.get("target_level", "sukshma")
+    
+    sub_dashas = calculate_jaimini_sub_dasha_on_demand(parent_sign, start_date, end_date, target_level)
+    return jsonify({"sub_dashas": remove_hindi_text(sub_dashas)})
+
 @horoscope_bp.route("/bnn", methods=["POST"])
 def get_bnn():
     """Calculate exact BNN linkages and event analysis."""
