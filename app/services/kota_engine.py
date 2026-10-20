@@ -84,7 +84,7 @@ def generate_kota_chakra(
 ) -> Dict[str, Any]:
     
     # 1. Calculate Natal Chart via Swiss Ephemeris
-    natal = generate_full_kundli(name, dob_str, tob_str, pob_str, latitude, longitude, timezone)
+    natal = generate_full_kundli(name, dob_str, tob_str, pob_str, latitude, longitude, timezone, ayanamsa=ayanamsa, custom_ayanamsa=custom_ayanamsa)
     natal_planets = natal.get("planets", [])
     
     moon = next((p for p in natal_planets if p["planet_name_simple"] == "Moon"), None)
@@ -108,8 +108,8 @@ def generate_kota_chakra(
         
     t_prev = t_dt - timedelta(days=1)
     
-    transit_current = generate_full_kundli("Transit", t_dt.strftime("%Y-%m-%d"), t_dt.strftime("%H:%M"), pob_str, latitude, longitude, timezone)
-    transit_prev = generate_full_kundli("TransitPrev", t_prev.strftime("%Y-%m-%d"), t_prev.strftime("%H:%M"), pob_str, latitude, longitude, timezone)
+    transit_current = generate_full_kundli("Transit", t_dt.strftime("%Y-%m-%d"), t_dt.strftime("%H:%M"), pob_str, latitude, longitude, timezone, ayanamsa=ayanamsa, custom_ayanamsa=custom_ayanamsa)
+    transit_prev = generate_full_kundli("TransitPrev", t_prev.strftime("%Y-%m-%d"), t_prev.strftime("%H:%M"), pob_str, latitude, longitude, timezone, ayanamsa=ayanamsa, custom_ayanamsa=custom_ayanamsa)
     
     # 3. Mapping Transits
     transits = []

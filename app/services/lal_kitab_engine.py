@@ -233,13 +233,16 @@ def calculate_lal_kitab_varshphal(natal_planets: List[Dict[str, Any]], dob_dt: d
 def generate_lal_kitab_chart(
     name: str, dob_str: str, tob_str: str, pob_str: str,
     latitude: float, longitude: float, timezone: float,
-    target_year: Optional[int] = None
+    target_year: Optional[int] = None,
+    ayanamsa: str = "LAHIRI",
+    custom_ayanamsa: Optional[float] = None
 ) -> Dict[str, Any]:
     """Generates the complete Lal Kitab Chart, 35-Year Dasha, and Varshphal."""
     
-    # Base cosmic data from the core Swiss Ephemeris engine
+    # Base cosmic data from the core Swiss Ephemeris engine with user-selected ayanamsa
     kundli = generate_full_kundli(
-        name, dob_str, tob_str, pob_str, latitude, longitude, timezone
+        name, dob_str, tob_str, pob_str, latitude, longitude, timezone,
+        ayanamsa=ayanamsa, custom_ayanamsa=custom_ayanamsa
     )
     
     lk_planets = []
@@ -319,6 +322,8 @@ def generate_lal_kitab_chart(
         "date_of_birth": dob_str,
         "time_of_birth": tob_str,
         "place_of_birth": pob_str,
+        "ayanamsa": ayanamsa,
+        "ayanamsa_name": ayanamsa,
         "ascendant_degree": kundli.get("ascendant_degree_formatted", ""),
         "planets": lk_planets,
         "houses": houses_list,

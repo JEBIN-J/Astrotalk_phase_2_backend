@@ -713,7 +713,8 @@ def generate_bnn_chart(
     
     # 1. Fetch exact natal planetary data using Swiss Ephemeris
     kundli = generate_full_kundli(
-        name, dob_str, tob_str, pob_str, latitude, longitude, timezone
+        name, dob_str, tob_str, pob_str, latitude, longitude, timezone,
+        ayanamsa=ayanamsa, custom_ayanamsa=custom_ayanamsa
     )
     
     valid_planets = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu"]
@@ -721,7 +722,8 @@ def generate_bnn_chart(
     
     now = datetime.strptime(target_date_str, "%Y-%m-%d") if target_date_str else datetime.utcnow() + __import__('datetime').timedelta(hours=timezone)
     transit_kundli = generate_full_kundli(
-        "Transit", now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S"), pob_str, latitude, longitude, timezone
+        "Transit", now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S"), pob_str, latitude, longitude, timezone,
+        ayanamsa=ayanamsa, custom_ayanamsa=custom_ayanamsa
     )
     transit_planets = [p for p in transit_kundli.get("planets", []) if p.get("planet_name_simple", p["name"].split(" ")[0]) in valid_planets]
     
@@ -864,28 +866,87 @@ def generate_bnn_chart(
                     "activation_status": "Highly Active" if rel["strength"] >= 75 else "Active"
                 })
 
-    # 6. Event Activation
+    # 6. Event Activation (BNN Minor Annual Progression + Transit Dynamic Activation)
     event_activations = []
+    
+    # Extract Minor (Annual) Progressed Sign Indices that advance dynamically with each year
+    j_minor = jupiter_progression.get("minor_progression", {})
+    s_minor = saturn_progression.get("minor_progression", {})
+    j_idx = j_minor.get("sign_index") or jupiter_progression.get("current_progressed_sign_index", 1)
+    s_idx = s_minor.get("sign_index") or saturn_progression.get("current_progressed_sign_index", 1)
+    
     for event, karakas in BNN_EVENTS.items():
         if len(karakas) >= 2:
-            p1 = next((p for p in progressed_bnn_planets if p["planet"] == karakas[0]), None)
-            p2 = next((p for p in progressed_bnn_planets if p["planet"] == karakas[1]), None)
+            p1_natal = next((p for p in bnn_planets if p["planet"] == karakas[0]), None)
+            p2_natal = next((p for p in bnn_planets if p["planet"] == karakas[1]), None)
             
-            if p1 and p2:
-                rel = get_bnn_relationship(p1["sign_index"], p2["sign_index"])
-                transit_trigger = "No"
-                for ta in transit_activations:
-                    if ta["natal_planet"] == p1["planet"] and ta["strength"] >= 75 and ta["transit_planet"] in ["Jupiter", "Saturn"]:
-                        transit_trigger = "Yes"
-                        break
-                        
+            if p1_natal and p2_natal:
+                # 1. Natal Base Connection (Birth Promise)
+                natal_rel = get_bnn_relationship(p1_natal["sign_index"], p2_natal["sign_index"])
+                natal_strength = natal_rel["strength"]
+                
+                # 2. Progression Activation (Target Year Minor Jupiter & Saturn)
+                pj_p1 = get_bnn_relationship(j_idx, p1_natal["sign_index"])
+                pj_p2 = get_bnn_relationship(j_idx, p2_natal["sign_index"])
+                ps_p1 = get_bnn_relationship(s_idx, p1_natal["sign_index"])
+                ps_p2 = get_bnn_relationship(s_idx, p2_natal["sign_index"])
+                
+                prog_p1 = max(pj_p1["strength"] if pj_p1["strength"] >= 50 else 0, ps_p1["strength"] if ps_p1["strength"] >= 50 else 0)
+                prog_p2 = max(pj_p2["strength"] if pj_p2["strength"] >= 50 else 0, ps_p2["strength"] if ps_p2["strength"] >= 50 else 0)
+                
+                prog_strength = max(prog_p1, prog_p2)
+                if prog_p1 >= 50 and prog_p2 >= 50:
+                    prog_strength = min(100, prog_strength + 20)
+                    
+                prog_triggers = []
+                if pj_p1["strength"] >= 50: prog_triggers.append(f"Prog. Jup {pj_p1['relationship']} {p1_natal['planet']}")
+                if pj_p2["strength"] >= 50: prog_triggers.append(f"Prog. Jup {pj_p2['relationship']} {p2_natal['planet']}")
+                if ps_p1["strength"] >= 50: prog_triggers.append(f"Prog. Sat {ps_p1['relationship']} {p1_natal['planet']}")
+                if ps_p2["strength"] >= 50: prog_triggers.append(f"Prog. Sat {ps_p2['relationship']} {p2_natal['planet']}")
+                
+                # 3. Transit Activation (Target Year Transit Jupiter & Saturn)
+                tj_hits = [ta for ta in transit_activations if ta.get("transit_planet") == "Jupiter" and ta.get("natal_planet") in [p1_natal["planet"], p2_natal["planet"]] and ta.get("strength", 0) >= 50]
+                ts_hits = [ta for ta in transit_activations if ta.get("transit_planet") == "Saturn" and ta.get("natal_planet") in [p1_natal["planet"], p2_natal["planet"]] and ta.get("strength", 0) >= 50]
+                
+                tj_strength = max([h.get("strength", 0) for h in tj_hits], default=0)
+                ts_strength = max([h.get("strength", 0) for h in ts_hits], default=0)
+                
+                transit_strength = max(tj_strength, ts_strength)
+                if tj_strength >= 50 and ts_strength >= 50:
+                    transit_strength = min(100, transit_strength + 15)
+                    
+                transit_triggers = [f"Trst {h['transit_planet']} {h['relationship']} {h['natal_planet']}" for h in (tj_hits + ts_hits)]
+                
+                # 4. Composite Dynamic Year Potential Score
+                # 30% Natal Promise, 40% Progression Alignment, 30% Transit Alignment
+                dynamic_score = round(0.30 * natal_strength + 0.40 * prog_strength + 0.30 * transit_strength)
+                
+                has_prog = len(prog_triggers) > 0
+                has_transit = len(transit_triggers) > 0
+                
+                if dynamic_score >= 65:
+                    status = "Active Trigger"
+                elif dynamic_score >= 45:
+                    status = "Strong Potential"
+                elif dynamic_score >= 25:
+                    status = "Moderate"
+                else:
+                    status = "Dormant"
+
                 event_activations.append({
                     "event": event,
-                    "karakas": ", ".join(karakas),
-                    "natal_connection": rel["relationship"],
-                    "strength": rel["strength"],
-                    "transit_trigger": transit_trigger,
-                    "status": "Strong Potential" if rel["strength"] >= 50 else "Insufficient BNN confirmation"
+                    "karakas": f"{p1_natal['planet']}, {p2_natal['planet']}",
+                    "natal_connection": natal_rel["relationship"],
+                    "strength": dynamic_score,
+                    "dynamic_score": dynamic_score,
+                    "natal_strength": natal_strength,
+                    "prog_strength": prog_strength,
+                    "transit_strength": transit_strength,
+                    "transit_trigger": "Yes" if has_transit else "No",
+                    "transit_detail": transit_triggers[0] if transit_triggers else "No major transit",
+                    "progression_trigger": "Yes" if has_prog else "No",
+                    "progression_detail": prog_triggers[0] if prog_triggers else "Dormant",
+                    "status": status
                 })
 
     return {
@@ -900,6 +961,8 @@ def generate_bnn_chart(
             "ayanamsa": kundli.get("ayanamsa_formatted", "Lahiri"),
             "ephemeris": "Swiss Ephemeris (pyswisseph)",
             "current_age": round(current_age, 2),
+            "age": round(current_age, 1),
+            "target_year": now.year,
             "target_date": now.strftime("%Y-%m-%d"),
             "bnn_reference_planet": "Jupiter (Male) / Venus (Female)"
         },

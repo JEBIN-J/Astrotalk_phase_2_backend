@@ -72,7 +72,9 @@ def get_bnn():
     result = generate_bnn_chart(
         data["name"], data["date_of_birth"], data["time_of_birth"],
         data["place_of_birth"], data["latitude"], data["longitude"], data["timezone"],
-        target_date_str=target_date_str
+        target_date_str=target_date_str,
+        ayanamsa=data.get("ayanamsa", "LAHIRI"),
+        custom_ayanamsa=data.get("custom_ayanamsa")
     )
     result = remove_hindi_text(result)
     return jsonify(result)
@@ -91,7 +93,9 @@ def get_lal_kitab():
     result = generate_lal_kitab_chart(
         data["name"], data["date_of_birth"], data["time_of_birth"],
         data["place_of_birth"], data["latitude"], data["longitude"], data["timezone"],
-        target_year=target_year
+        target_year=target_year,
+        ayanamsa=data.get("ayanamsa", "LAHIRI"),
+        custom_ayanamsa=data.get("custom_ayanamsa")
     )
     result = remove_hindi_text(result)
     return jsonify(result)
@@ -373,7 +377,9 @@ def get_kota_chakra():
     result = generate_kota_chakra(
         data["name"], data["date_of_birth"], data["time_of_birth"],
         data["place_of_birth"], data["latitude"], data["longitude"], data["timezone"],
-        transit_date_str=transit_date, transit_time_str=transit_time
+        transit_date_str=transit_date, transit_time_str=transit_time,
+        ayanamsa=data.get("ayanamsa", "LAHIRI"),
+        custom_ayanamsa=data.get("custom_ayanamsa")
     )
     result = remove_hindi_text(result)
     return jsonify(result)
