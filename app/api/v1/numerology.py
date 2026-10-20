@@ -1,3 +1,4 @@
+from app.services.numerology_chart_service import NumerologyChartService
 from app.services.crystal_match_engine import CrystalMatchEngine
 from app.services.remedy_rule_engine import RemedyRuleEngine
 """
@@ -1444,4 +1445,244 @@ def save_compatibility_report():
 
     except Exception as e:
         logger.error(f"Error saving compatibility report: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+from app.services.numerology_dasha_service import NumerologyDashaService
+
+# =========================================================================
+# ASTROLOGER MODE - NUMEROLOGY DASHA WORKSPACE
+# =========================================================================
+
+@numerology_bp.route('/astrologer-workspace', methods=['POST'])
+def get_astrologer_workspace():
+    """
+    Dedicated table-based Numerology Dasha workspace calculation endpoint.
+    Deterministic, backend-only calculations for:
+    - Basic Info (Mulank, Supportive Number, Destiny Number, Lucky attributes, reduction steps)
+    - 100-Year Mahadasha Lifetime Progression Table
+    - Annual Antardasha Milestone Schedule
+    - Pratantardasha / Paryantardasha 365-day Subdivisions
+    - Daily Dasha Planetary Schedule & Explanations
+    """
+    try:
+        data = request.get_json() or {}
+        name = str(data.get("name", "")).strip()
+        dob = str(data.get("dob") or data.get("date_of_birth", "")).strip()
+        system = str(data.get("system", "pythagorean")).strip()
+        ref_date = data.get("reference_date")
+
+        if not dob:
+            return jsonify({
+                "status": "error",
+                "message": "Date of birth (dob) is required to calculate Astrologer Dasha workspace."
+            }), 400
+
+        if not name:
+            name = "Seeker"
+
+        workspace = NumerologyDashaService.get_full_workspace(
+            name=name,
+            dob_str=dob,
+            system=system,
+            ref_date_str=ref_date
+        )
+
+        return jsonify(workspace), 200
+    except ValueError as ve:
+        return jsonify({"status": "error", "message": str(ve)}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Calculation failed: {str(e)}"}), 500
+
+
+@numerology_bp.route('/dasha/paryantardashas', methods=['POST'])
+def get_paryantardashas_for_year():
+    """
+    Retrieves the 9 Pratantardashas for a specific Antardasha cycle year.
+    """
+    try:
+        data = request.get_json() or {}
+        dob = str(data.get("dob") or data.get("date_of_birth", "")).strip()
+        year = data.get("year")
+        ref_date = data.get("reference_date")
+
+        if not dob:
+            return jsonify({"status": "error", "message": "Date of birth (dob) is required."}), 400
+
+        pds = NumerologyDashaService.calculate_paryantardashas(
+            dob_str=dob,
+            antardasha_year=int(year) if year is not None else None,
+            ref_date_str=ref_date
+        )
+
+        return jsonify({"status": "success", "data": pds}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@numerology_bp.route('/dasha/daily', methods=['POST'])
+def get_daily_dashas():
+    """
+    Retrieves Daily Dasha schedule for a specified center date and span.
+    """
+    try:
+        data = request.get_json() or {}
+        dob = str(data.get("dob") or data.get("date_of_birth", "")).strip()
+        center_date = data.get("center_date") or data.get("date")
+        span_days = int(data.get("span_days", 14))
+
+        if not dob:
+            return jsonify({"status": "error", "message": "Date of birth (dob) is required."}), 400
+
+        daily_list = NumerologyDashaService.calculate_daily_dashas(
+            dob_str=dob,
+            center_date_str=center_date,
+            days_span=span_days
+        )
+
+        return jsonify({"status": "success", "data": daily_list}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+# =========================================================================
+# NUMEROLOGY CHART WORKSPACE (BASIC CHART, DASHA TIMELINE & PRATYANTAR)
+# =========================================================================
+
+@numerology_bp.route("/chart-workspace", methods=["POST"])
+@numerology_bp.route("/chart", methods=["POST"])
+def get_chart_workspace():
+    """
+    Production-ready Chart Workspace calculation endpoint.
+    Deterministic, backend-only calculations for:
+    - Section A: Basic Chart (Lo Shu 3x3 Grid, 8 Directional Planes, Multiplicity, Core Numbers)
+    - Section B: Dasha Chart (Date-based timeline with 1, 5, 10, 15-Year & Custom Range window filtering)
+    - Section C: Pratyantar Dasha Chart (Hierarchical subperiods linked to parent Mahadasha & Antardasha)
+    """
+    try:
+        data = request.get_json() or {}
+        name = str(data.get("name", "")).strip()
+        dob = str(data.get("dob") or data.get("date_of_birth", "")).strip()
+        system = str(data.get("system", "pythagorean")).strip()
+        start_date = data.get("start_date")
+        duration_years = int(data.get("duration_years", 10))
+        end_date = data.get("end_date")
+        ref_date = data.get("reference_date")
+        parent_filter = data.get("parent_dasha_filter")
+        if parent_filter is not None:
+            parent_filter = int(parent_filter)
+
+        if not dob:
+            return jsonify({
+                "status": "error",
+                "message": "Date of birth (dob) is required to calculate Numerology Chart."
+            }), 400
+
+        if not name:
+            name = "Seeker"
+
+        workspace = NumerologyChartService.get_full_chart_workspace(
+            name=name,
+            dob_str=dob,
+            system=system,
+            start_date_str=start_date,
+            duration_years=duration_years,
+            end_date_str=end_date,
+            ref_date_str=ref_date,
+            parent_dasha_filter=parent_filter
+        )
+
+        return jsonify(workspace), 200
+    except ValueError as ve:
+        return jsonify({"status": "error", "message": str(ve)}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Chart calculation failed: {str(e)}"}), 500
+
+
+@numerology_bp.route("/chart/basic", methods=["POST"])
+def get_basic_chart():
+    """
+    Retrieves Section A ? Basic Chart (Lo Shu Grid & Planes analysis).
+    """
+    try:
+        data = request.get_json() or {}
+        name = str(data.get("name", "Seeker")).strip()
+        dob = str(data.get("dob") or data.get("date_of_birth", "")).strip()
+        system = str(data.get("system", "pythagorean")).strip()
+
+        if not dob:
+            return jsonify({"status": "error", "message": "Date of birth (dob) is required."}), 400
+
+        basic_chart = NumerologyChartService.calculate_basic_chart(name=name, dob_str=dob, system=system)
+        return jsonify({"status": "success", "data": basic_chart}), 200
+    except ValueError as ve:
+        return jsonify({"status": "error", "message": str(ve)}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@numerology_bp.route("/chart/dasha-timeline", methods=["POST"])
+def get_dasha_timeline():
+    """
+    Retrieves Section B ? Dasha Chart Timeline filtered by window duration.
+    """
+    try:
+        data = request.get_json() or {}
+        dob = str(data.get("dob") or data.get("date_of_birth", "")).strip()
+        start_date = data.get("start_date")
+        duration_years = int(data.get("duration_years", 10))
+        end_date = data.get("end_date")
+        ref_date = data.get("reference_date")
+
+        if not dob:
+            return jsonify({"status": "error", "message": "Date of birth (dob) is required."}), 400
+
+        timeline = NumerologyChartService.calculate_dasha_chart(
+            dob_str=dob,
+            start_date_str=start_date,
+            duration_years=duration_years,
+            end_date_str=end_date,
+            ref_date_str=ref_date
+        )
+        return jsonify({"status": "success", "data": timeline}), 200
+    except ValueError as ve:
+        return jsonify({"status": "error", "message": str(ve)}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@numerology_bp.route("/chart/pratyantar", methods=["POST"])
+def get_pratyantar_chart():
+    """
+    Retrieves Section C ? Pratyantar Dasha table for a parent period or custom window.
+    """
+    try:
+        data = request.get_json() or {}
+        dob = str(data.get("dob") or data.get("date_of_birth", "")).strip()
+        start_date = data.get("start_date")
+        duration_years = int(data.get("duration_years", 10))
+        end_date = data.get("end_date")
+        ref_date = data.get("reference_date")
+        parent_filter = data.get("parent_dasha_filter")
+        if parent_filter is not None:
+            parent_filter = int(parent_filter)
+        antardasha_year = data.get("antardasha_year_filter")
+        if antardasha_year is not None:
+            antardasha_year = int(antardasha_year)
+
+        if not dob:
+            return jsonify({"status": "error", "message": "Date of birth (dob) is required."}), 400
+
+        pratyantar = NumerologyChartService.calculate_pratyantar_chart(
+            dob_str=dob,
+            start_date_str=start_date,
+            duration_years=duration_years,
+            end_date_str=end_date,
+            ref_date_str=ref_date,
+            parent_dasha_filter=parent_filter,
+            antardasha_year_filter=antardasha_year
+        )
+        return jsonify({"status": "success", "data": pratyantar}), 200
+    except ValueError as ve:
+        return jsonify({"status": "error", "message": str(ve)}), 400
+    except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
