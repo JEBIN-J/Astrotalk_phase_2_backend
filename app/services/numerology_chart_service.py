@@ -118,18 +118,50 @@ class NumerologyChartService:
         return matrix
 
     @classmethod
+    def calculate_base_counts(
+        cls,
+        dob: date,
+        mulank: int,
+        bhagyank: int,
+        grid_type: str = "vedic"
+    ) -> Dict[int, int]:
+        digit_counts = {i: 0 for i in range(1, 10)}
+        
+        # Day digits (DD)
+        for ch in f"{dob.day:02d}":
+            if ch != '0':
+                digit_counts[int(ch)] += 1
+                
+        # Month digits (MM)
+        for ch in f"{dob.month:02d}":
+            if ch != '0':
+                digit_counts[int(ch)] += 1
+                
+        # Year digits: in Vedic Ank Kundli, century is excluded, only last 2 digits of year (YY) are included
+        year_last_two = dob.year % 100
+        for ch in f"{year_last_two:02d}":
+            if ch != '0':
+                digit_counts[int(ch)] += 1
+                
+        # Add Mulank (Driver Number)
+        if 1 <= mulank <= 9:
+            digit_counts[mulank] += 1
+            
+        # Add Bhagyank (Destiny / Conductor Number)
+        if 1 <= bhagyank <= 9:
+            digit_counts[bhagyank] += 1
+            
+        return digit_counts
+
+    @classmethod
     def calculate_basic_chart(cls, name: str, dob_str: str, system: str = "pythagorean", grid_type: str = "loshu") -> Dict[str, Any]:
         dob = NumerologyDashaService.parse_date(dob_str)
         basic_info = NumerologyDashaService.calculate_basic_info(name, dob_str, system)
 
-        dob_digits = [int(ch) for ch in dob.strftime("%Y%m%d") if ch != '0']
-        digit_counts = {i: 0 for i in range(1, 10)}
-        for d in dob_digits:
-            if 1 <= d <= 9:
-                digit_counts[d] += 1
-
         mulank = basic_info["basic_number"]["number"]
         bhagyank = basic_info["destiny_number"]["number"]
+
+        digit_counts = cls.calculate_base_counts(dob, mulank, bhagyank, grid_type=grid_type)
 
         # Build 3x3 Grid matrix
         grid_matrix = cls.build_grid_matrix(digit_counts, grid_type=grid_type)
@@ -250,12 +282,11 @@ class NumerologyChartService:
                 w_end = w_start.replace(year=w_start.year + duration_years, day=28)
             duration_label = f"{duration_years} Years"
 
-        # Compute Base counts from DOB digits
-        dob_digits = [int(ch) for ch in dob.strftime("%Y%m%d") if ch != '0']
-        base_counts = {i: 0 for i in range(1, 10)}
-        for d in dob_digits:
-            if 1 <= d <= 9:
-                base_counts[d] += 1
+        # Compute Base counts with century excluded and Mulank + Bhagyank included
+        basic_info = NumerologyDashaService.calculate_basic_info("", dob_str)
+        mulank = basic_info["basic_number"]["number"]
+        bhagyank = basic_info["destiny_number"]["number"]
+        base_counts = cls.calculate_base_counts(dob, mulank, bhagyank, grid_type=grid_type)
 
         # Calculate annual Antardashas intersecting [w_start, w_end]
         min_year = max(dob.year, w_start.year - 1)
@@ -292,10 +323,11 @@ class NumerologyChartService:
             is_active = (ad_start <= ref_date < ad_end)
             status = "Active" if is_active else ("Completed" if ref_date >= ad_end else "Upcoming")
 
+            display_end = ad_end - timedelta(days=1)
             dasha_antardasha_charts.append({
                 "cycle_year": ad["cycle_year"],
                 "from_date": ad_start.strftime("%d-%b-%Y"),
-                "to_date": ad_end.strftime("%d-%b-%Y"),
+                "to_date": display_end.strftime("%d-%b-%Y"),
                 "start_date": ad["start_date"],
                 "end_date": ad["end_date"],
                 "dasha": d_num,
@@ -371,12 +403,11 @@ class NumerologyChartService:
             except ValueError:
                 w_end = w_start.replace(year=w_start.year + duration_years, day=28)
 
-        # Base counts
-        dob_digits = [int(ch) for ch in dob.strftime("%Y%m%d") if ch != '0']
-        base_counts = {i: 0 for i in range(1, 10)}
-        for d in dob_digits:
-            if 1 <= d <= 9:
-                base_counts[d] += 1
+        # Compute Base counts with century excluded and Mulank + Bhagyank included
+        basic_info = NumerologyDashaService.calculate_basic_info("", dob_str)
+        mulank = basic_info["basic_number"]["number"]
+        bhagyank = basic_info["destiny_number"]["number"]
+        base_counts = cls.calculate_base_counts(dob, mulank, bhagyank, grid_type=grid_type)
 
         min_year = max(dob.year, w_start.year - 1)
         max_year = min(dob.year + 100, w_end.year + 1)
