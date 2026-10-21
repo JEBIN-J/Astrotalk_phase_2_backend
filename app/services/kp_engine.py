@@ -28,7 +28,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Any, Tuple, Optional
 
 try:
-    from app.services.vedic_engine import _SWE_AYANAMSA_LOCK, calculate_all_divisional_charts, calculate_parashara_ashtakvarga
+    from app.services.vedic_engine import _SWE_AYANAMSA_LOCK, calculate_all_divisional_charts, calculate_parashara_ashtakvarga, set_swisseph_sidereal_mode, calculate_lahiri_ayanamsa
 except ImportError:
     _SWE_AYANAMSA_LOCK = threading.Lock()
 
@@ -193,14 +193,14 @@ def calculate_julian_day(year: int, month: int, day: int, hour_utc: float) -> fl
     jd += hour_utc / 24.0
     return jd
 
-def calculate_ayanamsa(jd: float, ayanamsa_name: str, birth_dt: datetime, hour_utc: float) -> Tuple[float, str]:
+def calculate_ayanamsa(jd: float, ayanamsa_name: str, birth_dt: datetime = None, hour_utc: float = None) -> Tuple[float, str]:
     """
-    Calculate exact Ayanamsa value in degrees and formatted string for 14 supported systems:
-    LAHIRI, BV_RAMAN, KP_OLD, SRI_YUKTESWAR, DE_LUCE, USHA_SHASHI, DJWHAL_KHOOL, JN_BHASIN, FAGAN_BRADLEY, TROPICAL, KP_NEW, KP_STRAIGHT_LINE, KHULLAR, CHANDRA_HARI
+    Calculate exact Ayanamsa value in degrees and formatted string for all supported systems:
+    LAHIRI, BV_RAMAN, KP_OLD, SRI_YUKTESWAR, DE_LUCE, USHA_SHASHI, DJWHAL_KHOOL, JN_BHASIN, FAGAN_BRADLEY, TROPICAL,
+    KP_NEW, KP_STRAIGHT_LINE, KHULLAR, CHANDRA_HARI
     """
-    norm = ayanamsa_name.strip().upper()
+    norm = ayanamsa_name.strip().upper() if ayanamsa_name else "KP_NEW"
     
-    # Map common display names to backend keys
     key_map = {
         "KRISHNAMURTI (KP NEW)": "KP_NEW",
         "KRISHNAMURTI (KP OLD)": "KP_OLD",
@@ -208,14 +208,21 @@ def calculate_ayanamsa(jd: float, ayanamsa_name: str, birth_dt: datetime, hour_u
         "KHULLAR": "KHULLAR",
         "TROPICAL (SAYANA)": "TROPICAL",
         "LAHIRI (CHITAPAKSHA)": "LAHIRI",
+        "LAHIRI (CHITRAPAKSHA)": "LAHIRI",
         "B.V. RAMAN": "BV_RAMAN",
-        "SRI YUKTESWAR": "SRI_YUKTESWAR"
+        "SRI YUKTESWAR": "SRI_YUKTESWAR",
+        "DE LUCE": "DE_LUCE",
+        "USHA SHASHI": "USHA_SHASHI",
+        "USHA-SHASHI": "USHA_SHASHI",
+        "DJWHAL KHOOL": "DJWHAL_KHOOL",
+        "J.N. BHASIN": "JN_BHASIN",
+        "FAGAN BRADLEY": "FAGAN_BRADLEY",
+        "FAGAN-BRADLEY": "FAGAN_BRADLEY",
+        "CHANDRA HARI": "CHANDRA_HARI",
     }
-    
     if norm in key_map:
         norm = key_map[norm]
         
-    # If not recognized, try as the exact key, fallback to KP_NEW
     valid_keys = [
         "LAHIRI", "BV_RAMAN", "KP_OLD", "SRI_YUKTESWAR", "DE_LUCE",
         "USHA_SHASHI", "DJWHAL_KHOOL", "JN_BHASIN", "FAGAN_BRADLEY",
@@ -224,52 +231,53 @@ def calculate_ayanamsa(jd: float, ayanamsa_name: str, birth_dt: datetime, hour_u
     if norm not in valid_keys:
         norm = "KP_NEW"
         
-    if norm == "TROPICAL":
+    if norm in ("TROPICAL", "SAYANA"):
         return 0.0, "00° 00' 00\" (Sayana)"
 
     from app.services.vedic_engine import calculate_lahiri_ayanamsa
-    
     try:
         ayan_deg = calculate_lahiri_ayanamsa(jd, ayanamsa_key=norm)
         return float(ayan_deg), f"{norm} {format_dms(float(ayan_deg))}"
     except Exception:
-        # Mathematical Fallbacks if swisseph fails
         t = (jd - 2451545.0) / 36525.0
-        year_dec = birth_dt.year + (birth_dt.month - 1) / 12.0 + (birth_dt.day - 1) / 365.25 + (hour_utc / 8766.0)
-        
         if norm == "KP_OLD":
-            ayan_deg = (year_dec - 291.0) * (50.2388475 / 3600.0)
+            ayan_deg = 23.76024 + (t * 1.396971)
         elif norm == "BV_RAMAN":
-            ayan_deg = (year_dec - 397.0) * (50.2388475 / 3600.0)
+            ayan_deg = 22.41079 + (t * 1.396971)
         elif norm == "SRI_YUKTESWAR":
-            ayan_deg = (year_dec - 499.0) * (54.0 / 3600.0)
+            ayan_deg = 22.85279 + (t * 1.396971)
         elif norm == "KP_NEW":
-            ayan_deg = 23.8245 + (t * 1.396971)
+            ayan_deg = 23.78036 + (t * 1.396971)
         elif norm == "KP_STRAIGHT_LINE":
-            ayan_deg = (year_dec - 291.07722) * (50.2388475 / 3600.0)
+            ayan_deg = 23.84842 + (t * 1.395524)
         elif norm == "KHULLAR":
-            ayan_deg = (year_dec - 291.75) * (50.2388475 / 3600.0)
-        else: # Default Lahiri
-            ayan_deg = 23.853056 + (t * 1.396971) - (0.000308 * (t ** 2))
-            
-        return ayan_deg, f"{norm} {format_dms(ayan_deg)}"
+            ayan_deg = 23.83903 + (t * 1.395524)
+        else:
+            ayan_deg = 23.85709 + (t * 1.396971) - (0.000308 * (t ** 2))
+        return float(ayan_deg), f"{norm} {format_dms(float(ayan_deg))}"
 
 def calculate_kp_sub_lords(degree: float) -> Dict[str, Any]:
     """
     Calculate exact KP Sign Lord (RL), Nakshatra Lord (NL), Sub Lord (SL),
     and Sub-Sub Lord (SSL) using Vimshottari proportional divisions.
+    Preserves full precision across all 360 degrees and at boundary conditions.
     """
-    deg = degree % 360.0
+    deg = float(degree) % 360.0
     sign_idx = int(deg // 30) + 1
+    if sign_idx > 12: sign_idx = 12
     sign_info = ZODIAC_SIGNS[sign_idx - 1]
     rl_name = sign_info["lord"]
 
-    nak_span = 360.0 / 27.0 # 13.3333333333° = 13° 20' = 800'
-    nak_idx = int(deg / nak_span) % 27
+    nak_span = 360.0 / 27.0 # 13.333333333333334 degrees = 800 arcminutes
+    nak_idx = int(deg / nak_span)
+    if nak_idx >= 27: nak_idx = 26
     nak_name = NAKSHATRA_NAMES[nak_idx]
     nl_name = VIMSHOTTARI_LORDS[nak_idx % 9]
 
-    pos_in_nak = deg % nak_span # 0 <= pos_in_nak < 13.3333333333
+    pos_in_nak = deg - (nak_idx * nak_span)
+    if pos_in_nak < 0.0: pos_in_nak = 0.0
+    if pos_in_nak >= nak_span: pos_in_nak = nak_span - 1e-12
+
     pada = int(pos_in_nak / (nak_span / 4.0)) + 1
     if pada > 4: pada = 4
 
@@ -283,10 +291,10 @@ def calculate_kp_sub_lords(degree: float) -> Dict[str, Any]:
     for i in range(9):
         cand_sl = VIMSHOTTARI_LORDS[(s_idx + i) % 9]
         span = nak_span * (VIMSHOTTARI_YEARS[cand_sl] / TOTAL_VIMSHOTTARI_YEARS)
-        if accum_sub <= pos_in_nak < accum_sub + span or (i == 8 and pos_in_nak >= accum_sub):
+        if i == 8 or (accum_sub <= pos_in_nak < accum_sub + span):
             sl_name = cand_sl
             sub_span = span
-            pos_in_sub = pos_in_nak - accum_sub
+            pos_in_sub = max(0.0, pos_in_nak - accum_sub)
             break
         accum_sub += span
 
@@ -298,7 +306,7 @@ def calculate_kp_sub_lords(degree: float) -> Dict[str, Any]:
     for j in range(9):
         cand_ssl = VIMSHOTTARI_LORDS[(ss_idx + j) % 9]
         span_ss = sub_span * (VIMSHOTTARI_YEARS[cand_ssl] / TOTAL_VIMSHOTTARI_YEARS)
-        if accum_ssl <= pos_in_sub < accum_ssl + span_ss or (j == 8 and pos_in_sub >= accum_ssl):
+        if j == 8 or (accum_ssl <= pos_in_sub < accum_ssl + span_ss):
             ssl_name = cand_ssl
             break
         accum_ssl += span_ss
@@ -325,27 +333,30 @@ def calculate_kp_sub_lords(degree: float) -> Dict[str, Any]:
 
 def calculate_navamsha_sign(deg: float) -> int:
     """Calculate D9 Navamsa sign index (1-12) from sidereal degree."""
-    deg = deg % 360.0
-    sign_idx = int(deg // 30) + 1 # 1 to 12
+    deg = float(deg) % 360.0
+    sign_idx = int(deg // 30) + 1
     deg_in_sign = deg % 30.0
-    pada_in_sign = int(deg_in_sign / (30.0 / 9.0)) # 0 to 8
+    pada = int(deg_in_sign / (30.0 / 9.0))
+    if pada > 8: pada = 8
+    sign_element = (sign_idx - 1) % 4
+    if sign_element == 0: start_sign = 1
+    elif sign_element == 1: start_sign = 10
+    elif sign_element == 2: start_sign = 7
+    else: start_sign = 4
+    return ((start_sign - 1 + pada) % 12) + 1
 
-    start_map = {1: 1, 5: 1, 9: 1, 2: 10, 6: 10, 10: 10, 3: 7, 7: 7, 11: 7, 4: 4, 8: 4, 12: 4}
-    start_sign = start_map[sign_idx]
-    nav_sign = ((start_sign - 1 + pada_in_sign) % 12) + 1
-    return nav_sign
-
-def get_placidus_cusps(jd: float, lat: float, lon: float, ayanamsa_val: float) -> Tuple[List[float], float, float]:
+def get_placidus_cusps(jd: float, lat: float, lon: float, is_sidereal: bool = True) -> Tuple[List[float], float, float]:
     """
-    Compute high-precision Placidus house cusps (1-12), Ascendant, and MC.
-    Returns sidereal/tropical cusps matching the requested Ayanamsa.
+    Compute high-precision Placidus house cusps (1-12), Ascendant, and MC
+    directly via Swiss Ephemeris.
     """
     if SWISSEPH_AVAILABLE and swe:
         try:
-            trop_cusps, ascmc = swe.houses(jd, lat, lon, b'P')
-            sid_cusps = [(c - ayanamsa_val) % 360.0 for c in trop_cusps]
-            asc_sid = (ascmc[0] - ayanamsa_val) % 360.0
-            mc_sid = (ascmc[1] - ayanamsa_val) % 360.0
+            flags = swe.FLG_SIDEREAL if is_sidereal else 0
+            cusps, ascmc = swe.houses_ex(jd, lat, lon, b'P', flags)
+            sid_cusps = [float(c % 360.0) for c in cusps]
+            asc_sid = float(ascmc[0] % 360.0)
+            mc_sid = float(ascmc[1] % 360.0)
             return sid_cusps, asc_sid, mc_sid
         except Exception:
             pass
@@ -360,22 +371,19 @@ def get_placidus_cusps(jd: float, lat: float, lon: float, ayanamsa_val: float) -
     y = -math.sin(ramc_rad) * math.cos(eps_rad) - math.tan(lat_rad) * math.sin(eps_rad)
     x = math.cos(ramc_rad)
     asc_trop = (math.degrees(math.atan2(y, x)) + 180.0) % 360.0
-    asc_sid = (asc_trop - ayanamsa_val) % 360.0
-    mc_sid = (math.degrees(math.atan2(math.sin(ramc_rad), math.cos(ramc_rad) * math.cos(eps_rad))) - ayanamsa_val) % 360.0
-
-    cusps = [(asc_sid + i * 30.0) % 360.0 for i in range(12)]
-    return cusps, asc_sid, mc_sid
+    mc_trop = (math.degrees(math.atan2(math.sin(ramc_rad), math.cos(ramc_rad) * math.cos(eps_rad)))) % 360.0
+    cusps = [(asc_trop + i * 30.0) % 360.0 for i in range(12)]
+    return cusps, asc_trop, mc_trop
 
 def find_house_for_degree(deg: float, cusps: List[float]) -> int:
     """
     In KP Astrology, House N begins at Cusp N and ends at Cusp N+1.
     Find which house a given planetary longitude falls into.
     """
-    deg = deg % 360.0
+    deg = float(deg) % 360.0
     for i in range(12):
         c_curr = cusps[i]
         c_next = cusps[(i + 1) % 12]
-
         if c_curr < c_next:
             if c_curr <= deg < c_next:
                 return i + 1
@@ -384,55 +392,56 @@ def find_house_for_degree(deg: float, cusps: List[float]) -> int:
                 return i + 1
     return 1
 
-def calculate_planets(jd: float, ayanamsa_val: float) -> List[Dict[str, Any]]:
-    """Calculate accurate longitudes, speeds, and retrograde markers for 9 planets."""
+def calculate_planets(jd: float, is_sidereal: bool = True, node_type: str = "true") -> List[Dict[str, Any]]:
+    """Calculate accurate longitudes, speeds, and retrograde markers for planets."""
+    rahu_node_id = (swe.TRUE_NODE if node_type == "true" else swe.MEAN_NODE) if SWISSEPH_AVAILABLE and swe else 10
     planet_ids = [
-        ("Sun", swe.SUN if SWISSEPH_AVAILABLE else 0),
-        ("Moon", swe.MOON if SWISSEPH_AVAILABLE else 1),
-        ("Mars", swe.MARS if SWISSEPH_AVAILABLE else 4),
-        ("Mercury", swe.MERCURY if SWISSEPH_AVAILABLE else 2),
-        ("Jupiter", swe.JUPITER if SWISSEPH_AVAILABLE else 5),
-        ("Venus", swe.VENUS if SWISSEPH_AVAILABLE else 3),
-        ("Saturn", swe.SATURN if SWISSEPH_AVAILABLE else 6),
-        ("Uranus", swe.URANUS if SWISSEPH_AVAILABLE else 7),
-        ("Neptune", swe.NEPTUNE if SWISSEPH_AVAILABLE else 8),
-        ("Pluto", swe.PLUTO if SWISSEPH_AVAILABLE else 9),
-        ("Rahu", swe.MEAN_NODE if SWISSEPH_AVAILABLE else 10)
+        ("Sun", swe.SUN if SWISSEPH_AVAILABLE and swe else 0),
+        ("Moon", swe.MOON if SWISSEPH_AVAILABLE and swe else 1),
+        ("Mars", swe.MARS if SWISSEPH_AVAILABLE and swe else 4),
+        ("Mercury", swe.MERCURY if SWISSEPH_AVAILABLE and swe else 2),
+        ("Jupiter", swe.JUPITER if SWISSEPH_AVAILABLE and swe else 5),
+        ("Venus", swe.VENUS if SWISSEPH_AVAILABLE and swe else 3),
+        ("Saturn", swe.SATURN if SWISSEPH_AVAILABLE and swe else 6),
+        ("Rahu", rahu_node_id),
+        ("Uranus", swe.URANUS if SWISSEPH_AVAILABLE and swe else 7),
+        ("Neptune", swe.NEPTUNE if SWISSEPH_AVAILABLE and swe else 8),
+        ("Pluto", swe.PLUTO if SWISSEPH_AVAILABLE and swe else 9)
     ]
 
+    flags = swe.FLG_SWIEPH | swe.FLG_SPEED | (swe.FLG_SIDEREAL if is_sidereal else 0) if SWISSEPH_AVAILABLE and swe else 0
     results = []
     rahu_deg = 0.0
 
     for name, p_id in planet_ids:
         if SWISSEPH_AVAILABLE and swe:
             try:
-                res, flag = swe.calc_ut(jd, p_id, swe.FLG_SPEED)
-                trop_lon = res[0]
-                speed = res[3]
+                res, flag = swe.calc_ut(jd, p_id, flags)
+                lon = float(res[0] % 360.0)
+                speed = float(res[3])
+                is_retro = bool(speed < 0.0)
             except Exception:
-                trop_lon, speed = 0.0, 1.0
+                lon, speed, is_retro = 0.0, 1.0, False
         else:
-            trop_lon, speed = 0.0, 1.0
+            lon, speed, is_retro = 0.0, 1.0, False
 
-        sid_lon = (trop_lon - ayanamsa_val) % 360.0
-        is_retro = speed < 0.0
         if name == "Rahu":
-            rahu_deg = sid_lon
+            rahu_deg = lon
             is_retro = True
 
         results.append({
             "name": name,
-            "longitude": sid_lon,
+            "longitude": lon,
             "speed": speed,
             "is_retrograde": is_retro
         })
 
     # Ketu is always exactly 180 degrees opposite Rahu
-    ketu_deg = (rahu_deg + 180.0) % 360.0
+    ketu_deg = float((rahu_deg + 180.0) % 360.0)
     results.append({
         "name": "Ketu",
         "longitude": ketu_deg,
-        "speed": -0.05,
+        "speed": results[-1]["speed"] if results else -0.05,
         "is_retrograde": True
     })
 
@@ -850,33 +859,41 @@ def generate_kp_system(
     transit_datetime_str: str = None,
     transit_timezone: float = None,
     transit_latitude: float = None,
-    transit_longitude: float = None
+    transit_longitude: float = None,
+    node_type: str = "true"
 ) -> Dict[str, Any]:
     """
     Master Entry Point for the Real-Time KP Astrology System.
-    Generates canonical chart state for all 6 KP sections.
+    Generates authoritative chart state for all KP sections,
+    strictly distinguishing inner Natal chart and outer Transit chart.
     """
     latitude, longitude, timezone = resolve_location(pob_str, latitude, longitude, timezone)
 
-    dob = datetime.strptime(dob_str, "%Y-%m-%d")
-    tob_parts = [int(p) for p in tob_str.split(":")]
+    # 1. Parse Natal Birth Details
+    dob = datetime.strptime(dob_str, "%Y-%m-%d") if dob_str else datetime(2000, 1, 1)
+    tob_parts = [int(p) for p in tob_str.split(":")] if tob_str else [12, 0, 0]
     sec = tob_parts[2] if len(tob_parts) > 2 else 0
     birth_dt = datetime(dob.year, dob.month, dob.day, tob_parts[0], tob_parts[1], sec)
 
-    hour_utc = (tob_parts[0] + tob_parts[1] / 60.0 + sec / 3600.0) - timezone
-    jd = calculate_julian_day(dob.year, dob.month, dob.day, hour_utc)
+    natal_utc_dt = birth_dt - timedelta(hours=timezone)
+    natal_hour_utc = natal_utc_dt.hour + natal_utc_dt.minute / 60.0 + natal_utc_dt.second / 3600.0 + natal_utc_dt.microsecond / 3600000000.0
+    jd_natal = swe.julday(natal_utc_dt.year, natal_utc_dt.month, natal_utc_dt.day, natal_hour_utc) if (SWISSEPH_AVAILABLE and swe) else calculate_julian_day(natal_utc_dt.year, natal_utc_dt.month, natal_utc_dt.day, natal_hour_utc)
 
-    ayan_deg, ayan_formatted = calculate_ayanamsa(jd, ayanamsa_name, birth_dt, hour_utc)
-    
-    from app.services.vedic_engine import calculate_upagrahas
+    # Determine Sidereal Mode
+    norm_ayanamsa = ayanamsa_name.strip().upper() if ayanamsa_name else "KP_NEW"
+    is_sidereal = (norm_ayanamsa not in ("TROPICAL", "SAYANA"))
+    ayan_deg, ayan_formatted = calculate_ayanamsa(jd_natal, ayanamsa_name)
 
-    cusp_degrees, asc_deg, mc_deg = get_placidus_cusps(jd, latitude, longitude, ayan_deg)
+    # Calculate Natal Cusps, Ascendant, and Planets with Thread Lock
+    with _SWE_AYANAMSA_LOCK:
+        set_swisseph_sidereal_mode(ayanamsa_name)
+        cusp_degrees, asc_deg, mc_deg = get_placidus_cusps(jd_natal, latitude, longitude, is_sidereal)
+        raw_planets = calculate_planets(jd_natal, is_sidereal, node_type=node_type)
+
     asc_kp = calculate_kp_sub_lords(asc_deg)
     asc_nav_sign = calculate_navamsha_sign(asc_deg)
 
-    raw_planets = calculate_planets(jd, ayan_deg)
     planets_list = []
-
     planets_list.append({
         "name": "Ascendant",
         "planet_name_simple": "Ascendant",
@@ -885,7 +902,9 @@ def generate_kp_system(
         "sanskrit_name": "Lagna",
         "longitude": asc_deg,
         "sign": asc_kp["sign_name"],
+        "sign_name": asc_kp["sign_name"],
         "sign_index": asc_kp["sign_index"],
+        "sign_id": asc_kp["sign_index"],
         "sign_sanskrit": asc_kp["sign_sanskrit"],
         "house": 1,
         "degree_formatted": asc_kp["degree_formatted"],
@@ -910,19 +929,16 @@ def generate_kp_system(
     sun_lon = 0.0
 
     for p in raw_planets:
-        if p["name"] == "Sun":
-            sun_lon = p["longitude"]
         p_name = p["name"]
         p_deg = p["longitude"]
+        if p_name == "Sun":
+            sun_lon = p_deg
+        if p_name == "Moon":
+            moon_lon = p_deg
+
         p_kp = calculate_kp_sub_lords(p_deg)
         p_nav_sign = calculate_navamsha_sign(p_deg)
         p_house = find_house_for_degree(p_deg, cusp_degrees)
-
-        if p_name == "Moon":
-            moon_lon = p_deg
-        if p_name == "Sun":
-            sun_lon = p_deg
-
         retro_tag = " (R)" if p["is_retrograde"] else ""
 
         planets_list.append({
@@ -933,7 +949,9 @@ def generate_kp_system(
             "sanskrit_name": p_name,
             "longitude": p_deg,
             "sign": p_kp["sign_name"],
+            "sign_name": p_kp["sign_name"],
             "sign_index": p_kp["sign_index"],
+            "sign_id": p_kp["sign_index"],
             "sign_sanskrit": p_kp["sign_sanskrit"],
             "house": p_house,
             "degree_formatted": p_kp["degree_formatted"],
@@ -954,12 +972,11 @@ def generate_kp_system(
             "color": PLANET_COLORS.get(p_name, "#4338CA")
         })
 
-    # Add Fortuna (Pars Fortuna) -> Ascendant + Moon - Sun
+    # Add Fortuna (Pars Fortuna)
     fortuna_deg = (asc_deg + moon_lon - sun_lon) % 360.0
     f_kp = calculate_kp_sub_lords(fortuna_deg)
     f_nav_sign = calculate_navamsha_sign(fortuna_deg)
     f_house = find_house_for_degree(fortuna_deg, cusp_degrees)
-    
     planets_list.append({
         "name": "Fortuna",
         "planet_name_simple": "Fortuna",
@@ -994,7 +1011,6 @@ def generate_kp_system(
         c_deg = cusp_degrees[h - 1]
         c_next_deg = cusp_degrees[h % 12]
         c_kp = calculate_kp_sub_lords(c_deg)
-
         occupants = [p["name"] for p in planets_list if p["house"] == h and p["name"] != "Ascendant"]
         span = (c_next_deg - c_deg) % 360.0
 
@@ -1025,7 +1041,11 @@ def generate_kp_system(
             "occupants_str": ", ".join(occupants) if occupants else "None"
         })
 
-    # D1 Chart Data
+    def get_navamsa_deg(deg):
+        deg_in_sign = deg % 30.0
+        nav_deg = (deg_in_sign % (30.0 / 9.0)) * 9.0
+        return format_deg_in_sign(nav_deg)
+
     d1_chart = {
         "ascendant_sign_index": asc_kp["sign_index"],
         "planets": [
@@ -1040,12 +1060,6 @@ def generate_kp_system(
             } for p in planets_list
         ]
     }
-
-    # D9 Navamsa Chart Data
-    def get_navamsa_deg(deg):
-        deg_in_sign = deg % 30.0
-        nav_deg = (deg_in_sign % (30.0 / 9.0)) * 9.0
-        return format_deg_in_sign(nav_deg)
 
     d9_chart = {
         "ascendant_sign_index": asc_nav_sign,
@@ -1069,7 +1083,6 @@ def generate_kp_system(
         ]
     }
 
-    # Bhava Chart Data (Placidus Cusps as houses)
     bhava_chart = {
         "ascendant_sign_index": asc_kp["sign_index"],
         "cusps": [
@@ -1102,168 +1115,340 @@ def generate_kp_system(
     }
 
     dasha_data = calculate_vimshottari_dasha(moon_lon, birth_dt)
-
     significators_data = calculate_significators(
         [p for p in planets_list if p["name"] != "Ascendant"],
         cusps_info
     )
+    aspects_data = calculate_kp_aspects(planets_list, cusps_info)
+    nadi_data = calculate_nakshatra_nadi([p for p in planets_list if p["name"] != "Ascendant"], significators_data)
+    four_step_data = calculate_four_step([p for p in planets_list if p["name"] != "Ascendant"], cusps_info, significators_data)
 
-    aspects_data = calculate_kp_aspects(
-        planets_list,
-        cusps_info
-    )
+    # -------------------------------------------------------------
+    # 2. TRANSIT CALCULATION (Independent, separate, full-precision)
+    # -------------------------------------------------------------
+    t_lat = transit_latitude if transit_latitude is not None else latitude
+    t_lon = transit_longitude if transit_longitude is not None else longitude
+    t_tz = transit_timezone if transit_timezone is not None else timezone
 
-
-    # Calculate Transit Planets for Current Time
-    try:
-        if transit_datetime_str:
+    if transit_datetime_str:
+        try:
+            now_dt = datetime.strptime(transit_datetime_str, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
             try:
-                now_dt = datetime.strptime(transit_datetime_str, "%Y-%m-%d %H:%M:%S")
-            except:
-                now_dt = datetime.now()
-        else:
-            now_dt = datetime.now()
-            
-        tz = transit_timezone if transit_timezone is not None else timezone
-        now_hour_ut = now_dt.hour + now_dt.minute / 60.0 + now_dt.second / 3600.0 - tz
-        if now_hour_ut < 0:
-            now_hour_ut += 24.0
-            now_dt = now_dt - timedelta(days=1)
-        elif now_hour_ut >= 24.0:
-            now_hour_ut -= 24.0
-            now_dt = now_dt + timedelta(days=1)
-            
-        jd_ut_now = swe.julday(now_dt.year, now_dt.month, now_dt.day, now_hour_ut)
-        transit_ayan_deg = swe.get_ayanamsa_ut(jd_ut_now)
-        transit_planets = []
-        
-        swe_ids = {
-            "Sun": swe.SUN, "Moon": swe.MOON, "Mars": swe.MARS,
-            "Mercury": swe.MERCURY, "Jupiter": swe.JUPITER, "Venus": swe.VENUS,
-            "Saturn": swe.SATURN, "Rahu": swe.MEAN_NODE, "Ketu": swe.MEAN_NODE,
-            "Uranus": swe.URANUS, "Neptune": swe.NEPTUNE, "Pluto": swe.PLUTO
-        }
-        
-        for name, pid in swe_ids.items():
-            if name == "Ascendant": continue
-            flags = swe.FLG_SWIEPH | swe.FLG_SPEED
-            res, ret_flags = swe.calc_ut(jd_ut_now, pid, flags)
-            trop_lon = res[0]
-            speed = res[3]
-            sid_lon = (trop_lon - transit_ayan_deg) % 360.0
-            if name == "Ketu":
-                sid_lon = (sid_lon + 180.0) % 360.0
-            is_retro = bool(speed < 0)
-            
-            transit_planets.append({
-                "name": name,
-                "longitude": sid_lon,
-                "is_retrograde": is_retro,
-                "speed": speed
-            })
-            
-        # Custom transit aspects
-        ASPECT_DEFINITIONS = [
-            {"name": "Conjunction", "short_name": "Conj", "angle": 0.0, "orb": 15.0, "nature": "Yellow"},
-            {"name": "Vigintile", "short_name": "Vigi", "angle": 18.0, "orb": 2.0, "nature": "Green"},
-            {"name": "Quin-decile", "short_name": "Qdec", "angle": 24.0, "orb": 2.0, "nature": "Green"},
-            {"name": "Semi-Sextile", "short_name": "Semi", "angle": 30.0, "orb": 2.0, "nature": "Green"},
-            {"name": "Semi-quintile", "short_name": "Squi", "angle": 36.0, "orb": 2.0, "nature": "Green"},
-            {"name": "Semi-Square", "short_name": "Ssqu", "angle": 45.0, "orb": 4.0, "nature": "LightRed"},
-            {"name": "Degrees 54", "short_name": "D54", "angle": 54.0, "orb": 2.0, "nature": "LightRed"},
-            {"name": "Sextile", "short_name": "Sext", "angle": 60.0, "orb": 6.0, "nature": "Green"},
-            {"name": "Quintile", "short_name": "Quin", "angle": 72.0, "orb": 4.0, "nature": "Green"},
-            {"name": "Square", "short_name": "Squr", "angle": 90.0, "orb": 9.0, "nature": "Red"},
-            {"name": "Tredecile", "short_name": "Tred", "angle": 108.0, "orb": 3.0, "nature": "Green"},
-            {"name": "Trine", "short_name": "Trin", "angle": 120.0, "orb": 9.0, "nature": "DarkGreen"},
-            {"name": "Degrees 126", "short_name": "D126", "angle": 126.0, "orb": 2.0, "nature": "DarkGreen"},
-            {"name": "Sesquiquadrate", "short_name": "Ssqu", "angle": 135.0, "orb": 3.0, "nature": "LightRed"},
-            {"name": "Bi-quintile", "short_name": "Bqui", "angle": 144.0, "orb": 3.0, "nature": "DarkGreen"},
-            {"name": "Quincunx", "short_name": "Quin", "angle": 150.0, "orb": 3.0, "nature": "Red"},
-            {"name": "Degree 162", "short_name": "D162", "angle": 162.0, "orb": 2.0, "nature": "Green"},
-            {"name": "Opposition", "short_name": "Oppn", "angle": 180.0, "orb": 15.0, "nature": "Red"}
+                now_dt = datetime.strptime(transit_datetime_str, "%Y-%m-%d %H:%M")
+            except ValueError:
+                try:
+                    now_dt = datetime.fromisoformat(transit_datetime_str.replace("Z", "+00:00"))
+                except Exception:
+                    now_dt = datetime.now()
+    else:
+        now_dt = datetime.now()
+
+    t_utc_dt = now_dt - timedelta(hours=t_tz)
+    t_hour_utc = t_utc_dt.hour + t_utc_dt.minute / 60.0 + t_utc_dt.second / 3600.0 + t_utc_dt.microsecond / 3600000000.0
+    jd_ut_now = swe.julday(t_utc_dt.year, t_utc_dt.month, t_utc_dt.day, t_hour_utc) if (SWISSEPH_AVAILABLE and swe) else calculate_julian_day(t_utc_dt.year, t_utc_dt.month, t_utc_dt.day, t_hour_utc)
+
+    with _SWE_AYANAMSA_LOCK:
+        set_swisseph_sidereal_mode(ayanamsa_name)
+        transit_ayan_deg = float(swe.get_ayanamsa_ut(jd_ut_now)) if is_sidereal else 0.0
+        curr_cusps, curr_asc_deg, curr_mc_deg = get_placidus_cusps(jd_ut_now, t_lat, t_lon, is_sidereal)
+        raw_transit_planets = calculate_planets(jd_ut_now, is_sidereal, node_type=node_type)
+
+    curr_asc_kp = calculate_kp_sub_lords(curr_asc_deg)
+    curr_asc_kp['degree_decimal'] = round(curr_asc_deg, 4)
+    curr_asc_kp['longitude'] = curr_asc_deg
+    curr_asc_nav_sign = calculate_navamsha_sign(curr_asc_deg)
+
+    transit_planets = []
+    # Add Transit Ascendant to transit planets
+    transit_planets.append({
+        "name": "Ascendant",
+        "planet_name_simple": "Ascendant",
+        "display_name": "Ascendant",
+        "table_display_name": "Transit Lagna",
+        "sanskrit_name": "Lagna",
+        "longitude": curr_asc_deg,
+        "sign": curr_asc_kp["sign_name"],
+        "sign_name": curr_asc_kp["sign_name"],
+        "sign_index": curr_asc_kp["sign_index"],
+        "sign_id": curr_asc_kp["sign_index"],
+        "sign_sanskrit": curr_asc_kp["sign_sanskrit"],
+        "house": 1,
+        "transit_house": 1,
+        "natal_house": find_house_for_degree(curr_asc_deg, cusp_degrees),
+        "degree_formatted": curr_asc_kp["degree_formatted"],
+        "degree_decimal": round(curr_asc_deg, 4),
+        "nakshatra": curr_asc_kp["nakshatra_name"],
+        "nakshatra_lord": curr_asc_kp["nakshatra_lord"],
+        "pada": curr_asc_kp["pada"],
+        "rl": curr_asc_kp["rl"],
+        "nl": curr_asc_kp["nl"],
+        "sl": curr_asc_kp["sl"],
+        "ssl": curr_asc_kp["ssl"],
+        "rashi_lord": curr_asc_kp["rashi_lord"],
+        "sub_lord": curr_asc_kp["sub_lord"],
+        "sub_sub_lord": curr_asc_kp["sub_sub_lord"],
+        "is_retrograde": False,
+        "speed": 0.0,
+        "navamsha_sign_index": curr_asc_nav_sign,
+        "color": PLANET_COLORS["Ascendant"]
+    })
+
+    for tp in raw_transit_planets:
+        p_name = tp["name"]
+        p_deg = tp["longitude"]
+        p_kp = calculate_kp_sub_lords(p_deg)
+        p_nav_sign = calculate_navamsha_sign(p_deg)
+        t_house = find_house_for_degree(p_deg, curr_cusps)
+        n_house = find_house_for_degree(p_deg, cusp_degrees)
+        retro_tag = " (R)" if tp["is_retrograde"] else ""
+
+        transit_planets.append({
+            "name": p_name,
+            "planet_name_simple": p_name,
+            "display_name": p_name,
+            "table_display_name": f"{p_name}{retro_tag}",
+            "sanskrit_name": p_name,
+            "longitude": p_deg,
+            "sign": p_kp["sign_name"],
+            "sign_name": p_kp["sign_name"],
+            "sign_index": p_kp["sign_index"],
+            "sign_id": p_kp["sign_index"],
+            "sign_sanskrit": p_kp["sign_sanskrit"],
+            "house": t_house,
+            "transit_house": t_house,
+            "natal_house": n_house,
+            "degree_formatted": p_kp["degree_formatted"],
+            "degree_decimal": round(p_deg, 4),
+            "nakshatra": p_kp["nakshatra_name"],
+            "nakshatra_lord": p_kp["nakshatra_lord"],
+            "pada": p_kp["pada"],
+            "rl": p_kp["rl"],
+            "nl": p_kp["nl"],
+            "sl": p_kp["sl"],
+            "ssl": p_kp["ssl"],
+            "rashi_lord": p_kp["rashi_lord"],
+            "sub_lord": p_kp["sub_lord"],
+            "sub_sub_lord": p_kp["sub_sub_lord"],
+            "is_retrograde": tp["is_retrograde"],
+            "speed": round(tp["speed"], 4),
+            "navamsha_sign_index": p_nav_sign,
+            "color": PLANET_COLORS.get(p_name, "#4338CA")
+        })
+
+    # Transit cusps info
+    transit_cusps_info = []
+    for h in range(1, 13):
+        tc_deg = curr_cusps[h - 1]
+        tc_next_deg = curr_cusps[h % 12]
+        tc_kp = calculate_kp_sub_lords(tc_deg)
+        t_occupants = [p["name"] for p in transit_planets if p.get("transit_house") == h and p["name"] != "Ascendant"]
+        tc_span = (tc_next_deg - tc_deg) % 360.0
+
+        transit_cusps_info.append({
+            "house": h,
+            "cusp_number": h,
+            "longitude": tc_deg,
+            "cusp_degree": tc_deg,
+            "cusp_formatted": format_dms(tc_deg),
+            "degree_formatted": tc_kp["degree_formatted"],
+            "sign": tc_kp["sign_name"],
+            "sign_name": tc_kp["sign_name"],
+            "sign_index": tc_kp["sign_index"],
+            "sign_sanskrit": tc_kp["sign_sanskrit"],
+            "nakshatra": tc_kp["nakshatra_name"],
+            "nakshatra_lord": tc_kp["nakshatra_lord"],
+            "pada": tc_kp["pada"],
+            "rl": tc_kp["rl"],
+            "nl": tc_kp["nl"],
+            "sl": tc_kp["sl"],
+            "ssl": tc_kp["ssl"],
+            "rashi_lord": tc_kp["rashi_lord"],
+            "sub_lord": tc_kp["sub_lord"],
+            "sub_sub_lord": tc_kp["sub_sub_lord"],
+            "span_degrees": round(tc_span, 2),
+            "occupants": t_occupants,
+            "navamsha_sign_index": calculate_navamsha_sign(tc_deg),
+            "occupants_str": ", ".join(t_occupants) if t_occupants else "None"
+        })
+
+    # Transit Charts
+    transit_d1_chart = {
+        "ascendant_sign_index": curr_asc_kp["sign_index"],
+        "planets": [
+            {
+                "planet": p["name"],
+                "name": p["name"],
+                "sign_index": p["sign_index"],
+                "house": ((p["sign_index"] - curr_asc_kp["sign_index"]) % 12) + 1,
+                "degree_formatted": p["degree_formatted"],
+                "is_retrograde": p["is_retrograde"],
+                "status_marker": " (R)" if p["is_retrograde"] else ""
+            } for p in transit_planets
         ]
-        
-        transit_planet_aspects = []
-        for tp in transit_planets:
-            for np in planets_list:
-                diff = abs(tp["longitude"] - np["longitude"]) % 360.0
-                if diff > 180.0: diff = 360.0 - diff
-                for asp in ASPECT_DEFINITIONS:
-                    orb = abs(diff - asp["angle"])
-                    if orb <= asp["orb"]:
-                        is_applying = True
-                        p1_speed = tp.get("speed", 1.0)
-                        p2_speed = np.get("speed", 1.0)
-                        if p1_speed > p2_speed and tp["longitude"] > np["longitude"]:
-                            is_applying = False
-                            
-                        transit_planet_aspects.append({
-                            "transit_planet": tp["name"],
-                            "natal_planet": np["name"],
-                            "aspect_name": asp["name"],
-                            "short_name": asp.get("short_name", asp["name"][:4]),
-                            "aspect_angle": asp["angle"],
-                            "actual_angle": round(diff, 2),
-                            "orb": round(orb, 2),
-                            "strength": round(asp["orb"] - orb, 2),
-                            "nature": asp["nature"],
-                            "is_applying": is_applying,
-                            "description": asp.get("desc", "")
-                        })
-                        break
+    }
 
-        transit_cusp_aspects = []
-        for tp in transit_planets:
-            for c in cusps_info:
-                diff = abs(tp["longitude"] - c["longitude"]) % 360.0
-                if diff > 180.0: diff = 360.0 - diff
-                for asp in ASPECT_DEFINITIONS:
-                    orb = abs(diff - asp["angle"])
-                    if orb <= asp["orb"]:
-                        transit_cusp_aspects.append({
-                            "transit_planet": tp["name"],
-                            "natal_cusp": c["house"],
-                            "aspect_name": asp["name"],
-                            "aspect_angle": asp["angle"],
-                            "actual_angle": round(diff, 2),
-                            "orb": round(orb, 2),
-                            "nature": asp["nature"]
-                        })
-                        break
-        
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        print("TRANSIT ERROR:", e)
-        transit_planets = []
-        transit_planet_aspects = []
-        transit_cusp_aspects = []
+    transit_d9_chart = {
+        "ascendant_sign_index": curr_asc_nav_sign,
+        "planets": [
+            {
+                "planet": p["name"],
+                "name": p["name"],
+                "sign_index": p["navamsha_sign_index"],
+                "house": ((p["navamsha_sign_index"] - curr_asc_nav_sign) % 12) + 1,
+                "degree_formatted": get_navamsa_deg(p["longitude"]),
+                "is_retrograde": p["is_retrograde"],
+                "status_marker": " (R)" if p["is_retrograde"] else "",
+                "rl": p.get("rl", "-"),
+                "nl": p.get("nl", "-"),
+                "sl": p.get("sl", "-"),
+                "ssl": p.get("ssl", "-"),
+                "sign": ZODIAC_SIGNS[p["navamsha_sign_index"] - 1]["name"],
+                "nakshatra": p.get("nakshatra", "-"),
+                "pada": p.get("pada", "-")
+            } for p in transit_planets
+        ]
+    }
 
-    nadi_data = calculate_nakshatra_nadi(
+    transit_bhava_chart = {
+        "ascendant_sign_index": curr_asc_kp["sign_index"],
+        "cusps": [
+            {
+                "house_number": c["house"],
+                "sign_index": c["sign_index"],
+                "sign": c["sign"],
+                "cusp_midpoint_degree": c["cusp_degree"],
+                "cusp_midpoint_formatted": c["degree_formatted"],
+                "rl": c["rl"],
+                "nl": c["nl"],
+                "sl": c["sl"],
+                "ssl": c["ssl"],
+                "nakshatra": c["nakshatra"],
+                "pada": c["pada"],
+                "occupants": c["occupants"]
+            } for c in transit_cusps_info
+        ],
+        "planets": [
+            {
+                "planet": p["name"],
+                "name": p["name"],
+                "house": p["house"],
+                "sign_index": transit_cusps_info[p["house"] - 1]["sign_index"] if p.get("house") else p["sign_index"],
+                "degree_formatted": p["degree_formatted"],
+                "is_retrograde": p["is_retrograde"],
+                "status_marker": " (R)" if p["is_retrograde"] else ""
+            } for p in transit_planets
+        ]
+    }
 
-        [p for p in planets_list if p["name"] != "Ascendant"],
-        significators_data
-    )
+    from app.services.vedic_engine import calculate_upagrahas
+    transit_divisional_charts = calculate_all_divisional_charts(transit_planets, curr_asc_deg, [], [], None)
 
-    four_step_data = calculate_four_step(
-        [p for p in planets_list if p["name"] != "Ascendant"],
-        cusps_info,
-        significators_data
-    )
+    transit_chart_data = {
+        "status": "success",
+        "is_transit": True,
+        "ascendant": curr_asc_kp,
+        "ascendant_sign_index": curr_asc_kp["sign_index"],
+        "ascendant_sign": curr_asc_kp["sign_name"],
+        "ascendant_degree": curr_asc_kp["degree_decimal"],
+        "ascendant_degree_formatted": curr_asc_kp["degree_formatted"],
+        "planets": transit_planets,
+        "bhava_cusps": transit_cusps_info,
+        "bhava_chalit": transit_bhava_chart,
+        "divisional_charts": transit_divisional_charts,
+        "d1_chart": transit_d1_chart,
+        "d9_chart": transit_d9_chart,
+        "ayanamsa_name": norm_ayanamsa,
+        "ayanamsa_value": round(transit_ayan_deg, 6),
+        "ayanamsa_formatted": f"{norm_ayanamsa} {format_dms(transit_ayan_deg)}",
+        "datetime": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
+        "latitude": t_lat,
+        "longitude": t_lon,
+        "timezone": t_tz
+    }
 
-    # Exact Vedic Day Lord & Astronomical Hora Lord (Swiss Ephemeris & Chaldean cycle)
+    # Custom transit aspects
+    ASPECT_DEFINITIONS = [
+        {"name": "Conjunction", "short_name": "Conj", "angle": 0.0, "orb": 15.0, "nature": "Yellow"},
+        {"name": "Vigintile", "short_name": "Vigi", "angle": 18.0, "orb": 2.0, "nature": "Green"},
+        {"name": "Quin-decile", "short_name": "Qdec", "angle": 24.0, "orb": 2.0, "nature": "Green"},
+        {"name": "Semi-Sextile", "short_name": "Semi", "angle": 30.0, "orb": 2.0, "nature": "Green"},
+        {"name": "Semi-quintile", "short_name": "Squi", "angle": 36.0, "orb": 2.0, "nature": "Green"},
+        {"name": "Semi-Square", "short_name": "Ssqu", "angle": 45.0, "orb": 4.0, "nature": "LightRed"},
+        {"name": "Degrees 54", "short_name": "D54", "angle": 54.0, "orb": 2.0, "nature": "LightRed"},
+        {"name": "Sextile", "short_name": "Sext", "angle": 60.0, "orb": 6.0, "nature": "Green"},
+        {"name": "Quintile", "short_name": "Quin", "angle": 72.0, "orb": 4.0, "nature": "Green"},
+        {"name": "Square", "short_name": "Squr", "angle": 90.0, "orb": 9.0, "nature": "Red"},
+        {"name": "Tredecile", "short_name": "Tred", "angle": 108.0, "orb": 3.0, "nature": "Green"},
+        {"name": "Trine", "short_name": "Trin", "angle": 120.0, "orb": 9.0, "nature": "DarkGreen"},
+        {"name": "Degrees 126", "short_name": "D126", "angle": 126.0, "orb": 2.0, "nature": "DarkGreen"},
+        {"name": "Sesquiquadrate", "short_name": "Ssqu", "angle": 135.0, "orb": 3.0, "nature": "LightRed"},
+        {"name": "Bi-quintile", "short_name": "Bqui", "angle": 144.0, "orb": 3.0, "nature": "DarkGreen"},
+        {"name": "Quincunx", "short_name": "Quin", "angle": 150.0, "orb": 3.0, "nature": "Red"},
+        {"name": "Degree 162", "short_name": "D162", "angle": 162.0, "orb": 2.0, "nature": "Green"},
+        {"name": "Opposition", "short_name": "Oppn", "angle": 180.0, "orb": 15.0, "nature": "Red"}
+    ]
+
+    transit_planet_aspects = []
+    for tp in transit_planets:
+        if tp["name"] == "Ascendant": continue
+        for np in planets_list:
+            if np["name"] == "Ascendant": continue
+            diff = abs(tp["longitude"] - np["longitude"]) % 360.0
+            if diff > 180.0: diff = 360.0 - diff
+            for asp in ASPECT_DEFINITIONS:
+                orb = abs(diff - asp["angle"])
+                if orb <= asp["orb"]:
+                    is_applying = True
+                    p1_speed = tp.get("speed", 1.0)
+                    p2_speed = np.get("speed", 1.0)
+                    if p1_speed > p2_speed and tp["longitude"] > np["longitude"]:
+                        is_applying = False
+                    transit_planet_aspects.append({
+                        "transit_planet": tp["name"],
+                        "natal_planet": np["name"],
+                        "aspect_name": asp["name"],
+                        "short_name": asp.get("short_name", asp["name"][:4]),
+                        "aspect_angle": asp["angle"],
+                        "actual_angle": round(diff, 2),
+                        "orb": round(orb, 2),
+                        "strength": round(asp["orb"] - orb, 2),
+                        "nature": asp["nature"],
+                        "is_applying": is_applying,
+                        "description": asp.get("desc", "")
+                    })
+                    break
+
+    transit_cusp_aspects = []
+    for tp in transit_planets:
+        if tp["name"] == "Ascendant": continue
+        for c in cusps_info:
+            diff = abs(tp["longitude"] - c["longitude"]) % 360.0
+            if diff > 180.0: diff = 360.0 - diff
+            for asp in ASPECT_DEFINITIONS:
+                orb = abs(diff - asp["angle"])
+                if orb <= asp["orb"]:
+                    transit_cusp_aspects.append({
+                        "transit_planet": tp["name"],
+                        "natal_cusp": c["house"],
+                        "aspect_name": asp["name"],
+                        "aspect_angle": asp["angle"],
+                        "actual_angle": round(diff, 2),
+                        "orb": round(orb, 2),
+                        "nature": asp["nature"]
+                    })
+                    break
+
+    # Exact Vedic Day Lord & Hora Lord for Natal
     WEEKDAY_LORDS = ["Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Sun"]
     HORA_ORDER = ["Sun", "Venus", "Mercury", "Moon", "Saturn", "Jupiter", "Mars"]
-    hour_ut = (tob_parts[0] + tob_parts[1] / 60.0 + (tob_parts[2] if len(tob_parts) > 2 else 0) / 3600.0) - timezone
     try:
         if SWISSEPH_AVAILABLE and swe is not None:
-            jd_ut_birth = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day, hour_ut)
             geopos = (longitude, latitude, 0.0)
             jd_ut_start = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day, 0.0)
             res_rise = swe.rise_trans(jd_ut_start, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos)
             sunrise_jd = res_rise[1][0]
-            if jd_ut_birth < sunrise_jd:
+            if jd_natal < sunrise_jd:
                 res_rise_prev = swe.rise_trans(jd_ut_start - 1.0, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos)
                 sunrise_jd = res_rise_prev[1][0]
                 adjusted_dt = birth_dt - timedelta(days=1)
@@ -1273,134 +1458,91 @@ def generate_kp_system(
             start_idx = HORA_ORDER.index(day_lord)
             res_set = swe.rise_trans(sunrise_jd, swe.SUN, swe.CALC_SET | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos)
             sunset_jd = res_set[1][0]
-            if sunrise_jd <= jd_ut_birth < sunset_jd:
+            if sunrise_jd <= jd_natal < sunset_jd:
                 day_hora_len = (sunset_jd - sunrise_jd) / 12.0
-                hora_idx = int((jd_ut_birth - sunrise_jd) / day_hora_len) % 12
+                hora_idx = int((jd_natal - sunrise_jd) / max(day_hora_len, 1e-6)) % 12
                 hora_lord = HORA_ORDER[(start_idx + hora_idx) % 7]
             else:
                 res_rise_next = swe.rise_trans(sunset_jd, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos)
                 next_sunrise_jd = res_rise_next[1][0]
                 night_hora_len = (next_sunrise_jd - sunset_jd) / 12.0
-                hora_idx = int((jd_ut_birth - sunset_jd) / night_hora_len) % 12
+                hora_idx = int((jd_natal - sunset_jd) / max(night_hora_len, 1e-6)) % 12
                 start_idx_night = (start_idx + 12) % 7
                 hora_lord = HORA_ORDER[(start_idx_night + hora_idx) % 7]
         else:
             raise Exception("Swiss Ephemeris not available")
     except Exception:
-        tob_hours = tob_parts[0] + tob_parts[1] / 60.0 + (tob_parts[2] if len(tob_parts) > 2 else 0) / 3600.0
+        tob_hours = tob_parts[0] + tob_parts[1] / 60.0 + sec / 3600.0
         offset = 0 if tob_hours >= 6.0 else -1
         day_idx = (birth_dt + timedelta(days=offset)).weekday()
         day_lord = WEEKDAY_LORDS[day_idx]
-        hours_from_sunrise = tob_hours - 6.0
-        if hours_from_sunrise < 0:
-            hours_from_sunrise += 24.0
+        hours_from_sunrise = (tob_hours - 6.0) % 24.0
         hora_idx_in_day = int(hours_from_sunrise) % 24
         start_hora_idx = HORA_ORDER.index(day_lord) if day_lord in HORA_ORDER else 0
         hora_lord = HORA_ORDER[(start_hora_idx + hora_idx_in_day) % 7]
 
     moon_kp = next((p for p in planets_list if p["name"] == "Moon"), planets_list[0])
 
-    # -------------------------------------------------------------
-    # Exact Real-Time / Current Ruling Planets (Swiss Ephemeris)
-    # -------------------------------------------------------------
-    t_lat = transit_latitude if transit_latitude is not None else latitude
-    t_lon = transit_longitude if transit_longitude is not None else longitude
-    t_tz = transit_timezone if transit_timezone is not None else timezone
-
+    # Ruling Planets at transit time
     try:
-        if SWISSEPH_AVAILABLE and swe is not None:
-            # Current Ascendant
-            curr_cusps, curr_asc_deg, curr_mc_deg = get_placidus_cusps(jd_ut_now, t_lat, t_lon, transit_ayan_deg)
-            curr_asc_kp = calculate_kp_sub_lords(curr_asc_deg)
-            
-            # Current Moon
-            curr_moon_p = next((p for p in transit_planets if p["name"] == "Moon"), None)
-            if curr_moon_p:
-                curr_moon_kp = calculate_kp_sub_lords(curr_moon_p["longitude"])
-            else:
-                curr_flags = swe.FLG_SWIEPH | swe.FLG_SPEED
-                res_m, _ = swe.calc_ut(jd_ut_now, swe.MOON, curr_flags)
-                curr_moon_sid = (res_m[0] - transit_ayan_deg) % 360.0
-                curr_moon_kp = calculate_kp_sub_lords(curr_moon_sid)
+        curr_moon_p = next((p for p in transit_planets if p["name"] == "Moon"), None)
+        curr_moon_kp = calculate_kp_sub_lords(curr_moon_p["longitude"]) if curr_moon_p else moon_kp
 
-            # Current Day Lord & Hora Lord
-            geopos_curr = (t_lon, t_lat, 0.0)
-            jd_ut_start_curr = swe.julday(now_dt.year, now_dt.month, now_dt.day, 0.0)
-            res_rise_curr = swe.rise_trans(jd_ut_start_curr, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos_curr)
-            curr_sunrise_jd = res_rise_curr[1][0]
-            if jd_ut_now < curr_sunrise_jd:
-                res_prev = swe.rise_trans(jd_ut_start_curr - 1.0, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos_curr)
-                curr_sunrise_jd = res_prev[1][0]
-                adjusted_curr_dt = now_dt - timedelta(days=1)
-            else:
-                adjusted_curr_dt = now_dt
-            curr_day_lord = WEEKDAY_LORDS[adjusted_curr_dt.weekday()]
-            start_idx_curr = HORA_ORDER.index(curr_day_lord)
-            res_set_curr = swe.rise_trans(curr_sunrise_jd, swe.SUN, swe.CALC_SET | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos_curr)
-            curr_sunset_jd = res_set_curr[1][0]
-            if curr_sunrise_jd <= jd_ut_now < curr_sunset_jd:
-                day_hora_len = (curr_sunset_jd - curr_sunrise_jd) / 12.0
-                h_idx = int((jd_ut_now - curr_sunrise_jd) / day_hora_len) % 12
-                curr_hora_lord = HORA_ORDER[(start_idx_curr + h_idx) % 7]
-            else:
-                res_rise_next = swe.rise_trans(curr_sunset_jd, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos_curr)
-                next_sunrise_jd = res_rise_next[1][0]
-                night_hora_len = (next_sunrise_jd - curr_sunset_jd) / 12.0
-                h_idx = int((jd_ut_now - curr_sunset_jd) / night_hora_len) % 12
-                curr_hora_lord = HORA_ORDER[((start_idx_curr + 12) + h_idx) % 7]
+        geopos_curr = (t_lon, t_lat, 0.0)
+        jd_ut_start_curr = swe.julday(now_dt.year, now_dt.month, now_dt.day, 0.0)
+        res_rise_curr = swe.rise_trans(jd_ut_start_curr, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos_curr)
+        curr_sunrise_jd = res_rise_curr[1][0]
+        if jd_ut_now < curr_sunrise_jd:
+            res_prev = swe.rise_trans(jd_ut_start_curr - 1.0, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos_curr)
+            curr_sunrise_jd = res_prev[1][0]
+            adjusted_curr_dt = now_dt - timedelta(days=1)
         else:
-            raise Exception("Swiss Ephemeris not available")
+            adjusted_curr_dt = now_dt
+        curr_day_lord = WEEKDAY_LORDS[adjusted_curr_dt.weekday()]
+        start_idx_curr = HORA_ORDER.index(curr_day_lord)
+        res_set_curr = swe.rise_trans(curr_sunrise_jd, swe.SUN, swe.CALC_SET | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos_curr)
+        curr_sunset_jd = res_set_curr[1][0]
+        if curr_sunrise_jd <= jd_ut_now < curr_sunset_jd:
+            day_hora_len = (curr_sunset_jd - curr_sunrise_jd) / 12.0
+            hora_idx = int((jd_ut_now - curr_sunrise_jd) / max(day_hora_len, 1e-6)) % 12
+            curr_hora_lord = HORA_ORDER[(start_idx_curr + hora_idx) % 7]
+        else:
+            res_rise_next = swe.rise_trans(curr_sunset_jd, swe.SUN, swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION, geopos_curr)
+            next_sunrise_jd = res_rise_next[1][0]
+            night_hora_len = (next_sunrise_jd - curr_sunset_jd) / 12.0
+            hora_idx = int((jd_ut_now - curr_sunset_jd) / max(night_hora_len, 1e-6)) % 12
+            start_idx_night = (start_idx_curr + 12) % 7
+            curr_hora_lord = HORA_ORDER[(start_idx_night + hora_idx) % 7]
     except Exception:
-        curr_asc_kp = asc_kp
-        curr_moon_kp = moon_kp
         curr_day_lord = day_lord
         curr_hora_lord = hora_lord
+        curr_moon_kp = moon_kp
 
-    chart_ruling_planets = {
-        "day_lord": day_lord,
-        "hora_lord": hora_lord,
-        "asc_sign_lord": asc_kp["rashi_lord"],
-        "asc_star_lord": asc_kp["nakshatra_lord"],
-        "asc_sub_lord": asc_kp["sub_lord"],
-        "moon_sign_lord": moon_kp["rashi_lord"],
-        "moon_star_lord": moon_kp["nakshatra_lord"],
-        "moon_sub_lord": moon_kp.get("sub_lord") or moon_kp.get("sl") or "-"
-    }
+    chart_ruling_planets = [
+        {"role": "Ascendant Sign Lord (RL)", "planet": asc_kp["rashi_lord"], "short_code": asc_kp["rl"]},
+        {"role": "Ascendant Star Lord (NL)", "planet": asc_kp["nakshatra_lord"], "short_code": asc_kp["nl"]},
+        {"role": "Ascendant Sub Lord (SL)", "planet": asc_kp["sub_lord"], "short_code": asc_kp["sl"]},
+        {"role": "Moon Sign Lord (RL)", "planet": moon_kp["rashi_lord"], "short_code": moon_kp["rl"]},
+        {"role": "Moon Star Lord (NL)", "planet": moon_kp["nakshatra_lord"], "short_code": moon_kp["nl"]},
+        {"role": "Moon Sub Lord (SL)", "planet": moon_kp["sub_lord"], "short_code": moon_kp["sl"]},
+        {"role": "Day Lord (DL)", "planet": day_lord, "short_code": get_lord_short(day_lord)},
+        {"role": "Hora Lord", "planet": hora_lord, "short_code": get_lord_short(hora_lord)}
+    ]
 
-    current_ruling_planets = {
-        "day_lord": curr_day_lord,
-        "hora_lord": curr_hora_lord,
-        "asc_sign_lord": curr_asc_kp["rashi_lord"],
-        "asc_star_lord": curr_asc_kp["nakshatra_lord"],
-        "asc_sub_lord": curr_asc_kp["sub_lord"],
-        "moon_sign_lord": curr_moon_kp["rashi_lord"],
-        "moon_star_lord": curr_moon_kp["nakshatra_lord"],
-        "moon_sub_lord": curr_moon_kp["sub_lord"],
-        "timestamp": now_dt.strftime("%Y-%m-%d %H:%M:%S")
-    }
+    current_ruling_planets = [
+        {"role": "Ascendant Sign Lord (RL)", "planet": curr_asc_kp["rashi_lord"], "short_code": curr_asc_kp["rl"]},
+        {"role": "Ascendant Star Lord (NL)", "planet": curr_asc_kp["nakshatra_lord"], "short_code": curr_asc_kp["nl"]},
+        {"role": "Ascendant Sub Lord (SL)", "planet": curr_asc_kp["sub_lord"], "short_code": curr_asc_kp["sl"]},
+        {"role": "Moon Sign Lord (RL)", "planet": curr_moon_kp["rashi_lord"], "short_code": curr_moon_kp["rl"]},
+        {"role": "Moon Star Lord (NL)", "planet": curr_moon_kp["nakshatra_lord"], "short_code": curr_moon_kp["nl"]},
+        {"role": "Moon Sub Lord (SL)", "planet": curr_moon_kp["sub_lord"], "short_code": curr_moon_kp["sl"]},
+        {"role": "Day Lord (DL)", "planet": curr_day_lord, "short_code": get_lord_short(curr_day_lord)},
+        {"role": "Hora Lord", "planet": curr_hora_lord, "short_code": get_lord_short(curr_hora_lord)}
+    ]
 
-    ruling_planets = {
-        "chart": chart_ruling_planets,
-        "current": current_ruling_planets,
-        "lagna_rashi_lord": asc_kp["rashi_lord"],
-        "lagna_nakshatra_lord": asc_kp["nakshatra_lord"],
-        "lagna_sub_lord": asc_kp["sub_lord"],
-        "asc_sub_lord": asc_kp["sub_lord"],
-        "asc_sign": asc_kp["sign_name"],
-        "asc_nakshatra": asc_kp["nakshatra_name"],
-        "asc_rl": asc_kp["rl"],
-        "asc_nl": asc_kp["nl"],
-        "asc_sl": asc_kp["sl"],
-        "asc_ssl": asc_kp["ssl"],
-        "moon_rashi_lord": moon_kp["rashi_lord"],
-        "moon_nakshatra_lord": moon_kp["nakshatra_lord"],
-        "moon_sub_lord": moon_kp.get("sub_lord") or moon_kp.get("sl") or "-",
-        "day_lord": day_lord,
-        "hora_lord": hora_lord
-    }
-    
+    ruling_planets = chart_ruling_planets
+
     upagrahas_list = calculate_upagrahas(sun_lon, asc_deg, birth_dt, latitude, longitude, timezone, ayan_deg)
-
     planet_sign_indices = { p["name"]: p["sign_index"] for p in planets_list if p["name"] not in ["Rahu", "Ketu", "Uranus", "Neptune", "Pluto", "Ascendant", "Fortuna"] }
     ashtakavarga_data = calculate_parashara_ashtakvarga(asc_kp["sign_index"], planet_sign_indices)
 
@@ -1422,6 +1564,7 @@ def generate_kp_system(
         "ascendant": asc_kp,
         "planets": planets_list,
         "transit_planets": transit_planets,
+        "transit_chart": transit_chart_data,
         "transit_planet_aspects": transit_planet_aspects,
         "transit_cusp_aspects": transit_cusp_aspects,
         "upagrahas": upagrahas_list,
@@ -1435,4 +1578,3 @@ def generate_kp_system(
         "four_step": four_step_data,
         "ashtakavarga": ashtakavarga_data
     }
-

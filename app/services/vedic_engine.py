@@ -66,39 +66,51 @@ def calculate_julian_day(year: int, month: int, day: int, hour_utc: float) -> fl
     return jd
 
 
+SWE_AYANAMSA_MODES = {
+    # Standard Vedic & KP sidereal systems
+    "LAHIRI": swe.SIDM_LAHIRI,
+    "BV_RAMAN": swe.SIDM_RAMAN,
+    "SRI_YUKTESWAR": swe.SIDM_YUKTESHWAR,
+    "DE_LUCE": swe.SIDM_DELUCE,
+    "USHA_SHASHI": swe.SIDM_USHASHASHI,
+    "DJWHAL_KHOOL": swe.SIDM_DJWHAL_KHUL,
+    "JN_BHASIN": swe.SIDM_JN_BHASIN,
+    "FAGAN_BRADLEY": swe.SIDM_FAGAN_BRADLEY,
+    "KP_OLD": swe.SIDM_KRISHNAMURTI,
+    "KP_NEW": swe.SIDM_KRISHNAMURTI_VP291,
+    "KP_STRAIGHT_LINE": (swe.SIDM_USER, 2451545.0, 23.8484194),
+    "KHULLAR": (swe.SIDM_USER, 2451545.0, 23.839031),
+    "CHANDRA_HARI": swe.SIDM_TRUE_MULA,
+}
+
+def set_swisseph_sidereal_mode(ayanamsa_key: str = "KP_NEW") -> Tuple[Any, bool]:
+    """
+    Set the Swiss Ephemeris sidereal mode thread-safely.
+    Returns: (mode, is_sidereal)
+    """
+    norm = ayanamsa_key.strip().upper() if ayanamsa_key else "KP_NEW"
+    if norm in ("TROPICAL", "SAYANA"):
+        return 0, False
+    mode = SWE_AYANAMSA_MODES.get(norm, swe.SIDM_KRISHNAMURTI_VP291)
+    if isinstance(mode, tuple):
+        swe.set_sid_mode(mode[0], mode[1], mode[2])
+    else:
+        swe.set_sid_mode(mode)
+    return mode, True
+
 def calculate_lahiri_ayanamsa(jd: float, ayanamsa_key: str = "LAHIRI", custom_deg: float = None) -> float:
-    if ayanamsa_key == "TROPICAL": return 0.0
-    if ayanamsa_key == "CUSTOM" and custom_deg is not None: return float(custom_deg)
+    norm = ayanamsa_key.strip().upper() if ayanamsa_key else "LAHIRI"
+    if norm in ("TROPICAL", "SAYANA"):
+        return 0.0
+    if norm == "CUSTOM" and custom_deg is not None:
+        return float(custom_deg)
     
     if SWISSEPH_AVAILABLE and swe:
-        SWE_MAP = {
-            # Standard Vedic
-            "LAHIRI": swe.SIDM_LAHIRI, "BV_RAMAN":        swe.SIDM_RAMAN,            # B.V. Raman
-            "SRI_YUKTESWAR":   swe.SIDM_YUKTESHWAR,       # Sri Yukteswar
-            "DE_LUCE":         swe.SIDM_DELUCE,           # De Luce
-            "USHA_SHASHI":     swe.SIDM_USHASHASHI,       # Usha-Shashi (Revati)
-            "DJWHAL_KHOOL":    swe.SIDM_DJWHAL_KHUL,      # Djwhal Khool
-            "JN_BHASIN":       swe.SIDM_JN_BHASIN,        # J.N. Bhasin
-            "FAGAN_BRADLEY":   swe.SIDM_FAGAN_BRADLEY,    # Fagan-Bradley (Western sidereal)
-            # KP variants
-            "KP_OLD":          swe.SIDM_KRISHNAMURTI,     # Krishnamurti KP Original (K.S. Original)
-            "KP_NEW":          swe.SIDM_KRISHNAMURTI_VP291, # Krishnamurti KP New (VP291)
-            "KP_STRAIGHT_LINE": swe.SIDM_LAHIRI,          # KP Straight Line uses Lahiri as base
-                        # Additional mappings using best-match constants
-            "KHULLAR":         swe.SIDM_LAHIRI,           # Khullar is mathematically Lahiri - 42"
-            "CHANDRA_HARI":    swe.SIDM_TRUE_MULA,        # Chandra Hari uses True Mula (approx)
-        }
-        
-        if ayanamsa_key not in SWE_MAP:
-            raise ValueError(f"Ayanamsa '{ayanamsa_key}' is not supported. Available: {list(SWE_MAP.keys())}")
-        
-        mode = SWE_MAP[ayanamsa_key]
         with _SWE_AYANAMSA_LOCK:
-            swe.set_sid_mode(mode)
-            aya = swe.get_ayanamsa_ut(jd)
-            if ayanamsa_key in ("KP_STRAIGHT_LINE", "KHULLAR"):
-                aya -= (42.0 / 3600.0)
-            return aya
+            mode, is_sidereal = set_swisseph_sidereal_mode(norm)
+            if not is_sidereal:
+                return 0.0
+            return float(swe.get_ayanamsa_ut(jd))
         
     # Pure Python fallback (Lahiri approximation)
     t = (jd - 2451545.0) / 36525.0
@@ -153,7 +165,7 @@ def get_planet_longitudes_precise(jd: float, ayanamsa: float, lat: float = None,
         swe_ids = {
             "Sun": swe.SUN, "Moon": swe.MOON, "Mars": swe.MARS,
             "Mercury": swe.MERCURY, "Jupiter": swe.JUPITER, "Venus": swe.VENUS,
-            "Saturn": swe.SATURN, "Rahu": swe.MEAN_NODE,
+            "Saturn": swe.SATURN, "Rahu": swe.TRUE_NODE,
             "Uranus": swe.URANUS, "Neptune": swe.NEPTUNE, "Pluto": swe.PLUTO
         }
         for name, pid in swe_ids.items():
@@ -2410,13 +2422,15 @@ def calculate_shadbala(
         else:
             paksha = 60.0 * (1.0 - paksha_ratio)
 
-        # Tribhaga Bala (Original exact logic preserved: (sun_deg - asc_deg))
+        # Tribhaga Bala (BPHS Ch. 27 v. 23: Mercury/Sun/Saturn for Day, Moon/Venus/Mars for Night, Jupiter always)
         sun_dist_asc = (sun_deg - asc_deg) % 360.0
         is_day = sun_dist_asc > 180.0
         tribhaga = 0.0
-        if is_day:
+        if p == 'Jupiter':
+            tribhaga = 60.0
+        elif is_day:
             part = int((360.0 - sun_dist_asc) / 60.0) + 1
-            if part == 1 and p == 'Jupiter': tribhaga = 60.0
+            if part == 1 and p == 'Mercury': tribhaga = 60.0
             elif part == 2 and p == 'Sun': tribhaga = 60.0
             elif part == 3 and p == 'Saturn': tribhaga = 60.0
         else:
@@ -2680,9 +2694,9 @@ def calculate_bhava_bala(
             elif p_name == "Moon" and moon_is_benefic: is_benefic = True
             
             if is_benefic:
-                drig_bala_virupas += aspect_val
+                drig_bala_virupas += (aspect_val / 4.0)
             else:
-                drig_bala_virupas -= aspect_val
+                drig_bala_virupas -= (aspect_val / 4.0)
                 
         drig_bala = round(drig_bala_virupas, 2)
         
