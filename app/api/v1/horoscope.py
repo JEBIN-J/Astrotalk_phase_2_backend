@@ -23,7 +23,11 @@ def parse_horoscope_data():
         "days_in_year": float(data.get("days_in_year", 365.256364)),
         "bhava_system": data.get("bhava_system", "Porphyry (Sripathi)"),
         "ayanamsa": data.get("ayanamsa", "LAHIRI"),
-        "custom_ayanamsa": float(data.get("custom_ayanamsa", 0.0)) if data.get("custom_ayanamsa") is not None else None
+        "custom_ayanamsa": float(data.get("custom_ayanamsa", 0.0)) if data.get("custom_ayanamsa") is not None else None,
+        "transit_datetime": data.get("transit_datetime"),
+        "transit_latitude": float(data.get("transit_latitude")) if data.get("transit_latitude") is not None else None,
+        "transit_longitude": float(data.get("transit_longitude")) if data.get("transit_longitude") is not None else None,
+        "transit_timezone": float(data.get("transit_timezone")) if data.get("transit_timezone") is not None else None
     }
 
 import re
@@ -393,8 +397,13 @@ def get_kp_system():
     Nakshatra Nadi, and 4-Step KP from user birth details and selected Ayanamsa.
     """
     try:
+        raw_json = request.json or {}
         data = parse_horoscope_data()
-        ayanamsa = request.json.get("ayanamsa", "Krishnamurti (KP New)")
+        ayanamsa = raw_json.get("ayanamsa", "Krishnamurti (KP New)")
+        transit_dt = raw_json.get("transit_datetime") or data.get("transit_datetime")
+        transit_tz = raw_json.get("transit_timezone", data.get("transit_timezone"))
+        transit_lat = raw_json.get("transit_latitude", data.get("transit_latitude"))
+        transit_lon = raw_json.get("transit_longitude", data.get("transit_longitude"))
         
         result = generate_kp_system(
             name=data.get("name", "User"),
@@ -405,11 +414,11 @@ def get_kp_system():
             longitude=float(data.get("longitude", 77.2090)),
             timezone=float(data.get("timezone", 5.5)),
             ayanamsa_name=ayanamsa,
-            transit_datetime_str=data.get("transit_datetime"),
-            transit_timezone=float(data.get("transit_timezone", data.get("timezone", 5.5))) if "transit_timezone" in data else None,
-            transit_latitude=float(data.get("transit_latitude")) if data.get("transit_latitude") is not None else None,
-            transit_longitude=float(data.get("transit_longitude")) if data.get("transit_longitude") is not None else None,
-            node_type=request.json.get("node_type", "true")
+            transit_datetime_str=transit_dt,
+            transit_timezone=float(transit_tz) if transit_tz is not None else float(data.get("timezone", 5.5)),
+            transit_latitude=float(transit_lat) if transit_lat is not None else None,
+            transit_longitude=float(transit_lon) if transit_lon is not None else None,
+            node_type=raw_json.get("node_type", "true")
         )
         return jsonify(remove_hindi_text(result))
     except Exception as e:

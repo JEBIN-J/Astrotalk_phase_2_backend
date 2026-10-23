@@ -1367,6 +1367,98 @@ def generate_kp_system(
         "timezone": t_tz
     }
 
+    # Transit Chart with Natal Cusps (Transit planets mapped onto Natal Lagna & Natal Cusps)
+    transit_natal_d1_chart = {
+        "ascendant_sign_index": asc_kp["sign_index"],
+        "planets": [
+            {
+                "planet": p["name"],
+                "name": p["name"],
+                "sign_index": p["sign_index"],
+                "house": ((p["sign_index"] - asc_kp["sign_index"]) % 12) + 1,
+                "degree_formatted": p["degree_formatted"],
+                "is_retrograde": p["is_retrograde"],
+                "status_marker": " (R)" if p["is_retrograde"] else ""
+            } for p in transit_planets
+        ]
+    }
+
+    transit_natal_d9_chart = {
+        "ascendant_sign_index": asc_nav_sign,
+        "planets": [
+            {
+                "planet": p["name"],
+                "name": p["name"],
+                "sign_index": p["navamsha_sign_index"],
+                "house": ((p["navamsha_sign_index"] - asc_nav_sign) % 12) + 1,
+                "degree_formatted": get_navamsa_deg(p["longitude"]),
+                "is_retrograde": p["is_retrograde"],
+                "status_marker": " (R)" if p["is_retrograde"] else "",
+                "rl": p.get("rl", "-"),
+                "nl": p.get("nl", "-"),
+                "sl": p.get("sl", "-"),
+                "ssl": p.get("ssl", "-"),
+                "sign": ZODIAC_SIGNS[p["navamsha_sign_index"] - 1]["name"],
+                "nakshatra": p.get("nakshatra", "-"),
+                "pada": p.get("pada", "-")
+            } for p in transit_planets
+        ]
+    }
+
+    transit_natal_cusps_info = []
+    for c in cusps_info:
+        h = c["house"]
+        t_occupants = [p["name"] for p in transit_planets if p.get("natal_house") == h and p["name"] != "Ascendant"]
+        c_copy = dict(c)
+        c_copy["occupants"] = t_occupants
+        c_copy["occupants_str"] = ", ".join(t_occupants) if t_occupants else "None"
+        transit_natal_cusps_info.append(c_copy)
+
+    transit_natal_bhava_chart = {
+        "ascendant_sign_index": asc_kp["sign_index"],
+        "cusps": transit_natal_cusps_info,
+        "planets": [
+            {
+                "planet": p["name"],
+                "name": p["name"],
+                "house": p.get("natal_house", p.get("house")),
+                "sign_index": cusps_info[p["natal_house"] - 1]["sign_index"] if p.get("natal_house") and p["natal_house"] <= len(cusps_info) else p["sign_index"],
+                "degree_formatted": p["degree_formatted"],
+                "is_retrograde": p["is_retrograde"],
+                "status_marker": " (R)" if p["is_retrograde"] else ""
+            } for p in transit_planets
+        ]
+    }
+
+    transit_planets_for_natal = [
+        dict(p, house=p.get("natal_house", p.get("house"))) for p in transit_planets
+    ]
+
+    transit_natal_cusps_chart = {
+        "status": "success",
+        "is_transit": True,
+        "is_natal_cusps": True,
+        "ascendant": asc_kp,
+        "ascendant_sign_index": asc_kp["sign_index"],
+        "ascendant_sign": asc_kp["sign_name"],
+        "ascendant_degree": round(asc_deg, 4),
+        "ascendant_degree_formatted": asc_kp.get("degree_formatted", format_dms(asc_deg % 30.0)),
+        "planets": transit_planets_for_natal,
+        "bhava_cusps": transit_natal_cusps_info,
+        "bhava_chalit": transit_natal_bhava_chart,
+        "divisional_charts": calculate_all_divisional_charts(transit_planets_for_natal, asc_deg, [], [], None),
+        "d1_chart": transit_natal_d1_chart,
+        "d9_chart": transit_natal_d9_chart,
+        "ayanamsa_name": norm_ayanamsa,
+        "ayanamsa_value": round(transit_ayan_deg, 6),
+        "ayanamsa_formatted": f"{norm_ayanamsa} {format_dms(transit_ayan_deg)}",
+        "datetime": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
+        "latitude": t_lat,
+        "longitude": t_lon,
+        "timezone": t_tz
+    }
+    transit_chart_data["transit_natal_cusps_chart"] = transit_natal_cusps_chart
+
     # Custom transit aspects
     ASPECT_DEFINITIONS = [
         {"name": "Conjunction", "short_name": "Conj", "angle": 0.0, "orb": 15.0, "nature": "Yellow"},
@@ -1565,6 +1657,7 @@ def generate_kp_system(
         "planets": planets_list,
         "transit_planets": transit_planets,
         "transit_chart": transit_chart_data,
+        "transit_natal_cusps_chart": transit_natal_cusps_chart,
         "transit_planet_aspects": transit_planet_aspects,
         "transit_cusp_aspects": transit_cusp_aspects,
         "upagrahas": upagrahas_list,
