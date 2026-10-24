@@ -28,7 +28,9 @@ def calculate_full_profile():
         dob = data.get("dob", "")
         system = data.get("system", "pythagorean").lower()
         
-        if system == "vedic":
+        if system == "chaldean":
+            result = NumerologyService.calculate_chaldean(name, dob)
+        elif system == "vedic":
             result = NumerologyService.calculate_vedic(name, dob)
         else:
             result = NumerologyService.calculate_pythagorean(name, dob)
@@ -37,6 +39,134 @@ def calculate_full_profile():
             return jsonify({"status": "error", "message": result["error"]}), 400
             
         return jsonify({"status": "success", "data": result}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+
+
+@numerology_bp.route("/preview", methods=["GET", "POST"])
+@numerology_bp.route("/live-preview", methods=["POST"])
+def get_live_preview():
+    """
+    Authoritative live preview calculation endpoint for name numbers,
+    date-of-birth derived numbers, alphabet mapping chart, and strict calendar validation.
+    """
+    try:
+        if request.method == "POST":
+            data = request.get_json(silent=True) or {}
+            name = data.get("name", "")
+            dob = data.get("dob") or data.get("date_of_birth")
+            day = data.get("day")
+            month = data.get("month")
+            year = data.get("year")
+            system = data.get("system", "chaldean")
+            gender = data.get("gender")
+        else:
+            name = request.args.get("name", "")
+            dob = request.args.get("dob") or request.args.get("date_of_birth")
+            day = request.args.get("day")
+            month = request.args.get("month")
+            year = request.args.get("year")
+            system = request.args.get("system", "chaldean")
+            gender = request.args.get("gender")
+
+        parsed_day = int(day) if (day is not None and str(day).strip().isdigit()) else None
+        parsed_month = int(month) if (month is not None and str(month).strip().isdigit()) else None
+        parsed_year = int(year) if (year is not None and str(year).strip().isdigit()) else None
+
+        result = NumerologyService.calculate_preview(
+            name=name,
+            dob_str=dob,
+            day=parsed_day,
+            month=parsed_month,
+            year=parsed_year,
+            system=system,
+            gender=gender
+        )
+
+        return jsonify({"status": "success", "data": result}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+
+
+@numerology_bp.route("/profile/save", methods=["POST"])
+def save_user_numerology_profile():
+    """
+    Saves user profile details and performs authoritative backend recalculation.
+    Validates name (non-empty) and DOB strictly.
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        name = (data.get("name") or "").strip()
+        dob = (data.get("dob") or data.get("date_of_birth") or "").strip()
+        system = (data.get("system") or "chaldean").lower().strip()
+        gender = (data.get("gender") or "other").lower().strip()
+
+        if not name:
+            return jsonify({
+                "status": "error",
+                "error_code": "EMPTY_NAME",
+                "message": "Full name cannot be empty."
+            }), 400
+
+        parts = dob.split("-")
+        if len(parts) != 3:
+            return jsonify({
+                "status": "error",
+                "error_code": "INVALID_DATE_FORMAT",
+                "message": "Date of birth must be in YYYY-MM-DD format."
+            }), 400
+
+        try:
+            y, m, d = int(parts[0]), int(parts[1]), int(parts[2])
+            is_valid, err_msg, dt = NumerologyService.validate_date(y, m, d)
+            if not is_valid:
+                return jsonify({
+                    "status": "error",
+                    "error_code": "INVALID_DATE",
+                    "message": err_msg or "Invalid calendar date."
+                }), 400
+        except ValueError:
+            return jsonify({
+                "status": "error",
+                "error_code": "INVALID_DATE_VALUES",
+                "message": "Day, Month, and Year must be valid integers."
+            }), 400
+
+        if system == "chaldean":
+            calc_result = NumerologyService.calculate_chaldean(name, dob)
+        elif system == "vedic":
+            calc_result = NumerologyService.calculate_vedic(name, dob)
+        else:
+            calc_result = NumerologyService.calculate_pythagorean(name, dob)
+
+        current_user, _ = get_current_user()
+        if current_user:
+            current_user["name"] = name
+            current_user["dob"] = dob
+            current_user["gender"] = gender
+            current_user["numerology_system"] = system
+
+        preview = NumerologyService.calculate_preview(
+            name=name,
+            dob_str=dob,
+            system=system,
+            gender=gender
+        )
+
+        return jsonify({
+            "status": "success",
+            "message": "Profile saved and numerology blueprint calculated successfully.",
+            "data": {
+                "profile": {
+                    "name": name,
+                    "dob": dob,
+                    "gender": gender,
+                    "system": system
+                },
+                "preview": preview,
+                "full_calculation": calc_result
+            }
+        }), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
 
@@ -102,6 +232,9 @@ def get_life_path_report():
 
         # Retrieve published interpretation from database
         interpretation = NumerologyRepository.get_published_interpretation(system, lp_number)
+        if not interpretation and system != "pythagorean":
+            interpretation = NumerologyRepository.get_published_interpretation("pythagorean", lp_number)
+
         if not interpretation:
             return jsonify({
                 "status": "error",
@@ -217,6 +350,9 @@ def get_birth_day_report():
         reduced_root = calc_result["reduced_root"]
 
         interpretation = NumerologyRepository.get_birth_day_interpretation(system, day_num)
+        if not interpretation and system != "pythagorean":
+            interpretation = NumerologyRepository.get_birth_day_interpretation("pythagorean", day_num)
+
         if not interpretation:
             return jsonify({
                 "status": "error",
@@ -361,6 +497,9 @@ def get_personal_year():
         py_number = calc_result["personal_year_number"]
 
         interpretation = NumerologyRepository.get_personal_year_interpretation(system, py_number)
+        if not interpretation and system != "pythagorean":
+            interpretation = NumerologyRepository.get_personal_year_interpretation("pythagorean", py_number)
+
         if not interpretation:
             return jsonify({
                 "status": "error",
