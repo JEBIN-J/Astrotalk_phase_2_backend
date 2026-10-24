@@ -375,6 +375,57 @@ def get_placidus_cusps(jd: float, lat: float, lon: float, is_sidereal: bool = Tr
     cusps = [(asc_trop + i * 30.0) % 360.0 for i in range(12)]
     return cusps, asc_trop, mc_trop
 
+
+def get_horary_placidus_cusps(asc_sidereal: float, lat: float, aya: float, jd: float) -> Tuple[List[float], float, float]:
+    """
+    Compute KP Horary Placidus house cusps where Cusp 1 (Ascendant) is fixed
+    by the Horary Seed Number, and Cusps 2-12 are calculated via Placidus
+    house division for the query latitude using Swiss Ephemeris.
+    """
+    asc_sidereal = float(asc_sidereal) % 360.0
+    if SWISSEPH_AVAILABLE and swe:
+        try:
+            asc_trop = (asc_sidereal + aya) % 360.0
+            t = (jd - 2451545.0) / 36525.0
+            eps = 23.4392911 - 0.0130042 * t
+            best_armc = 0.0
+            best_diff = 999.0
+            for deg in range(0, 360):
+                cusps, ascmc = swe.houses_armc(float(deg), lat, eps, b'P')
+                diff = abs((ascmc[0] - asc_trop + 180.0) % 360.0 - 180.0)
+                if diff < best_diff:
+                    best_diff = diff
+                    best_armc = float(deg)
+            low = best_armc - 1.0
+            high = best_armc + 1.0
+            for _ in range(25):
+                mid = (low + high) / 2.0
+                cusps, ascmc = swe.houses_armc(mid, lat, eps, b'P')
+                diff = (ascmc[0] - asc_trop + 180.0) % 360.0 - 180.0
+                if abs(diff) < 1e-6:
+                    best_armc = mid
+                    break
+                cusps2, ascmc2 = swe.houses_armc(mid + 0.001, lat, eps, b'P')
+                slope = ((ascmc2[0] - ascmc[0] + 180.0) % 360.0 - 180.0) / 0.001
+                if slope > 0:
+                    if diff < 0: low = mid
+                    else: high = mid
+                else:
+                    if diff < 0: high = mid
+                    else: low = mid
+                best_armc = mid
+            cusps, ascmc = swe.houses_armc(best_armc, lat, eps, b'P')
+            sid_cusps = [float((c - aya) % 360.0) for c in cusps]
+            sid_cusps[0] = asc_sidereal
+            mc_sid = float((ascmc[1] - aya) % 360.0)
+            return sid_cusps, asc_sidereal, mc_sid
+        except Exception:
+            pass
+
+    cusps = [(asc_sidereal + i * 30.0) % 360.0 for i in range(12)]
+    mc = (asc_sidereal + 270.0) % 360.0
+    return cusps, asc_sidereal, mc
+
 def find_house_for_degree(deg: float, cusps: List[float]) -> int:
     """
     In KP Astrology, House N begins at Cusp N and ends at Cusp N+1.
@@ -860,7 +911,9 @@ def generate_kp_system(
     transit_timezone: float = None,
     transit_latitude: float = None,
     transit_longitude: float = None,
-    node_type: str = "true"
+    node_type: str = "true",
+    horary_number: Optional[int] = None,
+    horary_mode: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Master Entry Point for the Real-Time KP Astrology System.
@@ -887,7 +940,21 @@ def generate_kp_system(
     # Calculate Natal Cusps, Ascendant, and Planets with Thread Lock
     with _SWE_AYANAMSA_LOCK:
         set_swisseph_sidereal_mode(ayanamsa_name)
-        cusp_degrees, asc_deg, mc_deg = get_placidus_cusps(jd_natal, latitude, longitude, is_sidereal)
+        if horary_number is not None and str(horary_number).strip() != '' and horary_mode != 'current_time':
+            from app.api.v1.horary import KP_249_TABLE, KP_2193_TABLE
+            num = int(horary_number)
+            if horary_mode == 'range_2193' or num > 249:
+                if 1 <= num <= len(KP_2193_TABLE):
+                    target_asc = KP_2193_TABLE[num - 1]['start']
+                else:
+                    target_asc = KP_2193_TABLE[0]['start']
+            elif 1 <= num <= len(KP_249_TABLE):
+                target_asc = KP_249_TABLE[num - 1]['start']
+            else:
+                target_asc = KP_249_TABLE[0]['start']
+            cusp_degrees, asc_deg, mc_deg = get_horary_placidus_cusps(target_asc, latitude, ayan_deg, jd_natal)
+        else:
+            cusp_degrees, asc_deg, mc_deg = get_placidus_cusps(jd_natal, latitude, longitude, is_sidereal)
         raw_planets = calculate_planets(jd_natal, is_sidereal, node_type=node_type)
 
     asc_kp = calculate_kp_sub_lords(asc_deg)

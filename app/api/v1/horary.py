@@ -195,73 +195,78 @@ def calculate_horary_chart():
         horary_number = data.get('horary_number')
         horary_mode = data.get('horary_mode', '')
 
-        try:
-            dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
-        except Exception:
-            try:
-                dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %I:%M %p")
-            except Exception:
-                dt = datetime.now()
+        from app.services.kp_engine import generate_kp_system
+        kp_res = generate_kp_system(
+            name="Horary Query",
+            dob_str=date_str,
+            tob_str=time_str,
+            pob_str=data.get("place_of_birth") or data.get("place") or "New Delhi, India",
+            latitude=lat,
+            longitude=lon,
+            timezone=tz_offset,
+            ayanamsa_name=ayanamsa_name,
+            node_type="true",
+            horary_number=horary_number,
+            horary_mode=horary_mode,
+        )
 
-        utc_dt = dt - timedelta(hours=tz_offset)
-        hour_utc = utc_dt.hour + (utc_dt.minute / 60.0) + (utc_dt.second / 3600.0)
-        jd = calculate_julian_day(utc_dt.year, utc_dt.month, utc_dt.day, hour_utc)
-        aya = calculate_lahiri_ayanamsa(jd, ayanamsa_name)
+        asc_info = kp_res.get('ascendant', {})
+        asc_deg_val = asc_info.get('degree', 0.0) if isinstance(asc_info, dict) else float(asc_info or 0.0)
+        
+        # Legacy-compatible format for existing horary UI
+        compat_planets = []
+        for p in kp_res.get('planets', []):
+            if p.get('name') != 'Ascendant':
+                compat_planets.append({
+                    'planet': p.get('name'),
+                    'longitude': p.get('longitude', 0.0),
+                    'retrograde': p.get('is_retrograde', False),
+                    'speed': p.get('speed', 0.0),
+                    'sign': p.get('sign_name', ''),
+                    'star_lord': p.get('nakshatra_lord', '-'),
+                    'sub_lord': p.get('sub_lord', '-'),
+                    'sub_sub_lord': p.get('sub_sub_lord', '-'),
+                    'nakshatra': p.get('nakshatra', '-'),
+                    'pada': p.get('pada', '-'),
+                    'house': p.get('house', 1)
+                })
 
-        planets_data = get_planet_longitudes_precise(jd, aya, lat, lon)
-        planets_formatted = []
-        for p_name, (plon, pspeed, retro) in planets_data.items():
-            planets_formatted.append({
-                'planet': p_name,
-                'longitude': plon,
-                'retrograde': retro,
-                'speed': pspeed,
-                **calculate_star_and_sub(plon)
+        compat_cusps = []
+        for c in kp_res.get('bhava_cusps', []):
+            compat_cusps.append({
+                'house': c.get('house', 1),
+                'longitude': c.get('longitude', 0.0),
+                'sign': c.get('sign_name', ''),
+                'star_lord': c.get('nakshatra_lord', '-'),
+                'sub_lord': c.get('sub_lord', '-'),
+                'sub_sub_lord': c.get('sub_sub_lord', '-'),
+                'nakshatra': c.get('nakshatra', '-'),
+                'pada': c.get('pada', 1)
             })
 
-        # Ascendant calculation based on mode
-        if horary_number is not None and str(horary_number).strip() != '' and horary_mode != 'current_time':
-            num = int(horary_number)
-            if horary_mode == 'range_2193' or num > 249:
-                if 1 <= num <= len(KP_2193_TABLE):
-                    asc_lon = KP_2193_TABLE[num - 1]['start']
-                else:
-                    asc_lon = KP_2193_TABLE[0]['start']
-            elif 1 <= num <= len(KP_249_TABLE):
-                asc_lon = KP_249_TABLE[num - 1]['start']
-            else:
-                asc_lon = KP_249_TABLE[0]['start']
-        else:
-            # Current Time Direct Ascendant (Placidus system from Swiss Ephemeris)
-            if SWISSEPH_AVAILABLE and swe:
-                houses, ascmc = swe.houses(jd, lat, lon, b'P')
-                asc_lon = (ascmc[0] - aya) % 360.0
-            else:
-                asc_lon = 0.0
+        asc_details = {
+            'degree': asc_deg_val,
+            'sign': asc_info.get('sign_name', '') if isinstance(asc_info, dict) else '',
+            'star_lord': asc_info.get('nakshatra_lord', '-') if isinstance(asc_info, dict) else '-',
+            'sub_lord': asc_info.get('sub_lord', '-') if isinstance(asc_info, dict) else '-',
+            'sub_sub_lord': asc_info.get('sub_sub_lord', '-') if isinstance(asc_info, dict) else '-',
+            'nakshatra': asc_info.get('nakshatra_name', '-') if isinstance(asc_info, dict) else '-',
+            'pada': asc_info.get('pada', 1) if isinstance(asc_info, dict) else 1,
+            'kp_249_number': horary_number,
+        }
 
-        cusps = [
-            {
-                'house': i + 1,
-                'longitude': (asc_lon + (i * 30)) % 360.0,
-                **calculate_star_and_sub((asc_lon + (i * 30)) % 360.0)
-            }
-            for i in range(12)
-        ]
+        kp_res['question'] = question
+        kp_res['horary_number'] = horary_number
+        kp_res['horary_mode'] = horary_mode
+        kp_res['ascendant'] = asc_deg_val
+        kp_res['ascendant_details'] = asc_details
+        kp_res['planets_compat'] = compat_planets
+        kp_res['cusps_compat'] = compat_cusps
 
-        asc_details = calculate_star_and_sub(asc_lon)
-
+        # Keep legacy cusps and planets at top level if desired, or kp_res has rich structures
         return jsonify({
             'status': 'success',
-            'data': {
-                'question': question,
-                'ascendant': asc_lon,
-                'ascendant_details': asc_details,
-                'horary_mode': horary_mode,
-                'horary_number': horary_number,
-                'ayanamsa_value': aya,
-                'planets': planets_formatted,
-                'cusps': cusps
-            }
+            'data': kp_res
         })
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 400
