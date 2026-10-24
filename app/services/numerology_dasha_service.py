@@ -345,9 +345,17 @@ class NumerologyDashaService:
         return mahadashas
 
     @classmethod
-    def calculate_antardashas(cls, dob_str: str, ref_date_str: Optional[str] = None, past_years: int = 5, future_years: int = 15) -> List[Dict[str, Any]]:
+    def calculate_antardashas(
+        cls,
+        dob_str: str,
+        ref_date_str: Optional[str] = None,
+        past_years: Optional[int] = None,
+        future_years: Optional[int] = None,
+        start_from_birth: bool = True
+    ) -> List[Dict[str, Any]]:
         """
         Calculates annual Antardashas from birthday to birthday.
+        Starts from the user's birth year by default to align with the complete lifetime Mahadasha progression.
         Formula: (Reduced Day + Month + Reduced Year 2-digits + Birthday Weekday) mod 9 (or 9)
         """
         dob = cls.parse_date(dob_str)
@@ -361,8 +369,18 @@ class NumerologyDashaService:
             this_year_bday = dob.replace(year=ref_date.year, day=28)
 
         base_year = ref_date.year if ref_date >= this_year_bday else ref_date.year - 1
-        start_year = max(dob.year, base_year - past_years)
-        end_year = base_year + future_years
+
+        if past_years is not None and not start_from_birth:
+            start_year = max(dob.year, base_year - past_years)
+        else:
+            # Starts from user-entered birth values
+            start_year = dob.year
+
+        if future_years is not None and not start_from_birth:
+            end_year = base_year + future_years
+        else:
+            # Complete 100-year lifetime progression matching Mahadasha
+            end_year = dob.year + 100
 
         mahadashas = cls.calculate_mahadashas(dob_str, ref_date_str, max_years=120)
         reduced_day, _ = cls.reduce_to_single_digit(dob.day)
