@@ -1,5 +1,5 @@
 from typing import Dict, Any, List, Optional, Tuple
-from datetime import datetime
+from datetime import datetime, timedelta
 import copy
 from app.services.vedic_engine import generate_full_kundli
 from app.services.bnn_rules import BNN_KARAKAS, BNN_TRINE_GROUPS, get_bnn_relationship, BNN_EVENTS, analyze_bnn_combination
@@ -22,6 +22,128 @@ OWN_SIGNS = {
 def normalize_sign(idx: int) -> int:
     """Ensures sign index is strictly between 1 and 12."""
     return ((int(idx) - 1) % 12) + 1
+
+def calculate_period_dates(dob_str: str, age_start: float, age_end: float) -> Tuple[str, str]:
+    """
+    Converts age in decimal years into exact calendar start_date and end_date.
+    Uses accurate timedelta based on 365.25 days/year from the natal birth date.
+    """
+    try:
+        dob = datetime.strptime(dob_str, "%Y-%m-%d")
+        d_start = dob + timedelta(days=int(round(age_start * 365.25)))
+        d_end = dob + timedelta(days=int(round(age_end * 365.25)))
+        return d_start.strftime("%Y-%m-%d"), d_end.strftime("%Y-%m-%d")
+    except Exception:
+        return "N/A", "N/A"
+
+def populate_progression_hierarchy(
+    major_timeline: List[Dict[str, Any]],
+    current_age: float,
+    dob_str: str,
+    rate_name: str,
+    micro_rate_name: str,
+    is_reverse: bool = False
+) -> Dict[str, Any]:
+    """
+    Subdivides each Major BNN period into 12 deterministic Minor periods,
+    and each Minor period into 12 deterministic Micro periods.
+    Identifies the active Major, Minor, and Micro periods for the current age.
+    """
+    active_major = None
+    active_minor = None
+    active_micro = None
+
+    for maj in major_timeline:
+        m_start_date, m_end_date = calculate_period_dates(dob_str, maj["age_start"], maj["age_end"])
+        maj["start_date"] = m_start_date
+        maj["end_date"] = m_end_date
+        maj["is_current"] = (maj["age_start"] <= current_age < maj["age_end"])
+        maj["is_active"] = maj["is_current"]
+        
+        maj_dur = maj["duration"]
+        step_dur = maj_dur / 12.0
+        minor_periods = []
+        for m in range(12):
+            min_s_idx = normalize_sign(maj["sign_index"] - m if is_reverse else maj["sign_index"] + m)
+            min_age_start = round(maj["age_start"] + m * step_dur, 2)
+            min_age_end = round(min(maj["age_end"], maj["age_start"] + (m + 1) * step_dur), 2) if m < 11 else maj["age_end"]
+            min_start_date, min_end_date = calculate_period_dates(dob_str, min_age_start, min_age_end)
+            is_min_active = maj["is_current"] and (
+                (min_age_start <= current_age < min_age_end) or (m == 11 and current_age >= min_age_start)
+            )
+
+            # Micro periods (12 subdivisions of this minor period)
+            min_dur = min_age_end - min_age_start
+            micro_step_dur = min_dur / 12.0
+            micro_periods = []
+            for k in range(12):
+                mic_s_idx = normalize_sign(min_s_idx - k if is_reverse else min_s_idx + k)
+                mic_age_start = round(min_age_start + k * micro_step_dur, 3)
+                mic_age_end = round(min(min_age_end, min_age_start + (k + 1) * micro_step_dur), 3) if k < 11 else min_age_end
+                mic_start_date, mic_end_date = calculate_period_dates(dob_str, mic_age_start, mic_age_end)
+                is_mic_active = is_min_active and (
+                    (mic_age_start <= current_age < mic_age_end) or (k == 11 and current_age >= mic_age_start)
+                )
+
+                mic_item = {
+                    "step": k + 1,
+                    "level": "micro",
+                    "sign_index": mic_s_idx,
+                    "sign_name": SIGNS[mic_s_idx - 1],
+                    "age_start": mic_age_start,
+                    "age_end": mic_age_end,
+                    "duration": round(mic_age_end - mic_age_start, 3),
+                    "start_date": mic_start_date,
+                    "end_date": mic_end_date,
+                    "is_current": is_mic_active,
+                    "is_active": is_mic_active
+                }
+                micro_periods.append(mic_item)
+                if is_mic_active and active_micro is None:
+                    active_micro = mic_item
+
+            min_item = {
+                "step": m + 1,
+                "level": "minor",
+                "sign_index": min_s_idx,
+                "sign_name": SIGNS[min_s_idx - 1],
+                "age_start": min_age_start,
+                "age_end": min_age_end,
+                "duration": round(min_age_end - min_age_start, 2),
+                "start_date": min_start_date,
+                "end_date": min_end_date,
+                "is_current": is_min_active,
+                "is_active": is_min_active,
+                "micro_periods": micro_periods
+            }
+            minor_periods.append(min_item)
+            if is_min_active and active_minor is None:
+                active_minor = min_item
+
+        maj["minor_periods"] = minor_periods
+        if maj["is_current"] and active_major is None:
+            active_major = maj
+
+    # Fallback if before age 0 or beyond timeline
+    if not active_major and major_timeline:
+        active_major = major_timeline[0]
+        active_major["is_current"] = True
+        active_major["is_active"] = True
+    if not active_minor and active_major and active_major.get("minor_periods"):
+        active_minor = active_major["minor_periods"][0]
+        active_minor["is_current"] = True
+        active_minor["is_active"] = True
+    if not active_micro and active_minor and active_minor.get("micro_periods"):
+        active_micro = active_minor["micro_periods"][0]
+        active_micro["is_current"] = True
+        active_micro["is_active"] = True
+
+    return {
+        "active_major": active_major,
+        "active_minor": active_minor,
+        "active_micro": active_micro
+    }
+
 
 def calculate_current_age(dob_str: str, target_date_str: str = None) -> float:
     dob = datetime.strptime(dob_str, "%Y-%m-%d")
@@ -58,7 +180,7 @@ def check_parivartana(planet_name: str, planets: List[Dict]) -> Tuple[bool, Opti
         
     return False, None, None
 
-def calculate_jupiter_progression(jupiter: Dict, planets: List[Dict], current_age: float) -> Dict[str, Any]:
+def calculate_jupiter_progression(jupiter: Dict, planets: List[Dict], current_age: float, dob_str: str = "1990-01-01") -> Dict[str, Any]:
     """
     Calculates BNN Jupiter Progression based strictly on PROGRESSION RULES.pdf:
     - Direct: 1st = (30 - degree) * 0.4 yrs in natal sign. Then 12 yrs each in next sign in zodiacal order.
@@ -231,41 +353,20 @@ def calculate_jupiter_progression(jupiter: Dict, planets: List[Dict], current_ag
                 p_num += 1
                 step += 1
 
-    # Active Major Progression
-    active_major = timeline[0]
-    for item in timeline:
-        if item["age_start"] <= current_age < item["age_end"]:
-            active_major = item
-            break
-        elif current_age >= item["age_end"]:
-            active_major = item
+    # Populate complete 3-level progression hierarchy (Major -> 12 Minor -> 12 Micro)
+    hierarchy = populate_progression_hierarchy(
+        timeline, current_age, dob_str,
+        rate_name="1.0 Year / Sign",
+        micro_rate_name="1.0 Month / Sign",
+        is_reverse=False
+    )
+    active_major = hierarchy["active_major"]
+    active_minor = hierarchy["active_minor"]
+    active_micro = hierarchy["active_micro"]
 
-    # Minor Progression: 1.0 yr per sign starting from major sign
-    major_start = active_major["age_start"]
-    elapsed_in_major = max(0.0, current_age - major_start)
-    minor_steps = int(elapsed_in_major // 1.0)
-    minor_sign_idx = normalize_sign(active_major["sign_index"] + minor_steps)
-    minor_elapsed = elapsed_in_major - minor_steps
-    minor_remaining = max(0.0, 1.0 - minor_elapsed)
-    
-    minor_periods = []
-    num_minor_steps = int(active_major["duration"])
-    if active_major["duration"] > num_minor_steps:
-        num_minor_steps += 1
-    for m in range(min(num_minor_steps, 12)):
-        m_start = round(major_start + m * 1.0, 2)
-        m_end = round(min(active_major["age_end"], major_start + (m + 1) * 1.0), 2)
-        m_sign = normalize_sign(active_major["sign_index"] + m)
-        is_active = (m_start <= current_age < m_end) or (m == num_minor_steps - 1 and current_age >= m_start)
-        minor_periods.append({
-            "step": m + 1,
-            "sign_index": m_sign,
-            "sign_name": SIGNS[m_sign - 1],
-            "age_start": m_start,
-            "age_end": m_end,
-            "duration": round(m_end - m_start, 2),
-            "is_current": is_active
-        })
+    elapsed_in_major = max(0.0, current_age - active_major["age_start"])
+    minor_elapsed = max(0.0, current_age - active_minor["age_start"])
+    minor_remaining = max(0.0, active_minor["age_end"] - current_age)
 
     return {
         "natal_sign": jupiter.get("sign", ""),
@@ -283,25 +384,51 @@ def calculate_jupiter_progression(jupiter: Dict, planets: List[Dict], current_ag
         "elapsed_progression_years": round(elapsed_in_major, 2),
         "remaining_progression_years": round(max(0.0, active_major["age_end"] - current_age), 2),
         "major_progression": {
+            "level": "major",
+            "progression_number": active_major["progression_number"],
             "sign": active_major["sign_name"],
             "sign_index": active_major["sign_index"],
             "age_start": active_major["age_start"],
             "age_end": active_major["age_end"],
+            "start_date": active_major.get("start_date"),
+            "end_date": active_major.get("end_date"),
             "duration": active_major["duration"],
-            "rule_detail": active_major["rule_detail"]
+            "rule_detail": active_major.get("rule_detail", "")
         },
         "minor_progression": {
-            "sign": SIGNS[minor_sign_idx - 1],
-            "sign_index": minor_sign_idx,
+            "level": "minor",
+            "step": active_minor["step"],
+            "sign": active_minor["sign_name"],
+            "sign_index": active_minor["sign_index"],
+            "age_start": active_minor["age_start"],
+            "age_end": active_minor["age_end"],
+            "start_date": active_minor.get("start_date"),
+            "end_date": active_minor.get("end_date"),
+            "duration": active_minor["duration"],
             "elapsed_years": round(minor_elapsed, 2),
             "remaining_years": round(minor_remaining, 2),
             "rate_per_sign": "1.0 Year / Sign",
-            "active_periods": minor_periods
+            "active_periods": active_major.get("minor_periods", [])
+        },
+        "micro_progression": {
+            "level": "micro",
+            "step": active_micro["step"],
+            "sign": active_micro["sign_name"],
+            "sign_index": active_micro["sign_index"],
+            "age_start": active_micro["age_start"],
+            "age_end": active_micro["age_end"],
+            "start_date": active_micro.get("start_date"),
+            "end_date": active_micro.get("end_date"),
+            "duration": active_micro["duration"],
+            "elapsed_days": int(round(max(0.0, current_age - active_micro["age_start"]) * 365.25)),
+            "remaining_days": int(round(max(0.0, active_micro["age_end"] - current_age) * 365.25)),
+            "rate_per_sign": "1.0 Month / Sign",
+            "active_periods": active_minor.get("micro_periods", [])
         },
         "timeline": timeline[:8]
     }
 
-def calculate_saturn_progression(saturn: Dict, planets: List[Dict], jupiter: Optional[Dict], current_age: float) -> Dict[str, Any]:
+def calculate_saturn_progression(saturn: Dict, planets: List[Dict], jupiter: Optional[Dict], current_age: float, dob_str: str = "1990-01-01") -> Dict[str, Any]:
     """
     Calculates BNN Saturn Progression based strictly on PROGRESSION RULES.pdf:
     - Direct: 1st = (30 - degree) yrs in natal sign. Then 30 yrs each from next sign in zodiacal order.
@@ -519,41 +646,20 @@ def calculate_saturn_progression(saturn: Dict, planets: List[Dict], jupiter: Opt
                     step += 1
                     p_num += 1
 
-    # Active Major Progression
-    active_major = timeline[0]
-    for item in timeline:
-        if item["age_start"] <= current_age < item["age_end"]:
-            active_major = item
-            break
-        elif current_age >= item["age_end"]:
-            active_major = item
+    # Populate complete 3-level progression hierarchy (Major -> 12 Minor -> 12 Micro)
+    hierarchy = populate_progression_hierarchy(
+        timeline, current_age, dob_str,
+        rate_name="2.5 Years / Sign",
+        micro_rate_name="2.5 Months / Sign",
+        is_reverse=False
+    )
+    active_major = hierarchy["active_major"]
+    active_minor = hierarchy["active_minor"]
+    active_micro = hierarchy["active_micro"]
 
-    # Minor Progression: 2.5 yr per sign forward starting from major sign
-    major_start = active_major["age_start"]
-    elapsed_in_major = max(0.0, current_age - major_start)
-    minor_steps = int(elapsed_in_major // 2.5)
-    minor_sign_idx = normalize_sign(active_major["sign_index"] + minor_steps)
-    minor_elapsed = elapsed_in_major - (minor_steps * 2.5)
-    minor_remaining = max(0.0, 2.5 - minor_elapsed)
-    
-    minor_periods = []
-    num_minor_steps = int(active_major["duration"] // 2.5)
-    if active_major["duration"] % 2.5 > 0:
-        num_minor_steps += 1
-    for m in range(min(num_minor_steps, 12)):
-        m_start = round(major_start + m * 2.5, 2)
-        m_end = round(min(active_major["age_end"], major_start + (m + 1) * 2.5), 2)
-        m_sign = normalize_sign(active_major["sign_index"] + m)
-        is_active = (m_start <= current_age < m_end) or (m == num_minor_steps - 1 and current_age >= m_start)
-        minor_periods.append({
-            "step": m + 1,
-            "sign_index": m_sign,
-            "sign_name": SIGNS[m_sign - 1],
-            "age_start": m_start,
-            "age_end": m_end,
-            "duration": round(m_end - m_start, 2),
-            "is_current": is_active
-        })
+    elapsed_in_major = max(0.0, current_age - active_major["age_start"])
+    minor_elapsed = max(0.0, current_age - active_minor["age_start"])
+    minor_remaining = max(0.0, active_minor["age_end"] - current_age)
 
     return {
         "natal_sign": saturn.get("sign", ""),
@@ -574,25 +680,51 @@ def calculate_saturn_progression(saturn: Dict, planets: List[Dict], jupiter: Opt
         "elapsed_progression_years": round(elapsed_in_major, 2),
         "remaining_progression_years": round(max(0.0, active_major["age_end"] - current_age), 2),
         "major_progression": {
+            "level": "major",
+            "progression_number": active_major["progression_number"],
             "sign": active_major["sign_name"],
             "sign_index": active_major["sign_index"],
             "age_start": active_major["age_start"],
             "age_end": active_major["age_end"],
+            "start_date": active_major.get("start_date"),
+            "end_date": active_major.get("end_date"),
             "duration": active_major["duration"],
-            "rule_detail": active_major["rule_detail"]
+            "rule_detail": active_major.get("rule_detail", "")
         },
         "minor_progression": {
-            "sign": SIGNS[minor_sign_idx - 1],
-            "sign_index": minor_sign_idx,
+            "level": "minor",
+            "step": active_minor["step"],
+            "sign": active_minor["sign_name"],
+            "sign_index": active_minor["sign_index"],
+            "age_start": active_minor["age_start"],
+            "age_end": active_minor["age_end"],
+            "start_date": active_minor.get("start_date"),
+            "end_date": active_minor.get("end_date"),
+            "duration": active_minor["duration"],
             "elapsed_years": round(minor_elapsed, 2),
             "remaining_years": round(minor_remaining, 2),
             "rate_per_sign": "2.5 Years / Sign",
-            "active_periods": minor_periods
+            "active_periods": active_major.get("minor_periods", [])
+        },
+        "micro_progression": {
+            "level": "micro",
+            "step": active_micro["step"],
+            "sign": active_micro["sign_name"],
+            "sign_index": active_micro["sign_index"],
+            "age_start": active_micro["age_start"],
+            "age_end": active_micro["age_end"],
+            "start_date": active_micro.get("start_date"),
+            "end_date": active_micro.get("end_date"),
+            "duration": active_micro["duration"],
+            "elapsed_days": int(round(max(0.0, current_age - active_micro["age_start"]) * 365.25)),
+            "remaining_days": int(round(max(0.0, active_micro["age_end"] - current_age) * 365.25)),
+            "rate_per_sign": "2.5 Months / Sign",
+            "active_periods": active_minor.get("micro_periods", [])
         },
         "timeline": timeline[:6]
     }
 
-def calculate_node_progression(planet_name: str, node: Dict, current_age: float) -> Dict[str, Any]:
+def calculate_node_progression(planet_name: str, node: Dict, current_age: float, dob_str: str = "1990-01-01") -> Dict[str, Any]:
     """
     Calculates BNN Rahu / Ketu Major & Minor Progression based on PROGRESSION RULES.pdf:
     - Progresses in REVERSE direction.
@@ -634,40 +766,20 @@ def calculate_node_progression(planet_name: str, node: Dict, current_age: float)
         step += 1
         p_num += 1
 
-    active_major = timeline[0]
-    for item in timeline:
-        if item["age_start"] <= current_age < item["age_end"]:
-            active_major = item
-            break
-        elif current_age >= item["age_end"]:
-            active_major = item
+    # Populate complete 3-level progression hierarchy (Major -> 12 Minor -> 12 Micro)
+    hierarchy = populate_progression_hierarchy(
+        timeline, current_age, dob_str,
+        rate_name="1.5 Years / Sign (Reverse)",
+        micro_rate_name="1.5 Months / Sign (Reverse)",
+        is_reverse=True
+    )
+    active_major = hierarchy["active_major"]
+    active_minor = hierarchy["active_minor"]
+    active_micro = hierarchy["active_micro"]
 
-    # Minor Progression: 1.5 yr per sign in REVERSE direction starting from major sign
-    major_start = active_major["age_start"]
-    elapsed_in_major = max(0.0, current_age - major_start)
-    minor_steps = int(elapsed_in_major // 1.5)
-    minor_sign_idx = normalize_sign(active_major["sign_index"] - minor_steps)
-    minor_elapsed = elapsed_in_major - (minor_steps * 1.5)
-    minor_remaining = max(0.0, 1.5 - minor_elapsed)
-    
-    minor_periods = []
-    num_minor_steps = int(active_major["duration"] // 1.5)
-    if active_major["duration"] % 1.5 > 0:
-        num_minor_steps += 1
-    for m in range(min(num_minor_steps, 12)):
-        m_start = round(major_start + m * 1.5, 2)
-        m_end = round(min(active_major["age_end"], major_start + (m + 1) * 1.5), 2)
-        m_sign = normalize_sign(active_major["sign_index"] - m)
-        is_active = (m_start <= current_age < m_end) or (m == num_minor_steps - 1 and current_age >= m_start)
-        minor_periods.append({
-            "step": m + 1,
-            "sign_index": m_sign,
-            "sign_name": SIGNS[m_sign - 1],
-            "age_start": m_start,
-            "age_end": m_end,
-            "duration": round(m_end - m_start, 2),
-            "is_current": is_active
-        })
+    elapsed_in_major = max(0.0, current_age - active_major["age_start"])
+    minor_elapsed = max(0.0, current_age - active_minor["age_start"])
+    minor_remaining = max(0.0, active_minor["age_end"] - current_age)
 
     return {
         "planet": planet_name,
@@ -683,21 +795,47 @@ def calculate_node_progression(planet_name: str, node: Dict, current_age: float)
         "elapsed_progression_years": round(elapsed_in_major, 2),
         "remaining_progression_years": round(max(0.0, active_major["age_end"] - current_age), 2),
         "major_progression": {
+            "level": "major",
+            "progression_number": active_major["progression_number"],
             "sign": active_major["sign_name"],
             "sign_index": active_major["sign_index"],
             "age_start": active_major["age_start"],
             "age_end": active_major["age_end"],
+            "start_date": active_major.get("start_date"),
+            "end_date": active_major.get("end_date"),
             "duration": active_major["duration"],
             "direction": "Reverse",
-            "rule_detail": active_major["rule_detail"]
+            "rule_detail": active_major.get("rule_detail", "")
         },
         "minor_progression": {
-            "sign": SIGNS[minor_sign_idx - 1],
-            "sign_index": minor_sign_idx,
+            "level": "minor",
+            "step": active_minor["step"],
+            "sign": active_minor["sign_name"],
+            "sign_index": active_minor["sign_index"],
+            "age_start": active_minor["age_start"],
+            "age_end": active_minor["age_end"],
+            "start_date": active_minor.get("start_date"),
+            "end_date": active_minor.get("end_date"),
+            "duration": active_minor["duration"],
             "elapsed_years": round(minor_elapsed, 2),
             "remaining_years": round(minor_remaining, 2),
             "rate_per_sign": "1.5 Years / Sign (Reverse)",
-            "active_periods": minor_periods
+            "active_periods": active_major.get("minor_periods", [])
+        },
+        "micro_progression": {
+            "level": "micro",
+            "step": active_micro["step"],
+            "sign": active_micro["sign_name"],
+            "sign_index": active_micro["sign_index"],
+            "age_start": active_micro["age_start"],
+            "age_end": active_micro["age_end"],
+            "start_date": active_micro.get("start_date"),
+            "end_date": active_micro.get("end_date"),
+            "duration": active_micro["duration"],
+            "elapsed_days": int(round(max(0.0, current_age - active_micro["age_start"]) * 365.25)),
+            "remaining_days": int(round(max(0.0, active_micro["age_end"] - current_age) * 365.25)),
+            "rate_per_sign": "1.5 Months / Sign (Reverse)",
+            "active_periods": active_minor.get("micro_periods", [])
         },
         "timeline": timeline[:6]
     }
@@ -752,10 +890,10 @@ def generate_bnn_chart(
     rahu = next((p for p in bnn_planets if p["planet"] == "Rahu"), None)
     ketu = next((p for p in bnn_planets if p["planet"] == "Ketu"), None)
     
-    jupiter_progression = calculate_jupiter_progression(jupiter, bnn_planets, current_age) if jupiter else {}
-    saturn_progression = calculate_saturn_progression(saturn, bnn_planets, jupiter, current_age) if saturn else {}
-    rahu_progression = calculate_node_progression("Rahu", rahu, current_age) if rahu else {}
-    ketu_progression = calculate_node_progression("Ketu", ketu, current_age) if ketu else {}
+    jupiter_progression = calculate_jupiter_progression(jupiter, bnn_planets, current_age, dob_str) if jupiter else {}
+    saturn_progression = calculate_saturn_progression(saturn, bnn_planets, jupiter, current_age, dob_str) if saturn else {}
+    rahu_progression = calculate_node_progression("Rahu", rahu, current_age, dob_str) if rahu else {}
+    ketu_progression = calculate_node_progression("Ketu", ketu, current_age, dob_str) if ketu else {}
     
     # Backward compatible nodes object
     nodes_progression = {
@@ -767,69 +905,135 @@ def generate_bnn_chart(
         "ketu_progressed_sign_index": ketu_progression.get("current_progressed_sign_index", 7)
     }
 
-    # Dynamic Progressed Planets for BNN Chart
-    progressed_bnn_planets = copy.deepcopy(bnn_planets)
-    for p in progressed_bnn_planets:
+    # Dynamic Progressed Planets for BNN Chart at Major, Minor, and Micro levels
+    progressed_bnn_planets_major = copy.deepcopy(bnn_planets)
+    progressed_bnn_planets_minor = copy.deepcopy(bnn_planets)
+    progressed_bnn_planets_micro = copy.deepcopy(bnn_planets)
+
+    for p in progressed_bnn_planets_major:
         if p["planet"] == "Jupiter" and jupiter_progression.get("current_progressed_sign_index"):
             idx = jupiter_progression["current_progressed_sign_index"]
             p["sign_index"] = idx
             p["sign"] = SIGNS[idx - 1]
-            p["minor_sign"] = jupiter_progression.get("minor_progression", {}).get("sign")
+            p["progression_level"] = "major"
         elif p["planet"] == "Saturn" and saturn_progression.get("current_progressed_sign_index"):
             idx = saturn_progression["current_progressed_sign_index"]
             p["sign_index"] = idx
             p["sign"] = SIGNS[idx - 1]
-            p["minor_sign"] = saturn_progression.get("minor_progression", {}).get("sign")
+            p["progression_level"] = "major"
         elif p["planet"] == "Rahu" and rahu_progression.get("current_progressed_sign_index"):
             idx = rahu_progression["current_progressed_sign_index"]
             p["sign_index"] = idx
             p["sign"] = SIGNS[idx - 1]
-            p["minor_sign"] = rahu_progression.get("minor_progression", {}).get("sign")
+            p["progression_level"] = "major"
         elif p["planet"] == "Ketu" and ketu_progression.get("current_progressed_sign_index"):
             idx = ketu_progression["current_progressed_sign_index"]
             p["sign_index"] = idx
             p["sign"] = SIGNS[idx - 1]
-            p["minor_sign"] = ketu_progression.get("minor_progression", {}).get("sign")
+            p["progression_level"] = "major"
 
-    # 2. BNN Relationship Matrix
-    seen_pairs = set()
-    relationships = []
-    for p1 in progressed_bnn_planets:
-        for p2 in progressed_bnn_planets:
-            if p1["planet"] == p2["planet"]: continue
-            pair_sig = tuple(sorted([p1["planet"], p2["planet"]]))
-            if pair_sig in seen_pairs: continue
-            
-            rel = get_bnn_relationship(p1["sign_index"], p2["sign_index"])
-            if rel["strength"] > 0:
-                seen_pairs.add(pair_sig)
-                dist = ((p2["sign_index"] - p1["sign_index"]) % 12) + 1
-                dist_str = "1" if dist == 1 else f"1-{dist}"
-                
-                relationships.append({
-                    "planet_a": p1["planet"],
-                    "planet_b": p2["planet"],
-                    "sign_a": p1["sign"],
-                    "sign_b": p2["sign"],
-                    "sign_distance": dist_str,
-                    "relationship_type": rel["relationship"],
-                    "strength_percentage": rel["strength"],
-                    "meaning": analyze_bnn_combination(p1["planet"], p2["planet"])
+    for p in progressed_bnn_planets_minor:
+        if p["planet"] == "Jupiter" and jupiter_progression.get("minor_progression", {}).get("sign_index"):
+            idx = jupiter_progression["minor_progression"]["sign_index"]
+            p["sign_index"] = idx
+            p["sign"] = SIGNS[idx - 1]
+            p["progression_level"] = "minor"
+        elif p["planet"] == "Saturn" and saturn_progression.get("minor_progression", {}).get("sign_index"):
+            idx = saturn_progression["minor_progression"]["sign_index"]
+            p["sign_index"] = idx
+            p["sign"] = SIGNS[idx - 1]
+            p["progression_level"] = "minor"
+        elif p["planet"] == "Rahu" and rahu_progression.get("minor_progression", {}).get("sign_index"):
+            idx = rahu_progression["minor_progression"]["sign_index"]
+            p["sign_index"] = idx
+            p["sign"] = SIGNS[idx - 1]
+            p["progression_level"] = "minor"
+        elif p["planet"] == "Ketu" and ketu_progression.get("minor_progression", {}).get("sign_index"):
+            idx = ketu_progression["minor_progression"]["sign_index"]
+            p["sign_index"] = idx
+            p["sign"] = SIGNS[idx - 1]
+            p["progression_level"] = "minor"
+
+    for p in progressed_bnn_planets_micro:
+        if p["planet"] == "Jupiter" and jupiter_progression.get("micro_progression", {}).get("sign_index"):
+            idx = jupiter_progression["micro_progression"]["sign_index"]
+            p["sign_index"] = idx
+            p["sign"] = SIGNS[idx - 1]
+            p["progression_level"] = "micro"
+        elif p["planet"] == "Saturn" and saturn_progression.get("micro_progression", {}).get("sign_index"):
+            idx = saturn_progression["micro_progression"]["sign_index"]
+            p["sign_index"] = idx
+            p["sign"] = SIGNS[idx - 1]
+            p["progression_level"] = "micro"
+        elif p["planet"] == "Rahu" and rahu_progression.get("micro_progression", {}).get("sign_index"):
+            idx = rahu_progression["micro_progression"]["sign_index"]
+            p["sign_index"] = idx
+            p["sign"] = SIGNS[idx - 1]
+            p["progression_level"] = "micro"
+        elif p["planet"] == "Ketu" and ketu_progression.get("micro_progression", {}).get("sign_index"):
+            idx = ketu_progression["micro_progression"]["sign_index"]
+            p["sign_index"] = idx
+            p["sign"] = SIGNS[idx - 1]
+            p["progression_level"] = "micro"
+
+    # Default progressive chart planets (Major)
+    progressed_bnn_planets = progressed_bnn_planets_major
+
+    def _calc_relationships_for_list(planets_list):
+        s_pairs = set()
+        rels = []
+        for p1 in planets_list:
+            for p2 in planets_list:
+                if p1["planet"] == p2["planet"]: continue
+                pair_sig = tuple(sorted([p1["planet"], p2["planet"]]))
+                if pair_sig in s_pairs: continue
+                rel = get_bnn_relationship(p1["sign_index"], p2["sign_index"])
+                if rel["strength"] > 0:
+                    s_pairs.add(pair_sig)
+                    dist = ((p2["sign_index"] - p1["sign_index"]) % 12) + 1
+                    dist_str = "1" if dist == 1 else f"1-{dist}"
+                    rels.append({
+                        "planet_a": p1["planet"],
+                        "planet_b": p2["planet"],
+                        "sign_a": p1["sign"],
+                        "sign_b": p2["sign"],
+                        "sign_distance": dist_str,
+                        "relationship_type": rel["relationship"],
+                        "strength_percentage": rel["strength"],
+                        "meaning": analyze_bnn_combination(p1["planet"], p2["planet"])
+                    })
+        rels.sort(key=lambda x: x["strength_percentage"], reverse=True)
+        return rels
+
+    def _calc_trines_for_list(planets_list):
+        t_groups = []
+        for group_name, signs in BNN_TRINE_GROUPS.items():
+            planets_in_group = [p["planet"] for p in planets_list if p["sign"] in signs]
+            if planets_in_group:
+                strength = 100 if len(planets_in_group) > 1 else 0
+                t_groups.append({
+                    "group": group_name,
+                    "signs": ", ".join(signs),
+                    "planets": planets_in_group,
+                    "strength": strength
                 })
-    relationships.sort(key=lambda x: x["strength_percentage"], reverse=True)
+        return t_groups
 
-    # 3. Trine Groups
-    trine_groups = []
-    for group_name, signs in BNN_TRINE_GROUPS.items():
-        planets_in_group = [p["planet"] for p in progressed_bnn_planets if p["sign"] in signs]
-        if planets_in_group:
-            strength = 100 if len(planets_in_group) > 1 else 0
-            trine_groups.append({
-                "group": group_name,
-                "signs": ", ".join(signs),
-                "planets": planets_in_group,
-                "strength": strength
-            })
+    # 2. Dynamic Relationships across all 3 levels (Major, Minor, Micro)
+    relationships_by_level = {
+        "major": _calc_relationships_for_list(progressed_bnn_planets_major),
+        "minor": _calc_relationships_for_list(progressed_bnn_planets_minor),
+        "micro": _calc_relationships_for_list(progressed_bnn_planets_micro),
+    }
+    relationships = relationships_by_level["major"]
+
+    # 3. Dynamic Trine Groups across all 3 levels (Major, Minor, Micro)
+    trine_groups_by_level = {
+        "major": _calc_trines_for_list(progressed_bnn_planets_major),
+        "minor": _calc_trines_for_list(progressed_bnn_planets_minor),
+        "micro": _calc_trines_for_list(progressed_bnn_planets_micro),
+    }
+    trine_groups = trine_groups_by_level["major"]
 
     # 4. Planetary Chain (Dispositor linkage)
     chains = []
@@ -968,9 +1172,46 @@ def generate_bnn_chart(
         },
         "planets": progressed_bnn_planets,
         "natal_planets": bnn_planets,
+        "charts": {
+            "major": progressed_bnn_planets_major,
+            "minor": progressed_bnn_planets_minor,
+            "micro": progressed_bnn_planets_micro
+        },
+        "progression_hierarchy": {
+            "current_age": round(current_age, 2),
+            "target_date": now.strftime("%Y-%m-%d"),
+            "levels": ["major", "minor", "micro"],
+            "active_level": "major",
+            "jupiter": {
+                "active_major": jupiter_progression.get("major_progression"),
+                "active_minor": jupiter_progression.get("minor_progression"),
+                "active_micro": jupiter_progression.get("micro_progression"),
+                "timeline": jupiter_progression.get("timeline")
+            },
+            "saturn": {
+                "active_major": saturn_progression.get("major_progression"),
+                "active_minor": saturn_progression.get("minor_progression"),
+                "active_micro": saturn_progression.get("micro_progression"),
+                "timeline": saturn_progression.get("timeline")
+            },
+            "rahu": {
+                "active_major": rahu_progression.get("major_progression"),
+                "active_minor": rahu_progression.get("minor_progression"),
+                "active_micro": rahu_progression.get("micro_progression"),
+                "timeline": rahu_progression.get("timeline")
+            },
+            "ketu": {
+                "active_major": ketu_progression.get("major_progression"),
+                "active_minor": ketu_progression.get("minor_progression"),
+                "active_micro": ketu_progression.get("micro_progression"),
+                "timeline": ketu_progression.get("timeline")
+            }
+        },
         "karakatwas": [{"planet": k, "significations": v} for k, v in BNN_KARAKAS.items()],
         "relationships": relationships,
         "trine_groups": trine_groups,
+        "relationships_by_level": relationships_by_level,
+        "trine_groups_by_level": trine_groups_by_level,
         "progressions": {
             "jupiter": jupiter_progression,
             "saturn": saturn_progression,
