@@ -14,6 +14,7 @@ from app.api.v1.admin import admin_bp
 from app.api.v1.content import content_bp
 from app.api.v1.prashna import prashna_bp
 from app.api.v1.tarot import tarot_bp
+from app.api.v1.varshaphal import varshaphal_bp
 
 def create_app(config_class=config) -> Flask:
     """Create and configure the Flask Application instance."""
@@ -74,6 +75,7 @@ def create_app(config_class=config) -> Flask:
     app.register_blueprint(content_bp, url_prefix='/api/v1/content')
     app.register_blueprint(tarot_bp, url_prefix='/api/v1/tarot')
     app.register_blueprint(prashna_bp, url_prefix='/api/v1/prashna')
+    app.register_blueprint(varshaphal_bp, url_prefix='/api/v1/varshaphal')
 
     from app.api.v1.horary import horary_bp
     app.register_blueprint(horary_bp, url_prefix='/api/v1/horary')
@@ -99,4 +101,3 @@ def create_app(config_class=config) -> Flask:
     app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
 
     return app
-
