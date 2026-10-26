@@ -9,6 +9,7 @@ Implements:
 import math
 from typing import Dict, Any, List, Optional, Tuple
 from app.services.vedic_engine import (
+    generate_full_kundli,
     calculate_julian_day,
     calculate_lahiri_ayanamsa,
     get_planet_longitudes_precise,
@@ -1006,7 +1007,38 @@ class MatchMakingEngine:
                 "recommendation": "Chant the Hanuman Chalisa on Tuesdays, light a sesame oil lamp, and cultivate mutual patience."
             })
 
+
+        # Generate full calculation-based charts for Groom and Bride
+        boy_tob = boy_data.get("time_of_birth") or "12:00:00"
+        girl_tob = girl_data.get("time_of_birth") or "12:00:00"
+
+        try:
+            boy_chart = generate_full_kundli(
+                name=boy_data.get("name", "Groom"),
+                dob_str=boy_data["date_of_birth"],
+                tob_str=boy_tob,
+                pob_str=boy_data.get("place_of_birth", "Default"),
+                latitude=b_lat,
+                longitude=b_lon,
+                timezone=b_tz
+            )
+        except Exception:
+            boy_chart = None
+
+        try:
+            girl_chart = generate_full_kundli(
+                name=girl_data.get("name", "Bride"),
+                dob_str=girl_data["date_of_birth"],
+                tob_str=girl_tob,
+                pob_str=girl_data.get("place_of_birth", "Default"),
+                latitude=g_lat,
+                longitude=g_lon,
+                timezone=g_tz
+            )
+        except Exception:
+            girl_chart = None
         return {
+            "charts": {"boy": boy_chart, "girl": girl_chart},
             "boy_name": boy_data.get("name", "Groom"),
             "girl_name": girl_data.get("name", "Bride"),
             "engine_version": "VedicEphemeris-2.0.0-SwissEph",

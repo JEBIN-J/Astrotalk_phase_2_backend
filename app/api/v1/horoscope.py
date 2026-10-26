@@ -1,4 +1,4 @@
-from app.services.kp_engine import generate_kp_system
+﻿from app.services.kp_engine import generate_kp_system
 """Flask Horoscope, Janam Kundli, Dasha & Ashtakvarga Blueprint."""
 from flask import Blueprint, jsonify, request
 from app.services.vedic_engine import generate_full_kundli
@@ -611,8 +611,8 @@ def get_cue_cards():
         {"sl": "89", "event": "Secret Documents", "signifying": "4, 11, 12", "prime": "12", "remarks": "12 hidden/confidential matter; 4 documents/property context; 11 receipt."},
         {"sl": "90", "event": "Imprisonment / Confinement", "signifying": "3, 8, 12", "prime": "12", "remarks": "12 confinement, 8 restriction/crisis and 3 movement/legal circumstances."},
         {"sl": "91", "event": "Absconding", "signifying": "3, 8, 12", "prime": "12", "remarks": "3 movement, 8 crisis/hidden circumstances and 12 disappearance/isolation."},
-        {"sl": "92", "event": "Inheritance – Cash / Jewellery", "signifying": "2, 8, 11", "prime": "8", "remarks": "8 inheritance/other people's assets; 2 valuables; 11 receipt/gain."},
-        {"sl": "93", "event": "Inheritance – Property / Vehicle", "signifying": "4, 8, 11", "prime": "8", "remarks": "8 inheritance; 4 property/vehicle; 11 acquisition."},
+        {"sl": "92", "event": "Inheritance â€“ Cash / Jewellery", "signifying": "2, 8, 11", "prime": "8", "remarks": "8 inheritance/other people's assets; 2 valuables; 11 receipt/gain."},
+        {"sl": "93", "event": "Inheritance â€“ Property / Vehicle", "signifying": "4, 8, 11", "prime": "8", "remarks": "8 inheritance; 4 property/vehicle; 11 acquisition."},
         {"sl": "94", "event": "Gifts / Benefits from Others", "signifying": "6, 8, 11", "prime": "8", "remarks": "8 indicates resources from others; 11 receipt/gain."},
         {"sl": "95", "event": "Property Purchase", "signifying": "4, 11, 12", "prime": "4", "remarks": "Sub-lord of 4th cusp signifies 4, 11, 12. 4th is property, 11th is acquisition, 12th is expenditure/investment of money."},
         {"sl": "96", "event": "Property Sale", "signifying": "3, 5, 10", "prime": "4", "remarks": "Sub-lord of 4th cusp signifies 3, 5, 10. 3 is parting with property, 5 is 12th from 6th (purchaser), 10 is 4th to 7th (purchaser's property)."},
@@ -692,114 +692,114 @@ def get_cue_cards():
         {"sl": "170", "event": "Receiving Insurance Money", "signifying": "2, 8, 11", "prime": "2", "remarks": "2 is primary for money received; 8 insurance and 11 gain/fulfillment."},
     ]
     nakshatra_padas = [
-        {"rasi": "ARIES", "nakshatra": "Ashwini", "pada": "1", "degrees": "00°00' - 03°20'", "syllable": "Chu"},
-        {"rasi": "ARIES", "nakshatra": "Ashwini", "pada": "2", "degrees": "03°20' - 06°40'", "syllable": "Che"},
-        {"rasi": "ARIES", "nakshatra": "Ashwini", "pada": "3", "degrees": "06°40' - 10°00'", "syllable": "Cho"},
-        {"rasi": "ARIES", "nakshatra": "Ashwini", "pada": "4", "degrees": "10°00' - 13°20'", "syllable": "La"},
-        {"rasi": "ARIES", "nakshatra": "Bharani", "pada": "1", "degrees": "13°20' - 16°40'", "syllable": "Lee / Li"},
-        {"rasi": "ARIES", "nakshatra": "Bharani", "pada": "2", "degrees": "16°40' - 20°00'", "syllable": "Lu / Loo"},
-        {"rasi": "ARIES", "nakshatra": "Bharani", "pada": "3", "degrees": "20°00' - 23°20'", "syllable": "Le"},
-        {"rasi": "ARIES", "nakshatra": "Bharani", "pada": "4", "degrees": "23°20' - 26°40'", "syllable": "Lo"},
-        {"rasi": "ARIES", "nakshatra": "Krittika", "pada": "1", "degrees": "26°40' - 30°00'", "syllable": "A"},
-        {"rasi": "TAURUS", "nakshatra": "Krittika", "pada": "2", "degrees": "00°00' - 03°20'", "syllable": "Ee"},
-        {"rasi": "TAURUS", "nakshatra": "Krittika", "pada": "3", "degrees": "03°20' - 06°40'", "syllable": "U"},
-        {"rasi": "TAURUS", "nakshatra": "Krittika", "pada": "4", "degrees": "06°40' - 10°00'", "syllable": "E"},
-        {"rasi": "TAURUS", "nakshatra": "Rohini", "pada": "1", "degrees": "10°00' - 13°20'", "syllable": "O"},
-        {"rasi": "TAURUS", "nakshatra": "Rohini", "pada": "2", "degrees": "13°20' - 16°40'", "syllable": "Vaa / Va"},
-        {"rasi": "TAURUS", "nakshatra": "Rohini", "pada": "3", "degrees": "16°40' - 20°00'", "syllable": "Vee / Vi"},
-        {"rasi": "TAURUS", "nakshatra": "Rohini", "pada": "4", "degrees": "20°00' - 23°20'", "syllable": "Vu / Voo"},
-        {"rasi": "TAURUS", "nakshatra": "Mrigashira", "pada": "1", "degrees": "23°20' - 26°40'", "syllable": "Ve"},
-        {"rasi": "TAURUS", "nakshatra": "Mrigashira", "pada": "2", "degrees": "26°40' - 30°00'", "syllable": "Vo"},
-        {"rasi": "GEMINI", "nakshatra": "Mrigashira", "pada": "3", "degrees": "00°00' - 03°20'", "syllable": "Kaa / Ka"},
-        {"rasi": "GEMINI", "nakshatra": "Mrigashira", "pada": "4", "degrees": "03°20' - 06°40'", "syllable": "Kee / Ki"},
-        {"rasi": "GEMINI", "nakshatra": "Ardra", "pada": "1", "degrees": "06°40' - 10°00'", "syllable": "Ku / Koo"},
-        {"rasi": "GEMINI", "nakshatra": "Ardra", "pada": "2", "degrees": "10°00' - 13°20'", "syllable": "Gha"},
-        {"rasi": "GEMINI", "nakshatra": "Ardra", "pada": "3", "degrees": "13°20' - 16°40'", "syllable": "Ing"},
-        {"rasi": "GEMINI", "nakshatra": "Ardra", "pada": "4", "degrees": "16°40' - 20°00'", "syllable": "Chha"},
-        {"rasi": "GEMINI", "nakshatra": "Punarvasu", "pada": "1", "degrees": "20°00' - 23°20'", "syllable": "Ke"},
-        {"rasi": "GEMINI", "nakshatra": "Punarvasu", "pada": "2", "degrees": "23°20' - 26°40'", "syllable": "Ko"},
-        {"rasi": "GEMINI", "nakshatra": "Punarvasu", "pada": "3", "degrees": "26°40' - 30°00'", "syllable": "Ha"},
-        {"rasi": "CANCER", "nakshatra": "Punarvasu", "pada": "4", "degrees": "00°00' - 03°20'", "syllable": "Hee / Hi"},
-        {"rasi": "CANCER", "nakshatra": "Pushya", "pada": "1", "degrees": "03°20' - 06°40'", "syllable": "Hu / Hoo"},
-        {"rasi": "CANCER", "nakshatra": "Pushya", "pada": "2", "degrees": "06°40' - 10°00'", "syllable": "He"},
-        {"rasi": "CANCER", "nakshatra": "Pushya", "pada": "3", "degrees": "10°00' - 13°20'", "syllable": "Ho"},
-        {"rasi": "CANCER", "nakshatra": "Pushya", "pada": "4", "degrees": "13°20' - 16°40'", "syllable": "Da"},
-        {"rasi": "CANCER", "nakshatra": "Ashlesha", "pada": "1", "degrees": "16°40' - 20°00'", "syllable": "Dee / Di"},
-        {"rasi": "CANCER", "nakshatra": "Ashlesha", "pada": "2", "degrees": "20°00' - 23°20'", "syllable": "Du / Doo"},
-        {"rasi": "CANCER", "nakshatra": "Ashlesha", "pada": "3", "degrees": "23°20' - 26°40'", "syllable": "De"},
-        {"rasi": "CANCER", "nakshatra": "Ashlesha", "pada": "4", "degrees": "26°40' - 30°00'", "syllable": "Do"},
-        {"rasi": "LEO", "nakshatra": "Magha", "pada": "1", "degrees": "00°00' - 03°20'", "syllable": "Maa / Ma"},
-        {"rasi": "LEO", "nakshatra": "Magha", "pada": "2", "degrees": "03°20' - 06°40'", "syllable": "Mee / Mi"},
-        {"rasi": "LEO", "nakshatra": "Magha", "pada": "3", "degrees": "06°40' - 10°00'", "syllable": "Mu / Moo"},
-        {"rasi": "LEO", "nakshatra": "Magha", "pada": "4", "degrees": "10°00' - 13°20'", "syllable": "Me"},
-        {"rasi": "LEO", "nakshatra": "Purva Phalguni", "pada": "1", "degrees": "13°20' - 16°40'", "syllable": "Mo"},
-        {"rasi": "LEO", "nakshatra": "Purva Phalguni", "pada": "2", "degrees": "16°40' - 20°00'", "syllable": "Taa / Ta"},
-        {"rasi": "LEO", "nakshatra": "Purva Phalguni", "pada": "3", "degrees": "20°00' - 23°20'", "syllable": "Tee / Ti"},
-        {"rasi": "LEO", "nakshatra": "Purva Phalguni", "pada": "4", "degrees": "23°20' - 26°40'", "syllable": "Tu / Too"},
-        {"rasi": "LEO", "nakshatra": "Uttara Phalguni", "pada": "1", "degrees": "26°40' - 30°00'", "syllable": "Te"},
-        {"rasi": "VIRGO", "nakshatra": "Uttara Phalguni", "pada": "2", "degrees": "00°00' - 03°20'", "syllable": "To"},
-        {"rasi": "VIRGO", "nakshatra": "Uttara Phalguni", "pada": "3", "degrees": "03°20' - 06°40'", "syllable": "Paa / Pa"},
-        {"rasi": "VIRGO", "nakshatra": "Uttara Phalguni", "pada": "4", "degrees": "06°40' - 10°00'", "syllable": "Pee / Pi"},
-        {"rasi": "VIRGO", "nakshatra": "Hasta", "pada": "1", "degrees": "10°00' - 13°20'", "syllable": "Pu / Poo"},
-        {"rasi": "VIRGO", "nakshatra": "Hasta", "pada": "2", "degrees": "13°20' - 16°40'", "syllable": "Sha"},
-        {"rasi": "VIRGO", "nakshatra": "Hasta", "pada": "3", "degrees": "16°40' - 20°00'", "syllable": "Na"},
-        {"rasi": "VIRGO", "nakshatra": "Hasta", "pada": "4", "degrees": "20°00' - 23°20'", "syllable": "Tha"},
-        {"rasi": "VIRGO", "nakshatra": "Chitra", "pada": "1", "degrees": "23°20' - 26°40'", "syllable": "Pe"},
-        {"rasi": "VIRGO", "nakshatra": "Chitra", "pada": "2", "degrees": "26°40' - 30°00'", "syllable": "Po"},
-        {"rasi": "LIBRA", "nakshatra": "Chitra", "pada": "3", "degrees": "00°00' - 03°20'", "syllable": "Raa / Ra"},
-        {"rasi": "LIBRA", "nakshatra": "Chitra", "pada": "4", "degrees": "03°20' - 06°40'", "syllable": "Ree / Ri"},
-        {"rasi": "LIBRA", "nakshatra": "Swati", "pada": "1", "degrees": "06°40' - 10°00'", "syllable": "Ru / Roo"},
-        {"rasi": "LIBRA", "nakshatra": "Swati", "pada": "2", "degrees": "10°00' - 13°20'", "syllable": "Re"},
-        {"rasi": "LIBRA", "nakshatra": "Swati", "pada": "3", "degrees": "13°20' - 16°40'", "syllable": "Ro"},
-        {"rasi": "LIBRA", "nakshatra": "Swati", "pada": "4", "degrees": "16°40' - 20°00'", "syllable": "Taa / Ta"},
-        {"rasi": "LIBRA", "nakshatra": "Vishakha", "pada": "1", "degrees": "20°00' - 23°20'", "syllable": "Tee / Ti"},
-        {"rasi": "LIBRA", "nakshatra": "Vishakha", "pada": "2", "degrees": "23°20' - 26°40'", "syllable": "Tu / Too"},
-        {"rasi": "LIBRA", "nakshatra": "Vishakha", "pada": "3", "degrees": "26°40' - 30°00'", "syllable": "Te"},
-        {"rasi": "SCORPIO", "nakshatra": "Vishakha", "pada": "4", "degrees": "00°00' - 03°20'", "syllable": "To"},
-        {"rasi": "SCORPIO", "nakshatra": "Anuradha", "pada": "1", "degrees": "03°20' - 06°40'", "syllable": "Naa / Na"},
-        {"rasi": "SCORPIO", "nakshatra": "Anuradha", "pada": "2", "degrees": "06°40' - 10°00'", "syllable": "Nee / Ni"},
-        {"rasi": "SCORPIO", "nakshatra": "Anuradha", "pada": "3", "degrees": "10°00' - 13°20'", "syllable": "Nu / Noo"},
-        {"rasi": "SCORPIO", "nakshatra": "Anuradha", "pada": "4", "degrees": "13°20' - 16°40'", "syllable": "Ne"},
-        {"rasi": "SCORPIO", "nakshatra": "Jyeshtha", "pada": "1", "degrees": "16°40' - 20°00'", "syllable": "No"},
-        {"rasi": "SCORPIO", "nakshatra": "Jyeshtha", "pada": "2", "degrees": "20°00' - 23°20'", "syllable": "Yaa / Ya"},
-        {"rasi": "SCORPIO", "nakshatra": "Jyeshtha", "pada": "3", "degrees": "23°20' - 26°40'", "syllable": "Yee / Yi"},
-        {"rasi": "SCORPIO", "nakshatra": "Jyeshtha", "pada": "4", "degrees": "26°40' - 30°00'", "syllable": "Yu / Yoo"},
-        {"rasi": "SAGITTARIUS", "nakshatra": "Mula", "pada": "1", "degrees": "00°00' - 03°20'", "syllable": "Ye"},
-        {"rasi": "SAGITTARIUS", "nakshatra": "Mula", "pada": "2", "degrees": "03°20' - 06°40'", "syllable": "Yo"},
-        {"rasi": "SAGITTARIUS", "nakshatra": "Mula", "pada": "3", "degrees": "06°40' - 10°00'", "syllable": "Baa / Ba"},
-        {"rasi": "SAGITTARIUS", "nakshatra": "Mula", "pada": "4", "degrees": "10°00' - 13°20'", "syllable": "Bee / Bi"},
-        {"rasi": "SAGITTARIUS", "nakshatra": "Purva Ashadha", "pada": "1", "degrees": "13°20' - 16°40'", "syllable": "Bu / Boo"},
-        {"rasi": "SAGITTARIUS", "nakshatra": "Purva Ashadha", "pada": "2", "degrees": "16°40' - 20°00'", "syllable": "Dha"},
-        {"rasi": "SAGITTARIUS", "nakshatra": "Purva Ashadha", "pada": "3", "degrees": "20°00' - 23°20'", "syllable": "Bha"},
-        {"rasi": "SAGITTARIUS", "nakshatra": "Purva Ashadha", "pada": "4", "degrees": "23°20' - 26°40'", "syllable": "Dha"},
-        {"rasi": "SAGITTARIUS", "nakshatra": "Uttara Ashadha", "pada": "1", "degrees": "26°40' - 30°00'", "syllable": "Be"},
-        {"rasi": "CAPRICORN", "nakshatra": "Uttara Ashadha", "pada": "2", "degrees": "00°00' - 03°20'", "syllable": "Bo"},
-        {"rasi": "CAPRICORN", "nakshatra": "Uttara Ashadha", "pada": "3", "degrees": "03°20' - 06°40'", "syllable": "Jaa / Ja"},
-        {"rasi": "CAPRICORN", "nakshatra": "Uttara Ashadha", "pada": "4", "degrees": "06°40' - 10°00'", "syllable": "Jee / Ji"},
-        {"rasi": "CAPRICORN", "nakshatra": "Shravana", "pada": "1", "degrees": "10°00' - 13°20'", "syllable": "Ju / Joo"},
-        {"rasi": "CAPRICORN", "nakshatra": "Shravana", "pada": "2", "degrees": "13°20' - 16°40'", "syllable": "Je"},
-        {"rasi": "CAPRICORN", "nakshatra": "Shravana", "pada": "3", "degrees": "16°40' - 20°00'", "syllable": "Jo"},
-        {"rasi": "CAPRICORN", "nakshatra": "Shravana", "pada": "4", "degrees": "20°00' - 23°20'", "syllable": "Gha"},
-        {"rasi": "CAPRICORN", "nakshatra": "Dhanishta", "pada": "1", "degrees": "23°20' - 26°40'", "syllable": "Gaa / Ga"},
-        {"rasi": "CAPRICORN", "nakshatra": "Dhanishta", "pada": "2", "degrees": "26°40' - 30°00'", "syllable": "Gee / Gi"},
-        {"rasi": "AQUARIUS", "nakshatra": "Dhanishta", "pada": "3", "degrees": "00°00' - 03°20'", "syllable": "Gu / Goo"},
-        {"rasi": "AQUARIUS", "nakshatra": "Dhanishta", "pada": "4", "degrees": "03°20' - 06°40'", "syllable": "Ge"},
-        {"rasi": "AQUARIUS", "nakshatra": "Shatabhisha", "pada": "1", "degrees": "06°40' - 10°00'", "syllable": "Go"},
-        {"rasi": "AQUARIUS", "nakshatra": "Shatabhisha", "pada": "2", "degrees": "10°00' - 13°20'", "syllable": "Saa / Sa"},
-        {"rasi": "AQUARIUS", "nakshatra": "Shatabhisha", "pada": "3", "degrees": "13°20' - 16°40'", "syllable": "See / Si"},
-        {"rasi": "AQUARIUS", "nakshatra": "Shatabhisha", "pada": "4", "degrees": "16°40' - 20°00'", "syllable": "Su / Soo"},
-        {"rasi": "AQUARIUS", "nakshatra": "Purva Bhadrapada", "pada": "1", "degrees": "20°00' - 23°20'", "syllable": "Se"},
-        {"rasi": "AQUARIUS", "nakshatra": "Purva Bhadrapada", "pada": "2", "degrees": "23°20' - 26°40'", "syllable": "So"},
-        {"rasi": "AQUARIUS", "nakshatra": "Purva Bhadrapada", "pada": "3", "degrees": "26°40' - 30°00'", "syllable": "Daa / Da"},
-        {"rasi": "PISCES", "nakshatra": "Purva Bhadrapada", "pada": "4", "degrees": "00°00' - 03°20'", "syllable": "Dee / Di"},
-        {"rasi": "PISCES", "nakshatra": "Uttara Bhadrapada", "pada": "1", "degrees": "03°20' - 06°40'", "syllable": "Du / Doo"},
-        {"rasi": "PISCES", "nakshatra": "Uttara Bhadrapada", "pada": "2", "degrees": "06°40' - 10°00'", "syllable": "Tha"},
-        {"rasi": "PISCES", "nakshatra": "Uttara Bhadrapada", "pada": "3", "degrees": "10°00' - 13°20'", "syllable": "Jha"},
-        {"rasi": "PISCES", "nakshatra": "Uttara Bhadrapada", "pada": "4", "degrees": "13°20' - 16°40'", "syllable": "Na"},
-        {"rasi": "PISCES", "nakshatra": "Revati", "pada": "1", "degrees": "16°40' - 20°00'", "syllable": "De"},
-        {"rasi": "PISCES", "nakshatra": "Revati", "pada": "2", "degrees": "20°00' - 23°20'", "syllable": "Do"},
-        {"rasi": "PISCES", "nakshatra": "Revati", "pada": "3", "degrees": "23°20' - 26°40'", "syllable": "Chaa / Cha"},
-        {"rasi": "PISCES", "nakshatra": "Revati", "pada": "4", "degrees": "26°40' - 30°00'", "syllable": "Chee / Chi"},
+        {"rasi": "ARIES", "nakshatra": "Ashwini", "pada": "1", "degrees": "00Â°00' - 03Â°20'", "syllable": "Chu"},
+        {"rasi": "ARIES", "nakshatra": "Ashwini", "pada": "2", "degrees": "03Â°20' - 06Â°40'", "syllable": "Che"},
+        {"rasi": "ARIES", "nakshatra": "Ashwini", "pada": "3", "degrees": "06Â°40' - 10Â°00'", "syllable": "Cho"},
+        {"rasi": "ARIES", "nakshatra": "Ashwini", "pada": "4", "degrees": "10Â°00' - 13Â°20'", "syllable": "La"},
+        {"rasi": "ARIES", "nakshatra": "Bharani", "pada": "1", "degrees": "13Â°20' - 16Â°40'", "syllable": "Lee / Li"},
+        {"rasi": "ARIES", "nakshatra": "Bharani", "pada": "2", "degrees": "16Â°40' - 20Â°00'", "syllable": "Lu / Loo"},
+        {"rasi": "ARIES", "nakshatra": "Bharani", "pada": "3", "degrees": "20Â°00' - 23Â°20'", "syllable": "Le"},
+        {"rasi": "ARIES", "nakshatra": "Bharani", "pada": "4", "degrees": "23Â°20' - 26Â°40'", "syllable": "Lo"},
+        {"rasi": "ARIES", "nakshatra": "Krittika", "pada": "1", "degrees": "26Â°40' - 30Â°00'", "syllable": "A"},
+        {"rasi": "TAURUS", "nakshatra": "Krittika", "pada": "2", "degrees": "00Â°00' - 03Â°20'", "syllable": "Ee"},
+        {"rasi": "TAURUS", "nakshatra": "Krittika", "pada": "3", "degrees": "03Â°20' - 06Â°40'", "syllable": "U"},
+        {"rasi": "TAURUS", "nakshatra": "Krittika", "pada": "4", "degrees": "06Â°40' - 10Â°00'", "syllable": "E"},
+        {"rasi": "TAURUS", "nakshatra": "Rohini", "pada": "1", "degrees": "10Â°00' - 13Â°20'", "syllable": "O"},
+        {"rasi": "TAURUS", "nakshatra": "Rohini", "pada": "2", "degrees": "13Â°20' - 16Â°40'", "syllable": "Vaa / Va"},
+        {"rasi": "TAURUS", "nakshatra": "Rohini", "pada": "3", "degrees": "16Â°40' - 20Â°00'", "syllable": "Vee / Vi"},
+        {"rasi": "TAURUS", "nakshatra": "Rohini", "pada": "4", "degrees": "20Â°00' - 23Â°20'", "syllable": "Vu / Voo"},
+        {"rasi": "TAURUS", "nakshatra": "Mrigashira", "pada": "1", "degrees": "23Â°20' - 26Â°40'", "syllable": "Ve"},
+        {"rasi": "TAURUS", "nakshatra": "Mrigashira", "pada": "2", "degrees": "26Â°40' - 30Â°00'", "syllable": "Vo"},
+        {"rasi": "GEMINI", "nakshatra": "Mrigashira", "pada": "3", "degrees": "00Â°00' - 03Â°20'", "syllable": "Kaa / Ka"},
+        {"rasi": "GEMINI", "nakshatra": "Mrigashira", "pada": "4", "degrees": "03Â°20' - 06Â°40'", "syllable": "Kee / Ki"},
+        {"rasi": "GEMINI", "nakshatra": "Ardra", "pada": "1", "degrees": "06Â°40' - 10Â°00'", "syllable": "Ku / Koo"},
+        {"rasi": "GEMINI", "nakshatra": "Ardra", "pada": "2", "degrees": "10Â°00' - 13Â°20'", "syllable": "Gha"},
+        {"rasi": "GEMINI", "nakshatra": "Ardra", "pada": "3", "degrees": "13Â°20' - 16Â°40'", "syllable": "Ing"},
+        {"rasi": "GEMINI", "nakshatra": "Ardra", "pada": "4", "degrees": "16Â°40' - 20Â°00'", "syllable": "Chha"},
+        {"rasi": "GEMINI", "nakshatra": "Punarvasu", "pada": "1", "degrees": "20Â°00' - 23Â°20'", "syllable": "Ke"},
+        {"rasi": "GEMINI", "nakshatra": "Punarvasu", "pada": "2", "degrees": "23Â°20' - 26Â°40'", "syllable": "Ko"},
+        {"rasi": "GEMINI", "nakshatra": "Punarvasu", "pada": "3", "degrees": "26Â°40' - 30Â°00'", "syllable": "Ha"},
+        {"rasi": "CANCER", "nakshatra": "Punarvasu", "pada": "4", "degrees": "00Â°00' - 03Â°20'", "syllable": "Hee / Hi"},
+        {"rasi": "CANCER", "nakshatra": "Pushya", "pada": "1", "degrees": "03Â°20' - 06Â°40'", "syllable": "Hu / Hoo"},
+        {"rasi": "CANCER", "nakshatra": "Pushya", "pada": "2", "degrees": "06Â°40' - 10Â°00'", "syllable": "He"},
+        {"rasi": "CANCER", "nakshatra": "Pushya", "pada": "3", "degrees": "10Â°00' - 13Â°20'", "syllable": "Ho"},
+        {"rasi": "CANCER", "nakshatra": "Pushya", "pada": "4", "degrees": "13Â°20' - 16Â°40'", "syllable": "Da"},
+        {"rasi": "CANCER", "nakshatra": "Ashlesha", "pada": "1", "degrees": "16Â°40' - 20Â°00'", "syllable": "Dee / Di"},
+        {"rasi": "CANCER", "nakshatra": "Ashlesha", "pada": "2", "degrees": "20Â°00' - 23Â°20'", "syllable": "Du / Doo"},
+        {"rasi": "CANCER", "nakshatra": "Ashlesha", "pada": "3", "degrees": "23Â°20' - 26Â°40'", "syllable": "De"},
+        {"rasi": "CANCER", "nakshatra": "Ashlesha", "pada": "4", "degrees": "26Â°40' - 30Â°00'", "syllable": "Do"},
+        {"rasi": "LEO", "nakshatra": "Magha", "pada": "1", "degrees": "00Â°00' - 03Â°20'", "syllable": "Maa / Ma"},
+        {"rasi": "LEO", "nakshatra": "Magha", "pada": "2", "degrees": "03Â°20' - 06Â°40'", "syllable": "Mee / Mi"},
+        {"rasi": "LEO", "nakshatra": "Magha", "pada": "3", "degrees": "06Â°40' - 10Â°00'", "syllable": "Mu / Moo"},
+        {"rasi": "LEO", "nakshatra": "Magha", "pada": "4", "degrees": "10Â°00' - 13Â°20'", "syllable": "Me"},
+        {"rasi": "LEO", "nakshatra": "Purva Phalguni", "pada": "1", "degrees": "13Â°20' - 16Â°40'", "syllable": "Mo"},
+        {"rasi": "LEO", "nakshatra": "Purva Phalguni", "pada": "2", "degrees": "16Â°40' - 20Â°00'", "syllable": "Taa / Ta"},
+        {"rasi": "LEO", "nakshatra": "Purva Phalguni", "pada": "3", "degrees": "20Â°00' - 23Â°20'", "syllable": "Tee / Ti"},
+        {"rasi": "LEO", "nakshatra": "Purva Phalguni", "pada": "4", "degrees": "23Â°20' - 26Â°40'", "syllable": "Tu / Too"},
+        {"rasi": "LEO", "nakshatra": "Uttara Phalguni", "pada": "1", "degrees": "26Â°40' - 30Â°00'", "syllable": "Te"},
+        {"rasi": "VIRGO", "nakshatra": "Uttara Phalguni", "pada": "2", "degrees": "00Â°00' - 03Â°20'", "syllable": "To"},
+        {"rasi": "VIRGO", "nakshatra": "Uttara Phalguni", "pada": "3", "degrees": "03Â°20' - 06Â°40'", "syllable": "Paa / Pa"},
+        {"rasi": "VIRGO", "nakshatra": "Uttara Phalguni", "pada": "4", "degrees": "06Â°40' - 10Â°00'", "syllable": "Pee / Pi"},
+        {"rasi": "VIRGO", "nakshatra": "Hasta", "pada": "1", "degrees": "10Â°00' - 13Â°20'", "syllable": "Pu / Poo"},
+        {"rasi": "VIRGO", "nakshatra": "Hasta", "pada": "2", "degrees": "13Â°20' - 16Â°40'", "syllable": "Sha"},
+        {"rasi": "VIRGO", "nakshatra": "Hasta", "pada": "3", "degrees": "16Â°40' - 20Â°00'", "syllable": "Na"},
+        {"rasi": "VIRGO", "nakshatra": "Hasta", "pada": "4", "degrees": "20Â°00' - 23Â°20'", "syllable": "Tha"},
+        {"rasi": "VIRGO", "nakshatra": "Chitra", "pada": "1", "degrees": "23Â°20' - 26Â°40'", "syllable": "Pe"},
+        {"rasi": "VIRGO", "nakshatra": "Chitra", "pada": "2", "degrees": "26Â°40' - 30Â°00'", "syllable": "Po"},
+        {"rasi": "LIBRA", "nakshatra": "Chitra", "pada": "3", "degrees": "00Â°00' - 03Â°20'", "syllable": "Raa / Ra"},
+        {"rasi": "LIBRA", "nakshatra": "Chitra", "pada": "4", "degrees": "03Â°20' - 06Â°40'", "syllable": "Ree / Ri"},
+        {"rasi": "LIBRA", "nakshatra": "Swati", "pada": "1", "degrees": "06Â°40' - 10Â°00'", "syllable": "Ru / Roo"},
+        {"rasi": "LIBRA", "nakshatra": "Swati", "pada": "2", "degrees": "10Â°00' - 13Â°20'", "syllable": "Re"},
+        {"rasi": "LIBRA", "nakshatra": "Swati", "pada": "3", "degrees": "13Â°20' - 16Â°40'", "syllable": "Ro"},
+        {"rasi": "LIBRA", "nakshatra": "Swati", "pada": "4", "degrees": "16Â°40' - 20Â°00'", "syllable": "Taa / Ta"},
+        {"rasi": "LIBRA", "nakshatra": "Vishakha", "pada": "1", "degrees": "20Â°00' - 23Â°20'", "syllable": "Tee / Ti"},
+        {"rasi": "LIBRA", "nakshatra": "Vishakha", "pada": "2", "degrees": "23Â°20' - 26Â°40'", "syllable": "Tu / Too"},
+        {"rasi": "LIBRA", "nakshatra": "Vishakha", "pada": "3", "degrees": "26Â°40' - 30Â°00'", "syllable": "Te"},
+        {"rasi": "SCORPIO", "nakshatra": "Vishakha", "pada": "4", "degrees": "00Â°00' - 03Â°20'", "syllable": "To"},
+        {"rasi": "SCORPIO", "nakshatra": "Anuradha", "pada": "1", "degrees": "03Â°20' - 06Â°40'", "syllable": "Naa / Na"},
+        {"rasi": "SCORPIO", "nakshatra": "Anuradha", "pada": "2", "degrees": "06Â°40' - 10Â°00'", "syllable": "Nee / Ni"},
+        {"rasi": "SCORPIO", "nakshatra": "Anuradha", "pada": "3", "degrees": "10Â°00' - 13Â°20'", "syllable": "Nu / Noo"},
+        {"rasi": "SCORPIO", "nakshatra": "Anuradha", "pada": "4", "degrees": "13Â°20' - 16Â°40'", "syllable": "Ne"},
+        {"rasi": "SCORPIO", "nakshatra": "Jyeshtha", "pada": "1", "degrees": "16Â°40' - 20Â°00'", "syllable": "No"},
+        {"rasi": "SCORPIO", "nakshatra": "Jyeshtha", "pada": "2", "degrees": "20Â°00' - 23Â°20'", "syllable": "Yaa / Ya"},
+        {"rasi": "SCORPIO", "nakshatra": "Jyeshtha", "pada": "3", "degrees": "23Â°20' - 26Â°40'", "syllable": "Yee / Yi"},
+        {"rasi": "SCORPIO", "nakshatra": "Jyeshtha", "pada": "4", "degrees": "26Â°40' - 30Â°00'", "syllable": "Yu / Yoo"},
+        {"rasi": "SAGITTARIUS", "nakshatra": "Mula", "pada": "1", "degrees": "00Â°00' - 03Â°20'", "syllable": "Ye"},
+        {"rasi": "SAGITTARIUS", "nakshatra": "Mula", "pada": "2", "degrees": "03Â°20' - 06Â°40'", "syllable": "Yo"},
+        {"rasi": "SAGITTARIUS", "nakshatra": "Mula", "pada": "3", "degrees": "06Â°40' - 10Â°00'", "syllable": "Baa / Ba"},
+        {"rasi": "SAGITTARIUS", "nakshatra": "Mula", "pada": "4", "degrees": "10Â°00' - 13Â°20'", "syllable": "Bee / Bi"},
+        {"rasi": "SAGITTARIUS", "nakshatra": "Purva Ashadha", "pada": "1", "degrees": "13Â°20' - 16Â°40'", "syllable": "Bu / Boo"},
+        {"rasi": "SAGITTARIUS", "nakshatra": "Purva Ashadha", "pada": "2", "degrees": "16Â°40' - 20Â°00'", "syllable": "Dha"},
+        {"rasi": "SAGITTARIUS", "nakshatra": "Purva Ashadha", "pada": "3", "degrees": "20Â°00' - 23Â°20'", "syllable": "Bha"},
+        {"rasi": "SAGITTARIUS", "nakshatra": "Purva Ashadha", "pada": "4", "degrees": "23Â°20' - 26Â°40'", "syllable": "Dha"},
+        {"rasi": "SAGITTARIUS", "nakshatra": "Uttara Ashadha", "pada": "1", "degrees": "26Â°40' - 30Â°00'", "syllable": "Be"},
+        {"rasi": "CAPRICORN", "nakshatra": "Uttara Ashadha", "pada": "2", "degrees": "00Â°00' - 03Â°20'", "syllable": "Bo"},
+        {"rasi": "CAPRICORN", "nakshatra": "Uttara Ashadha", "pada": "3", "degrees": "03Â°20' - 06Â°40'", "syllable": "Jaa / Ja"},
+        {"rasi": "CAPRICORN", "nakshatra": "Uttara Ashadha", "pada": "4", "degrees": "06Â°40' - 10Â°00'", "syllable": "Jee / Ji"},
+        {"rasi": "CAPRICORN", "nakshatra": "Shravana", "pada": "1", "degrees": "10Â°00' - 13Â°20'", "syllable": "Ju / Joo"},
+        {"rasi": "CAPRICORN", "nakshatra": "Shravana", "pada": "2", "degrees": "13Â°20' - 16Â°40'", "syllable": "Je"},
+        {"rasi": "CAPRICORN", "nakshatra": "Shravana", "pada": "3", "degrees": "16Â°40' - 20Â°00'", "syllable": "Jo"},
+        {"rasi": "CAPRICORN", "nakshatra": "Shravana", "pada": "4", "degrees": "20Â°00' - 23Â°20'", "syllable": "Gha"},
+        {"rasi": "CAPRICORN", "nakshatra": "Dhanishta", "pada": "1", "degrees": "23Â°20' - 26Â°40'", "syllable": "Gaa / Ga"},
+        {"rasi": "CAPRICORN", "nakshatra": "Dhanishta", "pada": "2", "degrees": "26Â°40' - 30Â°00'", "syllable": "Gee / Gi"},
+        {"rasi": "AQUARIUS", "nakshatra": "Dhanishta", "pada": "3", "degrees": "00Â°00' - 03Â°20'", "syllable": "Gu / Goo"},
+        {"rasi": "AQUARIUS", "nakshatra": "Dhanishta", "pada": "4", "degrees": "03Â°20' - 06Â°40'", "syllable": "Ge"},
+        {"rasi": "AQUARIUS", "nakshatra": "Shatabhisha", "pada": "1", "degrees": "06Â°40' - 10Â°00'", "syllable": "Go"},
+        {"rasi": "AQUARIUS", "nakshatra": "Shatabhisha", "pada": "2", "degrees": "10Â°00' - 13Â°20'", "syllable": "Saa / Sa"},
+        {"rasi": "AQUARIUS", "nakshatra": "Shatabhisha", "pada": "3", "degrees": "13Â°20' - 16Â°40'", "syllable": "See / Si"},
+        {"rasi": "AQUARIUS", "nakshatra": "Shatabhisha", "pada": "4", "degrees": "16Â°40' - 20Â°00'", "syllable": "Su / Soo"},
+        {"rasi": "AQUARIUS", "nakshatra": "Purva Bhadrapada", "pada": "1", "degrees": "20Â°00' - 23Â°20'", "syllable": "Se"},
+        {"rasi": "AQUARIUS", "nakshatra": "Purva Bhadrapada", "pada": "2", "degrees": "23Â°20' - 26Â°40'", "syllable": "So"},
+        {"rasi": "AQUARIUS", "nakshatra": "Purva Bhadrapada", "pada": "3", "degrees": "26Â°40' - 30Â°00'", "syllable": "Daa / Da"},
+        {"rasi": "PISCES", "nakshatra": "Purva Bhadrapada", "pada": "4", "degrees": "00Â°00' - 03Â°20'", "syllable": "Dee / Di"},
+        {"rasi": "PISCES", "nakshatra": "Uttara Bhadrapada", "pada": "1", "degrees": "03Â°20' - 06Â°40'", "syllable": "Du / Doo"},
+        {"rasi": "PISCES", "nakshatra": "Uttara Bhadrapada", "pada": "2", "degrees": "06Â°40' - 10Â°00'", "syllable": "Tha"},
+        {"rasi": "PISCES", "nakshatra": "Uttara Bhadrapada", "pada": "3", "degrees": "10Â°00' - 13Â°20'", "syllable": "Jha"},
+        {"rasi": "PISCES", "nakshatra": "Uttara Bhadrapada", "pada": "4", "degrees": "13Â°20' - 16Â°40'", "syllable": "Na"},
+        {"rasi": "PISCES", "nakshatra": "Revati", "pada": "1", "degrees": "16Â°40' - 20Â°00'", "syllable": "De"},
+        {"rasi": "PISCES", "nakshatra": "Revati", "pada": "2", "degrees": "20Â°00' - 23Â°20'", "syllable": "Do"},
+        {"rasi": "PISCES", "nakshatra": "Revati", "pada": "3", "degrees": "23Â°20' - 26Â°40'", "syllable": "Chaa / Cha"},
+        {"rasi": "PISCES", "nakshatra": "Revati", "pada": "4", "degrees": "26Â°40' - 30Â°00'", "syllable": "Chee / Chi"},
     ]
 
     
@@ -852,3 +852,75 @@ def get_cue_cards():
             "diseases_by_zodiac": diseases_by_zodiac
         }
     })
+
+
+
+@horoscope_bp.route('/user-daily-insight', methods=['POST', 'GET'])
+def get_user_daily_insight():
+    try:
+        data = parse_horoscope_data()
+        name = data.get('name') or 'User'
+        dob = data.get('date_of_birth') or '1998-12-13'
+        tob = data.get('time_of_birth') or '09:30'
+        pob = data.get('place_of_birth') or 'New Delhi, India'
+        lat = data.get('latitude', 28.6139)
+        lon = data.get('longitude', 77.2090)
+        tz = data.get('timezone', 5.5)
+        ayanamsa = data.get('ayanamsa', 'LAHIRI')
+        custom_ayanamsa = data.get('custom_ayanamsa')
+
+        kundli = generate_full_kundli(
+            name, dob, tob, pob, lat, lon, tz,
+            ayanamsa=ayanamsa, custom_ayanamsa=custom_ayanamsa
+        )
+        moon_sign = kundli.get('moon_sign_rashi', 'Virgo')
+        moon_sanskrit = kundli.get('moon_sign_sanskrit', 'Kanya')
+        nakshatra = kundli.get('nakshatra', 'Chitra')
+        nakshatra_pada = kundli.get('nakshatra_pada', 1)
+        running_dasha = kundli.get('current_running_dasha', {})
+        mahadasha = running_dasha.get('mahadasha', 'Jupiter')
+        antardasha = running_dasha.get('antardasha', 'Saturn')
+        dasha_str = f'{mahadasha} - {antardasha}'
+
+        daily = generate_daily_horoscope(moon_sign)
+        predictions = daily.get('predictions', {})
+        lucky_values = daily.get('lucky_values', {})
+        basic = daily.get('basic', {})
+
+        overall = predictions.get('overall', '')
+        career = predictions.get('career', '')
+        finance = predictions.get('finance', '')
+        love = predictions.get('love', '')
+
+        if overall and career:
+            insight_text = f'{overall} In career, {career.lower()}'
+        elif overall:
+            insight_text = overall
+        else:
+            insight_text = f'Harmonious alignments today support steady progress for {moon_sign} Moon natives.'
+
+        resp_data = {
+            'user_name': name,
+            'moon_sign': moon_sign,
+            'moon_sign_sanskrit': moon_sanskrit,
+            'nakshatra': nakshatra,
+            'nakshatra_pada': nakshatra_pada,
+            'rashi_lord': basic.get('rashi_lord', ''),
+            'element': basic.get('element', ''),
+            'current_dasha': dasha_str,
+            'mahadasha': mahadasha,
+            'antardasha': antardasha,
+            'insight_text': insight_text,
+            'overall_prediction': overall,
+            'career_prediction': career,
+            'finance_prediction': finance,
+            'love_prediction': love,
+            'lucky_color': lucky_values.get('lucky_color', 'Indigo'),
+            'lucky_number': lucky_values.get('lucky_number', 7),
+            'lucky_direction': lucky_values.get('lucky_direction', 'North'),
+            'best_time': lucky_values.get('best_time', '10:00 AM - 11:30 AM'),
+            'calculation_date': daily.get('astronomical_values', {}).get('date', ''),
+        }
+        return jsonify({'status': 'success', 'data': remove_hindi_text(resp_data)})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
